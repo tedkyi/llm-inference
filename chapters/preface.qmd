@@ -1,0 +1,19 @@
+# Preface {.unnumbered}
+
+*A short book on autoregressive LLM inference and the techniques that make
+it fast, efficient, and scalable.*
+
+### Who this book is for {.unnumbered}
+
+### What this book covers {.unnumbered}
+
+### How the book is organized {.unnumbered}
+
+### How this book was written {.unnumbered}
+
+### Prerequisites {.unnumbered}
+
+This book assumes familiarity with neural networks, the transformer
+architecture, and self-attention at a conceptual level. Readers who need a
+refresher on the decoder-only transformer and self-attention should start
+with @sec-appendix-a.

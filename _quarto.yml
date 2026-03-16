@@ -1,0 +1,53 @@
+project:
+  type: book
+  output-dir: _book
+
+book:
+  title: "LLM Inference Illustrated"
+  author: "Ted Kyi"
+  license: "CC BY-NC-SA"
+  repo-url: https://github.com/tedkyi/llm-inference/
+  repo-actions: [issue]
+  # downloads: [pdf]
+  sharing: [twitter, facebook]
+  date: today
+  date-format: "[Version dated] YYYY-MM-DD"
+  chapters:
+    - index.qmd
+    - chapters/preface.qmd
+    - chapters/figure-conventions.qmd
+    - chapters/ch1-framing.qmd
+    - chapters/ch2-model.qmd
+    - chapters/ch3-scheduling.qmd
+    - chapters/ch4-request.qmd
+    - chapters/ch5-scaling.qmd
+    - chapters/ch6-production.qmd
+  appendices:
+    - chapters/appendix-a.qmd
+    - chapters/references.qmd
+
+bibliography: references.bib
+link-citations: true
+
+format:
+  html:
+    theme: cosmo
+    code-tools: false
+    toc-depth: 3
+    number-depth: 2
+  pdf:
+    documentclass: scrbook
+    classoption: [oneside]
+    pdf-engine: lualatex
+    toc-depth: 2
+    number-depth: 1
+    number-sections: true
+    colorlinks: true
+    geometry:
+      - margin=1.2in
+    include-in-header:
+      text: |
+        \let\realmainmatter\mainmatter
+        \renewcommand{\mainmatter}{}
+    filters:
+      - _latex/mainmatter.lua

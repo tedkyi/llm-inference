@@ -1,0 +1,647 @@
+% ============================================================
+% References for LLM Inference Optimization
+% Entries keyed by first-author-year (e.g., @dao2022flashattention)
+% ============================================================
+
+% --- Chapter 1 ---
+
+@online{nvidia2024hopper,
+  title   = {{NVIDIA} Hopper Architecture In-Depth},
+  author  = {{NVIDIA}},
+  year    = {2022},
+  url     = {https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/}
+}
+
+@online{gu2024gpusbrrr,
+  title   = {{GPUs} Go Brrr},
+  author  = {Gu, Albert and Dao, Tri},
+  year    = {2024},
+  url     = {https://hazyresearch.stanford.edu/blog/2024-05-12-tk}
+}
+
+@online{chipsandcheese2023h100,
+  title   = {Nvidia's {H100}: Funny {L2}, and Tons of Bandwidth},
+  author  = {{Chips and Cheese}},
+  year    = {2023},
+  url     = {https://chipsandcheese.com/2023/07/02/nvidias-h100-funny-l2-and-tons-of-bandwidth/}
+}
+
+@article{chowdhery2022palm,
+  title   = {{PaLM}: Scaling Language Modeling with Pathways},
+  author  = {Chowdhery, Aakanksha and Narang, Sharan and Devlin, Jacob and others},
+  journal = {arXiv preprint arXiv:2204.02311},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2204.02311}
+}
+
+@online{anyscale2024metrics,
+  title   = {Reproducible Performance Metrics for {LLM} Inference},
+  author  = {Kadous, Waleed and Huang, Kyle and Ding, Wendi and Xie, Liguang and Narayan, Avnish and Xu, Ricky},
+  year    = {2023},
+  url     = {https://www.anyscale.com/blog/reproducible-performance-metrics-for-llm-inference}
+}
+
+@online{nvidia2023h100,
+  title   = {{NVIDIA H100 Tensor Core GPU}},
+  author  = {{NVIDIA}},
+  year    = {2023},
+  url     = {https://www.nvidia.com/en-us/data-center/h100/}
+}
+
+@online{nvidia2024cuda,
+  title   = {{CUDA} Programming Guide},
+  author  = {{NVIDIA}},
+  year    = {2024},
+  url     = {https://docs.nvidia.com/cuda/cuda-programming-guide/}
+}
+
+@article{williams2009roofline,
+  title   = {Roofline: An Insightful Visual Performance Model for Multicore Architectures},
+  author  = {Williams, Samuel and Waterman, Andrew and Patterson, David},
+  journal = {Communications of the ACM},
+  volume  = {52},
+  number  = {4},
+  pages   = {65--76},
+  year    = {2009},
+  url     = {https://dl.acm.org/doi/pdf/10.1145/1498765.1498785}
+}
+
+% --- Chapter 2: Knowledge Distillation ---
+
+@article{hinton2015distilling,
+  title   = {Distilling the Knowledge in a Neural Network},
+  author  = {Hinton, Geoffrey and Vinyals, Oriol and Dean, Jeff},
+  journal = {arXiv preprint arXiv:1503.02531},
+  year    = {2015},
+  url     = {https://arxiv.org/abs/1503.02531}
+}
+
+% --- Chapter 3: Quantization ---
+
+@article{frantar2022gptq,
+  title   = {{GPTQ}: Accurate Post-Training Quantization for Generative Pre-trained Transformers},
+  author  = {Frantar, Elias and Ashkboos, Saleh and Hoefler, Torsten and Alistarh, Dan},
+  journal = {arXiv preprint arXiv:2210.17323},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2210.17323}
+}
+
+@article{lin2023awq,
+  title   = {{AWQ}: Activation-aware Weight Quantization for {LLM} Compression and Acceleration},
+  author  = {Lin, Ji and Tang, Jiaming and Tang, Haotian and Yang, Shang and Chen, Wei-Ming and Wang, Wei-Chen and Xiao, Guangxuan and Dang, Xingyu and Gan, Chuang and Han, Song},
+  journal = {arXiv preprint arXiv:2306.00978},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2306.00978}
+}
+
+@article{xiao2023smoothquant,
+  title   = {{SmoothQuant}: Accurate and Efficient Post-Training Quantization for Large Language Models},
+  author  = {Xiao, Guangxuan and Lin, Ji and Seznec, Mickael and Wu, Hao and Demouth, Julien and Han, Song},
+  journal = {arXiv preprint arXiv:2211.10438},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2211.10438}
+}
+
+% --- Chapter 3: Efficient Attention ---
+
+@article{shazeer2019mqa,
+  title   = {Fast Transformer Decoding: One Write-Head is All You Need},
+  author  = {Shazeer, Noam},
+  journal = {arXiv preprint arXiv:1911.02150},
+  year    = {2019},
+  url     = {https://arxiv.org/abs/1911.02150}
+}
+
+@article{ainslie2023gqa,
+  title   = {{GQA}: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints},
+  author  = {Ainslie, Joshua and Lee-Thorp, James and de Jong, Michiel and Zemlyanskiy, Yury and Lebr{\'o}n, Federico and Sanghai, Sumit},
+  journal = {arXiv preprint arXiv:2305.13245},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2305.13245}
+}
+
+@article{liu2024deepseekv2,
+  title   = {{DeepSeek-V2}: A Strong, Economical, and Efficient Mixture-of-Experts Language Model},
+  author  = {Liu, Aixin and others},
+  journal = {arXiv preprint arXiv:2405.04434},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2405.04434}
+}
+
+@article{brandon2024cla,
+  title   = {Reducing Transformer Key-Value Cache Size with Cross-Layer Attention},
+  author  = {Brandon, William and Mishra, Mayank and Nrusimha, Aniruddha and Panda, Rameswar and {Ragan Kelly}, Jonathan},
+  journal = {arXiv preprint arXiv:2405.12981},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2405.12981}
+}
+
+@article{beltagy2020longformer,
+  title   = {Longformer: The Long-Document Transformer},
+  author  = {Beltagy, Iz and Peters, Matthew E. and Cohan, Arman},
+  journal = {arXiv preprint arXiv:2004.05150},
+  year    = {2020},
+  url     = {https://arxiv.org/abs/2004.05150}
+}
+
+% --- Chapter 4: Scheduling ---
+
+@inproceedings{yu2022orca,
+  title     = {Orca: A Distributed Serving System for Transformer-Based Generative Models},
+  author    = {Yu, Gyeong-In and Jeong, Joo Seong and Kim, Geon-Woo and Kim, Soojeong and Chun, Byung-Gon},
+  booktitle = {OSDI},
+  year      = {2022},
+  url       = {https://www.usenix.org/conference/osdi22/presentation/yu}
+}
+
+@article{agrawal2023sarathi,
+  title   = {Sarathi: Efficient {LLM} Inference by Piggybacking Decodes with Chunked Prefills},
+  author  = {Agrawal, Amey and Panwar, Ashish and Mohan, Jayashree and Kwatra, Nipun and Gulavani, Bhargav S. and Ramjee, Ramachandran},
+  journal = {arXiv preprint arXiv:2308.16369},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2308.16369}
+}
+
+@article{zhong2024distserve,
+  title   = {{DistServe}: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving},
+  author  = {Zhong, Yinmin and Liu, Shengyu and Chen, Junda and others},
+  journal = {arXiv preprint arXiv:2401.09670},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2401.09670}
+}
+
+% --- Chapter 5: Attention Kernels ---
+
+@article{dao2022flashattention,
+  title   = {{FlashAttention}: Fast and Memory-Efficient Exact Attention with {IO}-Awareness},
+  author  = {Dao, Tri and Fu, Daniel Y. and Ermon, Stefano and Rudra, Atri and R{\'e}, Christopher},
+  journal = {arXiv preprint arXiv:2205.14135},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2205.14135}
+}
+
+% --- Chapter 5: KV Cache ---
+
+@article{kwon2023vllm,
+  title   = {Efficient Memory Management for Large Language Model Serving with {PagedAttention}},
+  author  = {Kwon, Woosuk and Li, Zhuohan and Zhuang, Siyuan and Sheng, Ying and Zheng, Lianmin and Yu, Cody Hao and Gonzalez, Joseph E. and Zhang, Hao and Stoica, Ion},
+  journal = {arXiv preprint arXiv:2309.06180},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2309.06180}
+}
+
+@inproceedings{ribar2024keyformer,
+  title     = {Keyformer: {KV} Cache Reduction through Key Tokens Selection for Efficient Generative Inference},
+  author    = {Adnan, Muhammad and Arunkumar, Akhil and Jain, Gaurav and Nair, Prashant J. and Soloveychik, Ilya and Kamath, Purushotham},
+  booktitle = {MLSys},
+  year      = {2024},
+  url       = {https://proceedings.mlsys.org/paper_files/paper/2024/hash/48fecef47b19fe501d27d338b6d52582-Abstract-Conference.html}
+}
+
+@article{yuan2025nsa,
+  title   = {Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention},
+  author  = {Yuan, Jingyang and others},
+  journal = {arXiv preprint arXiv:2502.11089},
+  year    = {2025},
+  url     = {https://arxiv.org/abs/2502.11089}
+}
+
+% --- Chapter 5: Prefix Caching ---
+
+@article{zheng2023sglang,
+  title   = {{SGLang}: Efficient Execution of Structured Language Model Programs},
+  author  = {Zheng, Lianmin and Yin, Liangsheng and Xie, Zhiqiang and others},
+  journal = {arXiv preprint arXiv:2312.07104},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2312.07104}
+}
+
+% --- Chapter 5: Speculative Decoding ---
+
+@article{leviathan2023speculative,
+  title   = {Fast Inference from Transformers via Speculative Decoding},
+  author  = {Leviathan, Yaniv and Kalman, Matan and Matias, Yossi},
+  journal = {arXiv preprint arXiv:2211.17192},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2211.17192}
+}
+
+@article{chen2023speculative,
+  title   = {Accelerating Large Language Model Decoding with Speculative Sampling},
+  author  = {Chen, Charlie and Borgeaud, Sebastian and Irving, Geoffrey and Lespiau, Jean-Baptiste and Sifre, Laurent and Jumper, John},
+  journal = {arXiv preprint arXiv:2302.01318},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2302.01318}
+}
+
+@article{stern2018blockwise,
+  title   = {Blockwise Parallel Decoding for Deep Autoregressive Models},
+  author  = {Stern, Mitchell and Shazeer, Noam and Uszkoreit, Jakob},
+  journal = {arXiv preprint arXiv:1811.03115},
+  year    = {2018},
+  url     = {https://arxiv.org/abs/1811.03115}
+}
+
+@article{yang2023inference,
+  title   = {Inference with Reference: Lossless Acceleration of Large Language Models},
+  author  = {Yang, Nan and Ge, Tao and Wang, Liang and Jiao, Binxing and Jiang, Daxin and Yang, Linjun and Majumder, Rangan and Wei, Furu},
+  journal = {arXiv preprint arXiv:2304.04487},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2304.04487}
+}
+
+@article{mamou2025specspec,
+  title   = {Speculative Speculative Decoding},
+  author  = {Kumar, Tanishq and Dao, Tri and May, Avner},
+  journal = {arXiv preprint arXiv:2603.03251},
+  year    = {2026},
+  url     = {https://arxiv.org/abs/2603.03251}
+}
+
+% --- Chapter 5: Multi-Token Decoding ---
+
+@article{gloeckle2024mtp,
+  title   = {Better \& Faster Large Language Models via Multi-token Prediction},
+  author  = {Gloeckle, Fabian and Idrissi, Badr Youbi and Roziere, Baptiste and Lopez-Paz, David and Synnaeve, Gabriel},
+  journal = {arXiv preprint arXiv:2404.19737},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2404.19737}
+}
+
+@article{fu2024lookahead,
+  title   = {Break the Sequential Dependency of {LLM} Inference Using Lookahead Decoding},
+  author  = {Fu, Yichao and Bailis, Peter and Stoica, Ion and Zhang, Hao},
+  journal = {arXiv preprint arXiv:2402.02057},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2402.02057}
+}
+
+@article{cai2024medusa,
+  title   = {Medusa: Simple {LLM} Inference Acceleration Framework with Multiple Decoding Heads},
+  author  = {Cai, Tianle and Li, Yuhong and Geng, Zhengyang and Peng, Hongwu and Lee, Jason D. and Chen, Deming and Dao, Tri},
+  journal = {arXiv preprint arXiv:2401.10774},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2401.10774}
+}
+
+% --- Chapter 6: Parallelism ---
+
+@article{li2021ring,
+  title   = {Sequence Parallelism: Long Sequence Training from System Perspective},
+  author  = {Li, Shenggui and Xue, Fuzhao and Baranwal, Chaitanya and Li, Yongbin and You, Yang},
+  journal = {arXiv preprint arXiv:2105.13120},
+  year    = {2021},
+  url     = {https://arxiv.org/abs/2105.13120}
+}
+
+@article{li2023distflashattn,
+  title   = {{DistFlashAttn}: Distributed Memory-Efficient Attention for Long-Context {LLMs} Training},
+  author  = {Li, Dacheng and Shao, Rulin and Xie, Anze and others},
+  journal = {arXiv preprint arXiv:2310.03294},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2310.03294}
+}
+
+@article{jacobs2023ulysses,
+  title   = {{DeepSpeed Ulysses}: System Optimizations for Enabling Training of Extreme Long Sequence Transformer Models},
+  author  = {Jacobs, Sam Ade and Tanaka, Masahiro and Zhang, Chengming and Zhang, Minjia and Song, Shuaiwen Leon and Rajbhandari, Samyam and He, Yuxiong},
+  journal = {arXiv preprint arXiv:2309.14509},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2309.14509}
+}
+
+% --- Chapter 7: Serving ---
+
+@article{aminabadi2022deepspeed,
+  title   = {{DeepSpeed-Inference}: Enabling Efficient Inference of Transformer Models at Unprecedented Scale},
+  author  = {Aminabadi, Reza Yazdani and Rajbhandari, Samyam and Awan, Ammar Ahmad and Li, Cheng and Li, Du and Zheng, Elton and Ruwase, Olatunji and Smith, Shaden and Zhang, Minjia and Rasley, Jeff and He, Yuxiong},
+  journal = {arXiv preprint arXiv:2207.00032},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2207.00032}
+}
+
+% --- Appendix A ---
+
+@article{vaswani2017attention,
+  title   = {Attention Is All You Need},
+  author  = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, Lukasz and Polosukhin, Illia},
+  journal = {arXiv preprint arXiv:1706.03762},
+  year    = {2017},
+  url     = {https://arxiv.org/abs/1706.03762}
+}
+
+@article{su2021rope,
+  title   = {{RoFormer}: Enhanced Transformer with Rotary Position Embedding},
+  author  = {Su, Jianlin and Lu, Yu and Pan, Shengfeng and Murtadha, Ahmed and Wen, Bo and Liu, Yunfeng},
+  journal = {arXiv preprint arXiv:2104.09864},
+  year    = {2021},
+  url     = {https://arxiv.org/abs/2104.09864}
+}
+
+% --- Chapter 5: FlashAttention versions ---
+
+@article{dao2023flashattention2,
+  title   = {{FlashAttention-2}: Faster Attention with Better Parallelism and Work Partitioning},
+  author  = {Dao, Tri},
+  journal = {arXiv preprint arXiv:2307.08691},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2307.08691}
+}
+
+@article{shah2024flashattention3,
+  title   = {{FlashAttention-3}: Fast and Accurate Attention with Asynchrony and Low-precision},
+  author  = {Shah, Jay and Bikshandi, Ganesh and Zhang, Ying and Thakkar, Vijay and Ramani, Pradeep and Dao, Tri},
+  journal = {arXiv preprint arXiv:2407.08608},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2407.08608}
+}
+
+@online{pytorch2023gptfast,
+  title   = {Accelerating Generative {AI} with {PyTorch II}: {GPT}, Fast},
+  author  = {{PyTorch Team}},
+  year    = {2023},
+  url     = {https://pytorch.org/blog/accelerating-generative-ai-2/}
+}
+
+% --- Chapter 6: Parallelism (additional) ---
+
+@article{shoeybi2019megatron,
+  title   = {Megatron-{LM}: Training Multi-Billion Parameter Language Models Using Model Parallelism},
+  author  = {Shoeybi, Mohammad and Patwary, Mostofa and Puri, Raul and LeGresley, Patrick and Casper, Jared and Catanzaro, Bryan},
+  journal = {arXiv preprint arXiv:1909.08053},
+  year    = {2019},
+  url     = {https://arxiv.org/abs/1909.08053}
+}
+
+@article{narayanan2021pipeline,
+  title   = {Efficient Large-Scale Language Model Training on {GPU} Clusters Using {Megatron-LM}},
+  author  = {Narayanan, Deepak and Shoeybi, Mohammad and Casper, Jared and LeGresley, Patrick and Patwary, Mostofa and Korthikanti, Vijay Anand and Vainbrand, Dmitri and Kashinkunti, Prethvi and Bernauer, Julie and Catanzaro, Bryan and Phanishayee, Amar and Zaharia, Matei},
+  journal = {arXiv preprint arXiv:2104.04473},
+  year    = {2021},
+  url     = {https://arxiv.org/abs/2104.04473}
+}
+
+@article{huang2019gpipe,
+  title   = {{GPipe}: Efficient Training of Giant Neural Networks using Pipeline Parallelism},
+  author  = {Huang, Yanping and Cheng, Youlong and Bapna, Ankur and Firat, Orhan and Chen, Mia Xu and Chen, Dehao and Lee, HyoukJoong and Ngiam, Jiquan and Le, Quoc V. and Wu, Yonghui and Chen, Zhifeng},
+  journal = {arXiv preprint arXiv:1811.06965},
+  year    = {2019},
+  url     = {https://arxiv.org/abs/1811.06965}
+}
+
+@online{nvidia2023dgxh100,
+  title   = {{DGX} Platform Solution Overview},
+  author  = {{NVIDIA}},
+  year    = {2023},
+  url     = {https://resources.nvidia.com/en-us-dgx-systems}
+}
+
+@article{dao2023flashdecoding,
+  title   = {{FlashDecoding}++: Faster Large Language Model Inference on {GPUs}},
+  author  = {Hong, Ke and Dai, Guohao and Xu, Jiaming and Mao, Qiuli and Li, Xiuhong and Liu, Jun and Chen, Kangdi and Dong, Yuhan and Wang, Yu},
+  journal = {arXiv preprint arXiv:2311.01282},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2311.01282}
+}
+
+@article{korthikanti2023sp,
+  title   = {Reducing Activation Recomputation in Large Transformer Models},
+  author  = {Korthikanti, Vijay Anand and Casper, Jared and Lym, Sangkug and McAfee, Lawrence and Andersch, Michael and Shoeybi, Mohammad and Catanzaro, Bryan},
+  journal = {arXiv preprint arXiv:2205.05198},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2205.05198}
+}
+
+% --- Chapter 7: Framework documentation ---
+
+@online{vllm2024docs,
+  title   = {vLLM Documentation},
+  author  = {{vLLM Team}},
+  year    = {2024},
+  url     = {https://docs.vllm.ai/}
+}
+
+@online{nvidia2024trtllm,
+  title   = {{TensorRT-LLM} Documentation},
+  author  = {{NVIDIA}},
+  year    = {2024},
+  url     = {https://nvidia.github.io/TensorRT-LLM/}
+}
+
+@online{sglang2024docs,
+  title   = {{SGLang} Documentation},
+  author  = {{SGLang Team}},
+  year    = {2024},
+  url     = {https://docs.sglang.ai/}
+}
+
+@online{deepspeed2024docs,
+  title   = {{DeepSpeed-Inference} Documentation},
+  author  = {{Microsoft DeepSpeed Team}},
+  year    = {2024},
+  url     = {https://www.deepspeed.ai/inference/}
+}
+
+@article{hu2021lora,
+  title   = {{LoRA}: Low-Rank Adaptation of Large Language Models},
+  author  = {Hu, Edward J. and Shen, Yelong and Wallis, Phillip and Allen-Zhu, Zeyuan and Li, Yuanzhi and Wang, Shean and Wang, Lu and Chen, Weizhu},
+  journal = {arXiv preprint arXiv:2106.09685},
+  year    = {2021},
+  url     = {https://arxiv.org/abs/2106.09685}
+}
+
+@online{ray2024llmperf,
+  title   = {{LLMPerf}: A Tool for Benchmarking {LLM} Inference},
+  author  = {{Anyscale}},
+  year    = {2024},
+  url     = {https://github.com/ray-project/llmperf}
+}
+
+@online{opentelemetry2024,
+  title   = {{OpenTelemetry} Documentation},
+  author  = {{OpenTelemetry Authors}},
+  year    = {2024},
+  url     = {https://opentelemetry.io/docs/}
+}
+
+@online{prometheus2024docs,
+  title   = {{Prometheus} Documentation},
+  author  = {{Prometheus Authors}},
+  year    = {2024},
+  url     = {https://prometheus.io/docs/}
+}
+
+@online{grafana2024docs,
+  title   = {{Grafana} Documentation},
+  author  = {{Grafana Labs}},
+  year    = {2024},
+  url     = {https://grafana.com/docs/grafana/latest/}
+}
+
+% --- Appendix A (additional) ---
+
+@article{radford2019gpt2,
+  title   = {Language Models are Unsupervised Multitask Learners},
+  author  = {Radford, Alec and Wu, Jeffrey and Child, Rewon and Luan, David and Amodei, Dario and Sutskever, Ilya},
+  journal = {OpenAI blog},
+  year    = {2019},
+  url     = {https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf}
+}
+
+@article{touvron2023llama,
+  title   = {{LLaMA}: Open and Efficient Foundation Language Models},
+  author  = {Touvron, Hugo and Lavril, Thibaut and Izacard, Gautier and others},
+  journal = {arXiv preprint arXiv:2302.13971},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2302.13971}
+}
+
+@article{touvron2023llama2,
+  title   = {{Llama 2}: Open Foundation and Fine-Tuned Chat Models},
+  author  = {Touvron, Hugo and Martin, Louis and Stone, Kevin and others},
+  journal = {arXiv preprint arXiv:2307.09288},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2307.09288}
+}
+
+@article{jiang2024mixtral,
+  title   = {{Mixtral of Experts}},
+  author  = {Jiang, Albert Q. and Sablayrolles, Alexandre and Roux, Antoine and others},
+  journal = {arXiv preprint arXiv:2401.04088},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2401.04088}
+}
+
+@article{shazeer2020glu,
+  title   = {{GLU} Variants Improve Transformer},
+  author  = {Shazeer, Noam},
+  journal = {arXiv preprint arXiv:2002.05202},
+  year    = {2020},
+  url     = {https://arxiv.org/abs/2002.05202}
+}
+
+@article{gu2023mamba,
+  title   = {{Mamba}: Linear-Time Sequence Modeling with Selective State Spaces},
+  author  = {Gu, Albert and Dao, Tri},
+  journal = {arXiv preprint arXiv:2312.00752},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2312.00752}
+}
+
+@article{ba2016layernorm,
+  title   = {Layer Normalization},
+  author  = {Ba, Jimmy Lei and Kiros, Jamie Ryan and Hinton, Geoffrey E.},
+  journal = {arXiv preprint arXiv:1607.06450},
+  year    = {2016},
+  url     = {https://arxiv.org/abs/1607.06450}
+}
+
+@online{bloem2019transformers,
+  title   = {Transformers from Scratch},
+  author  = {Bloem, Peter},
+  year    = {2019},
+  url     = {https://peterbloem.nl/blog/transformers}
+}
+
+@online{weng2023transformer,
+  title   = {The Transformer Family Version 2.0},
+  author  = {Weng, Lilian},
+  year    = {2023},
+  url     = {https://lilianweng.github.io/posts/2023-01-27-the-transformer-family-v2/}
+}
+
+@online{karpathy2023gpt,
+  title   = {Let's build {GPT}: from scratch, in code, spelled out},
+  author  = {Karpathy, Andrej},
+  year    = {2023},
+  url     = {https://www.youtube.com/watch?v=kCc8FmEb1nY}
+}
+
+% --- Further reading references ---
+
+@article{pope2022scaling,
+  title   = {Efficiently Scaling Transformer Inference},
+  author  = {Pope, Reiner and Douglas, Sholto and Chowdhery, Aakanksha and Devlin, Jacob and Bradbury, James and Levskaya, Anselm and Heek, Jonathan and Xiao, Kefan and Agrawal, Shivani and Dean, Jeff},
+  journal = {arXiv preprint arXiv:2211.05102},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2211.05102}
+}
+
+@article{miao2023efficient,
+  title   = {Towards Efficient Generative Large Language Model Serving: A Survey from Algorithms to Systems},
+  author  = {Miao, Xupeng and Oliaro, Gabriele and Zhang, Zhihao and Cheng, Xinhao and Jin, Hongyi and Chen, Tianqi and Jia, Zhihao},
+  journal = {arXiv preprint arXiv:2312.15234},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2312.15234}
+}
+
+@online{kipply2023arithmetic,
+  title   = {Transformer Inference Arithmetic},
+  author  = {Chen, Carol},
+  year    = {2022},
+  url     = {https://kipp.ly/transformer-inference-arithmetic/}
+}
+
+@article{dettmers2022llmint8,
+  title   = {{LLM.int8()}: 8-bit Matrix Multiplication for Transformers at Scale},
+  author  = {Dettmers, Tim and Lewis, Mike and Belkada, Younes and Zettlemoyer, Luke},
+  journal = {arXiv preprint arXiv:2208.07339},
+  year    = {2022},
+  url     = {https://arxiv.org/abs/2208.07339}
+}
+
+@article{zhu2024quantization,
+  title   = {A Survey on Model Compression for Large Language Models},
+  author  = {Zhu, Xunyu and Li, Jian and Liu, Yong and Ma, Can and Wang, Weiping},
+  journal = {arXiv preprint arXiv:2308.07633},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2308.07633}
+}
+
+@article{gu2024minillm,
+  title   = {{MiniLLM}: On-Policy Distillation of Large Language Models},
+  author  = {Gu, Yuxian and Dong, Li and Wei, Furu and Huang, Minlie},
+  journal = {arXiv preprint arXiv:2306.08543},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2306.08543}
+}
+
+@article{patel2024splitwise,
+  title   = {Splitwise: Efficient Generative {LLM} Inference Using Phase Splitting},
+  author  = {Patel, Pratyush and Choukse, Esha and Zhang, Chaojie and Shah, Aashaka and Goiri, {\'I}{\~n}igo and Maleki, Saeed and Bianchini, Ricardo},
+  journal = {arXiv preprint arXiv:2311.18677},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2311.18677}
+}
+
+@article{li2023alpaserve,
+  title   = {{AlpaServe}: Statistical Multiplexing with Model Parallelism for Deep Learning Serving},
+  author  = {Li, Zhuohan and Zheng, Lianmin and Zhong, Yinmin and Liu, Vincent and Sheng, Ying and Jin, Xin and Huang, Yanping and Chen, Zhifeng and Zhang, Hao and Gonzalez, Joseph E. and Stoica, Ion},
+  journal = {arXiv preprint arXiv:2302.11665},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2302.11665}
+}
+
+@article{sheng2023slora,
+  title   = {{S-LoRA}: Serving Thousands of Concurrent {LoRA} Adapters},
+  author  = {Sheng, Ying and Cao, Shiyi and Li, Dacheng and Hooper, Coleman and Lee, Nicholas and Yang, Shuo and Chou, Christopher and Zhu, Banghua and Zheng, Lianmin and Keutzer, Kurt and Gonzalez, Joseph E. and Stoica, Ion},
+  journal = {arXiv preprint arXiv:2311.03285},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2311.03285}
+}
+
+@article{chen2024punica,
+  title   = {Punica: Multi-Tenant {LoRA} Serving},
+  author  = {Chen, Lequn and Ye, Zihao and Wu, Yongji and Zhuo, Danyang and Ceze, Luis and Krishnamurthy, Arvind},
+  journal = {arXiv preprint arXiv:2310.18547},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2310.18547}
+}
+
+@article{wu2023fast,
+  title   = {Fast Distributed Inference Serving for Large Language Models},
+  author  = {Wu, Bingyang and Zhong, Yinmin and Zhang, Zili and Liu, Shengyu and Liu, Fangyue and Sun, Yuanhang and Huang, Gang and Liu, Xuanzhe and Jin, Xin},
+  journal = {arXiv preprint arXiv:2305.05920},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2305.05920}
+}

@@ -1,0 +1,190 @@
+# Production LLM Serving Systems {#sec-production}
+
+Everything we've covered so far -- quantization, attention optimizations, batching strategies, KV cache engineering, speculative decoding, parallelism -- represents individual pieces of a larger puzzle. In production, these techniques don't exist in isolation. They're combined, configured, and orchestrated inside serving frameworks that must handle thousands of concurrent users, respect latency budgets, recover from failures, and do it all 24/7. This chapter is about how those pieces come together in real systems.
+
+This is not a usage tutorial for any particular framework. The goal is to understand which optimization combinations each system makes, why those choices matter, and what operational concerns arise once you move from benchmarking a single model on a single GPU to serving real traffic.
+
+## Serving Frameworks {#sec-serving-frameworks}
+
+The open-source LLM serving landscape has converged around a handful of frameworks, each with a different philosophy about what to optimize for. All of them implement continuous batching (@sec-batching), support tensor parallelism (@sec-tensor-parallelism), and integrate FlashAttention (@sec-attention-kernels). Where they differ is in their core innovation and the tradeoffs they make.
+
+### vLLM
+
+**vLLM** is built around PagedAttention [@kwon2023vllm], the virtual-memory-inspired KV cache management system we covered in @sec-kv-cache. By breaking the KV cache into fixed-size pages that don't need to be physically contiguous, vLLM nearly eliminates the memory fragmentation that plagued earlier systems. This is what allows it to pack more concurrent requests into the same GPU memory budget.
+
+Beyond PagedAttention, vLLM implements continuous batching, chunked prefill (@sec-prefill-strategies), prefix caching (@sec-prefix-caching), speculative decoding (@sec-speculative), and multi-LoRA serving. It supports NVIDIA, AMD, and other hardware backends, making it one of the most broadly portable options. vLLM has become the default choice for many deployments, largely because of its active open-source community and broad model support.
+
+### TensorRT-LLM
+
+**TensorRT-LLM** takes a different approach. Rather than optimizing memory management at the Python level, it focuses on squeezing maximum throughput from NVIDIA hardware through aggressive kernel fusion and compilation (@sec-kernel-fusion). Models are compiled into optimized execution plans that fuse operations across layers, eliminate unnecessary memory traffic, and exploit NVIDIA-specific hardware features like FP8 on Hopper GPUs.
+
+The tradeoff is narrower hardware support -- TensorRT-LLM runs only on NVIDIA GPUs -- and a heavier compilation step before serving begins. But on NVIDIA hardware, it often achieves the highest raw throughput, particularly for large-batch, throughput-oriented workloads. It implements the same core techniques (continuous batching, paged KV cache, tensor parallelism) but through a compiled execution path rather than an interpreted one.
+
+### SGLang
+
+**SGLang** [@zheng2023sglang] innovates in two directions. First, its **RadixAttention** system extends prefix caching beyond simple exact-match lookups. It organizes the KV cache as a radix tree keyed by token sequences, enabling automatic, fine-grained prefix sharing across requests (@sec-prefix-caching). When many requests share system prompts, few-shot examples, or RAG context, this can dramatically reduce redundant prefill computation.
+
+Second, SGLang provides a programming model for **multi-call LLM programs** -- workflows where a single user interaction involves multiple LLM calls with branching logic, structured output constraints, or iterative refinement. By co-designing the serving engine with this programming model, SGLang can optimize across calls in ways that a stateless API cannot.
+
+### DeepSpeed-Inference
+
+**DeepSpeed-Inference** [@aminabadi2022deepspeed] focuses on scaling to very large models across many devices and nodes. Its ZeRO-Inference system distributes model weights across GPUs and even to NVMe storage, enabling inference on models that don't fit in aggregate GPU memory. This makes it particularly useful for multi-node inference and extremely large models.
+
+DeepSpeed-Inference also implements custom CUDA kernels for fused operations, but its primary strength is the multi-GPU and multi-node orchestration layer rather than single-device kernel optimization.
+
+### Framework comparison
+
+The following table summarizes the key differences across these frameworks. Keep in mind that all four are actively developed, so specific feature gaps tend to close over time.
+
+| Feature | vLLM | TensorRT-LLM | SGLang | DeepSpeed-Inference |
+|---|---|---|---|---|
+| Core innovation | PagedAttention | Kernel fusion / compilation | RadixAttention + structured gen | ZeRO-Inference / NVMe offload |
+| KV cache management | Paged (virtual memory) | Paged | Radix tree | Contiguous + offload |
+| Continuous batching | Yes | Yes | Yes | Yes |
+| Speculative decoding | Yes | Yes | Yes | Limited |
+| Multi-LoRA | Yes | Yes | Yes | No |
+| Hardware support | NVIDIA, AMD, others | NVIDIA only | NVIDIA, AMD | NVIDIA |
+| Best suited for | General-purpose serving | Max throughput on NVIDIA | Prefix-heavy / multi-call | Very large models, multi-node |
+
+: Framework comparison across major open-source LLM serving systems. {#tbl-frameworks}
+
+::: callout-note
+CPU and hybrid inference engines like llama.cpp and Apple MLX serve an important role for local and edge deployment, but they operate under fundamentally different constraints -- limited memory bandwidth, no HBM, CPU-only or unified-memory architectures. Closed-source serving systems from cloud providers are also out of scope. This chapter focuses on GPU-based serving at scale.
+:::
+
+## Multi-LoRA Serving {#sec-multi-lora}
+
+In many production deployments, you don't just serve one model -- you serve many fine-tuned variants of the same base model. Different customers, tasks, or use cases each have their own adapter, and loading a separate full model for each one is wildly impractical. **Multi-LoRA serving** solves this by keeping a single copy of the base model weights in GPU memory and hot-swapping lightweight LoRA adapters at request time.
+
+A LoRA adapter modifies the base model by adding low-rank update matrices to specific layers -- typically the attention projections. These adapters are small, often just tens of megabytes compared to the base model's tens of gigabytes. This size difference is what makes the whole approach work: you can keep the base model loaded and swap adapters in and out without the memory cost of maintaining multiple full model copies.
+
+The serving framework needs to handle three things for multi-LoRA to work well:
+
+1. **Adapter routing**: Each incoming request specifies which adapter to use. The system must route the request to the correct adapter and apply it during the forward pass.
+2. **Adapter memory management**: Popular adapters can be kept resident in GPU memory. Less frequently used adapters are loaded on demand from CPU memory or storage. The system needs an eviction policy -- typically LRU -- to manage which adapters are resident.
+3. **Batching across adapters**: Requests using different adapters can still be batched together for the base model computation. The adapter-specific computation (the low-rank matrix multiplies) is applied per-request. This means you get most of the batching benefits of shared base weights while still serving personalized models.
+
+Both vLLM and SGLang support multi-LoRA serving, with adapter management integrated into their scheduling and memory systems.
+
+## Scheduling and Orchestration {#sec-orchestration}
+
+The scheduling strategies from @sec-scheduling operate at the level of a single serving instance -- one model on one set of GPUs. In production, you often need to coordinate across a fleet of instances, potentially running different models on different hardware.
+
+### Multi-model routing
+
+Many applications route requests to models of different sizes based on the task complexity. Simple classification tasks go to a smaller, cheaper model. Complex reasoning tasks go to a larger, more capable model. This **quality-tier routing** can significantly reduce cost while maintaining quality where it matters, but it requires a routing layer that can classify incoming requests and direct them appropriately.
+
+### Load balancing across replicas
+
+When you scale out with data parallelism -- running multiple identical copies of the same model -- you need a load balancer that understands LLM workload characteristics. Naive round-robin doesn't work well because requests vary enormously in cost. A request with a 10,000-token prompt and 2,000-token output takes orders of magnitude more resources than a 100-token prompt with a 50-token output. Load balancers that account for estimated request cost (based on input length and expected output length) distribute work more evenly.
+
+### Disaggregated prefill at fleet level
+
+In @sec-prefill-strategies, we discussed disaggregating prefill and decode to separate GPU pools [@zhong2024distserve]. At fleet scale, this becomes an orchestration problem: how many prefill instances versus decode instances should you run, and how do you transfer KV caches between them? The optimal ratio depends on your workload's input/output length distribution (@sec-workloads). Prefill-heavy workloads (long prompts, short outputs) need more prefill capacity. Decode-heavy workloads need more decode capacity. Production systems typically monitor queue depths on both pools and auto-scale the ratio.
+
+### Heterogeneous hardware
+
+Large deployments often mix GPU generations -- perhaps H100s for the most latency-sensitive traffic and A100s or older GPUs for batch workloads. The orchestration layer must route requests based on both the model's requirements and each hardware pool's capabilities and current load.
+
+## Memory Management and Preemption {#sec-memory-preemption}
+
+We covered the metrics around preemption in @sec-metrics, and the paged KV cache in @sec-kv-cache. In production, memory management becomes one of the most critical operational concerns, because running out of KV cache space under load can cascade into system-wide degradation.
+
+### Multi-tenant memory pressure
+
+When many concurrent requests share the same GPU, the KV cache dominates memory usage. Each active request's cache grows with every decode step, and different requests may have very different sequence lengths. The serving framework must track per-request memory consumption and make admission decisions: can we accept this new request, or will it push us over our memory budget?
+
+PagedAttention helps by eliminating fragmentation -- memory is allocated in pages and freed when requests complete. But even with perfect paging, the total KV cache demand can exceed available memory when the system is under heavy load or processing long-context requests.
+
+### Preemption policies
+
+When memory runs out, something has to give. The system **preempts** one or more active requests, freeing their KV cache to make room for others. The preempted request either has its KV cache swapped to CPU memory (to be restored later) or is simply evicted and must recompute its KV cache from scratch when it resumes.
+
+The choice between swap and recompute involves a tradeoff:
+
+- **Swap** preserves the computation already done but requires CPU memory and PCIe bandwidth to move the KV cache. For long sequences with large KV caches, the transfer time can be significant.
+- **Recompute** avoids the transfer cost but wastes the prefill work. For short sequences, recompute is often cheaper than swap.
+
+Production systems typically use **priority-based preemption** -- lower-priority requests are evicted first, and SLA-aware policies protect requests that are close to completing or that belong to higher-priority tiers.
+
+### Graceful degradation
+
+Under sustained overload, the goal shifts from maximizing throughput to avoiding cascading failures. **Request shedding** -- rejecting new requests at the admission layer when the system is at capacity -- is blunt but effective. More sophisticated approaches include dynamically reducing maximum sequence lengths, lowering batch sizes, or routing overflow traffic to a degraded service tier that uses a smaller, faster model.
+
+## Monitoring and Benchmarking {#sec-monitoring}
+
+You can't optimize what you don't measure. Production serving requires continuous monitoring of the metrics we introduced in @sec-metrics, with particular attention to tail latencies and resource utilization.
+
+### Key production metrics
+
+The metrics that matter most in production go beyond averages:
+
+| Metric | What it tells you | Warning threshold |
+|---|---|---|
+| P99 TTFT | Worst-case user wait for first token | Exceeds SLA |
+| P99 TPOT | Worst-case streaming speed | Users perceive lag |
+| GPU utilization (MFU/MBU) | Hardware efficiency | Below 50% suggests misconfiguration |
+| Queue depth | Request backlog | Sustained growth means under-provisioned |
+| Preemption rate | Memory pressure frequency | Any sustained preemption suggests need for more capacity |
+| KV cache hit rate | Prefix caching effectiveness | Low rate with shared prefixes means caching misconfigured |
+| Goodput | Useful throughput within SLA | Gap between throughput and goodput means SLA violations |
+
+: Key production metrics and their diagnostic value. {#tbl-metrics}
+
+Percentile latencies (P50, P90, P99) are essential because averages hide tail behavior. A system can have a perfectly acceptable P50 TTFT of 200ms while its P99 is 5 seconds -- meaning one in a hundred users waits 25x longer than the median user. Production SLAs are typically defined at the P99 level.
+
+### Instrumentation
+
+Most production deployments use **Prometheus** [@prometheus2024docs] for metrics collection and **Grafana** [@grafana2024docs] for dashboarding. vLLM, SGLang, and TensorRT-LLM all expose Prometheus-compatible metrics endpoints. For distributed tracing across the full request lifecycle -- from the load balancer through the serving engine to response delivery -- **OpenTelemetry** [@opentelemetry2024] provides a standard instrumentation layer.
+
+### Benchmarking
+
+Before deploying a new configuration, you need reproducible benchmarks that reflect your actual workload. Tools like **LLMPerf** generate synthetic traffic with configurable input/output length distributions and concurrency levels [@anyscale2024metrics]. The critical mistake in benchmarking is using a uniform workload (e.g., all requests with 512 input tokens and 128 output tokens) when your production traffic has high variance. Benchmark with a distribution that matches production, or you'll be surprised by how differently your system behaves under real load.
+
+## Production Failure Modes {#sec-failure-modes}
+
+Understanding how systems fail is just as important as understanding how they work. Several failure modes are specific to LLM serving, and recognizing them early can prevent cascading outages.
+
+### OOM cascades
+
+This is the most dangerous failure pattern. A single unusually long request consumes a large portion of the KV cache, triggering preemption of other requests. Those preempted requests eventually resume and recompute their KV caches, creating a burst of prefill work that competes with ongoing decode steps. This increases latency for all active requests, causing SLA violations, which may trigger retries from the client, which adds more load. The feedback loop can take down an entire serving instance.
+
+**Mitigation**: Set hard limits on maximum sequence length per request. Use admission control to reject requests that would push memory usage above a safe threshold. Monitor preemption rate as an early warning signal.
+
+### Head-of-line blocking
+
+A request with a very long prompt ties up GPU compute during its prefill phase. If the system uses naive scheduling, shorter requests queue behind it and experience inflated TTFT. This is particularly damaging in mixed-workload deployments where most requests are short but occasional long-context requests arrive.
+
+**Mitigation**: Chunked prefill (@sec-prefill-strategies) breaks long prefills into smaller pieces that are interleaved with decode steps, preventing any single prefill from monopolizing the GPU. Priority scheduling (@sec-request-scheduling) can also help by ensuring short requests aren't starved.
+
+### Thundering herd
+
+A burst of simultaneous requests -- perhaps triggered by a traffic spike, a retry storm, or a batch job -- overwhelms the KV cache allocator and scheduler. The system attempts to admit all requests at once, runs out of memory, and begins preempting aggressively, which compounds the problem.
+
+**Mitigation**: Admission control with request queuing and rate limiting. Gradually ramp admitted requests rather than accepting the full burst. Backpressure signals to upstream load balancers allow the fleet to absorb traffic spikes across replicas.
+
+### Graceful degradation strategies
+
+When a system is under sustained pressure, you have several levers to pull before things break:
+
+1. **Request shedding**: reject low-priority requests at the edge, returning a "service unavailable" rather than degrading quality for everyone
+2. **Dynamic batch policy adjustment**: temporarily reduce maximum batch sizes to lower memory pressure, trading throughput for stability
+3. **Quality-tier routing**: redirect overflow traffic to smaller, cheaper models that can handle the load, accepting lower quality to maintain availability
+4. **Speculative decoding toggle**: disable speculative decoding under memory pressure, since draft tokens consume KV cache space
+
+The common thread across all of these strategies is that controlled, deliberate degradation is vastly preferable to uncontrolled cascading failure. A system that gracefully sheds 10% of requests under a load spike is far better than one that falls over entirely and drops 100%.
+
+---
+
+Production LLM serving sits at the intersection of systems engineering and machine learning optimization. The techniques from the preceding chapters provide the building blocks, but assembling them into a reliable, efficient serving system requires understanding the operational realities -- memory pressure, failure modes, monitoring, and orchestration -- that don't show up in benchmark results. The frameworks surveyed here each represent a different set of answers to these challenges, and the right choice depends on your specific workload, hardware, and reliability requirements.
+
+
+## Further Reading
+
+**Framework documentation.** Each of the major frameworks has comprehensive documentation that goes well beyond what we've covered here. The vLLM docs [@vllm2024docs] include guides on configuring PagedAttention parameters, enabling speculative decoding, and tuning scheduler policies. The TensorRT-LLM docs [@nvidia2024trtllm] cover the compilation pipeline and how to exploit FP8 and custom kernels on NVIDIA hardware. SGLang's docs [@sglang2024docs] are particularly useful for understanding the RadixAttention cache and the structured generation programming model. DeepSpeed-Inference [@deepspeed2024docs] covers multi-node deployment and NVMe offloading.
+
+**Multi-LoRA serving.** The original LoRA paper [@hu2021lora] explains the low-rank adaptation technique and why the adapter weights are small enough to swap efficiently. For serving multiple LoRA adapters simultaneously, the S-LoRA paper [@sheng2023slora] introduces the idea of a unified base model with dynamically loaded adapters, including a custom CUDA kernel for batched LoRA computation across requests using different adapters. Punica [@chen2024punica] takes a similar approach with a focus on the GPU kernel design for multi-adapter batching.
+
+**Benchmarking.** If you're evaluating frameworks for a specific deployment, LLMPerf [@ray2024llmperf] provides standardized benchmarking scripts that measure the metrics from @sec-metrics across different frameworks and hardware configurations. For understanding how to interpret benchmark results and avoid common pitfalls, the Anyscale metrics blog post [@anyscale2024metrics] is a practical companion.
+
+**System design.** For the broader context of how LLM serving fits into production ML systems, @miao2023efficient surveys the full stack from model optimization through serving infrastructure. For fleet-level scheduling across multiple model replicas, @wu2023fast covers how to route requests across heterogeneous hardware to maximize goodput under latency constraints.

@@ -6,7 +6,7 @@
 
 Tensors in figures are labeled with their shapes using the single-letter abbreviations below. The full names and abbreviations match those used in the text.
 
-| Symbol | Full name | Typical values (Llama 2 70B) |
+| Symbol | Full name | Typical values (Llama 3 70B) |
 |:------:|:----------|:-----------------------------|
 | $B$    | Batch size | 1--64 |
 | $S$    | Sequence length | Prefill: prompt length (e.g., 2048); Decode: 1 |
@@ -15,7 +15,7 @@ Tensors in figures are labeled with their shapes using the single-letter abbrevi
 | $H_\text{kv}$ | Number of KV heads | 8 (with GQA) |
 | $d_k$  | Head dimension ($D / H$) | 128 |
 | $F$    | FFN intermediate dimension ($d_\text{ff}$) | 28672 (SwiGLU) |
-| $V$    | Vocabulary size | 32000 |
+| $V$    | Vocabulary size | 128000 |
 | $L$    | Number of layers | 80 |
 
 : Standard dimension symbols used in figures and text. {#tbl-dim-symbols}

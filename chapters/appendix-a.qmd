@@ -1,8 +1,8 @@
 # The Decoder-Only Transformer {#sec-appendix-a}
 
-This appendix covers the architecture of a decoder-only transformer in enough detail that you can trace a token through the full model, name every tensor dimension, and estimate parameter counts and memory requirements. If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skip ahead to the main chapters and refer back here as needed.
+This appendix covers the architecture of the decoder-only transformer in enough detail that you can trace a token through the full model, name every tensor dimension, and estimate parameter counts and memory requirements. If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skip ahead to the main chapters and refer back here as needed.
 
-We'll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modern open-weight LLMs and its parameters are public. When we say "a 70B model," we mean something with roughly Llama 2 70B's dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 32,000 tokens [@touvron2023llama2].
+We'll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modern open-weight LLMs and its parameters are public. When we say "a 70B model," we mean something with roughly Llama 3 70B's dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens [@grattafiori2024llama3].
 
 ## From Encoder-Decoder to Decoder-Only {#sec-enc-dec}
 
@@ -389,7 +389,7 @@ For standard multi-head attention with D = 8192, the parameter count per layer i
 With 80 layers, the attention parameters alone account for about 21.5B of Llama 70B's parameter budget. The rest is in the feed-forward layers, which we'll cover in @sec-ffn.
 
 ::: callout-note
-**Grouped-Query Attention (GQA) and friends.** Modern models often use fewer key-value heads than query heads. Llama 2 70B uses GQA [@ainslie2023gqa] with 64 query heads but only 8 KV heads, reducing $W_K$ and $W_V$ from (D, D) to (D, $8 \times d_k$) = (8192, 1024). This saves parameters and, more importantly, reduces the KV cache size by 8×. Multi-Query Attention (MQA) [@shazeer2019mqa] takes this further with a single KV head. Multi-head Latent Attention (MLA) [@liu2024deepseekv2] compresses the KV cache through learned low-rank projections. These variants are covered in @sec-efficient-attention.
+**Grouped-Query Attention (GQA) and friends.** Modern models often use fewer key-value heads than query heads. Llama 3 70B uses GQA [@ainslie2023gqa] with 64 query heads but only 8 KV heads, reducing $W_K$ and $W_V$ from (D, D) to (D, $8 \times d_k$) = (8192, 1024). This saves parameters and, more importantly, reduces the KV cache size by 8×. Multi-Query Attention (MQA) [@shazeer2019mqa] takes this further with a single KV head. Multi-head Latent Attention (MLA) [@liu2024deepseekv2] compresses the KV cache through learned low-rank projections. These variants are covered in @sec-efficient-attention.
 :::
 
 ### A note on alternatives
@@ -492,7 +492,7 @@ $$\text{KV cache memory} = 2 \times L \times H_{\text{kv}} \times S \times d_k \
 
 where $L$ is the number of layers, $H_{\text{kv}}$ is the number of key-value heads, $S$ is the current sequence length, $d_k$ is the head dimension, and $b$ is the number of bytes per element (2 for FP16/BF16, 1 for FP8/INT8).
 
-For Llama 2 70B with GQA (8 KV heads), FP16 precision, and a 4096-token sequence:
+For Llama 3 70B with GQA (8 KV heads), FP16 precision, and a 4096-token sequence:
 
 $$2 \times 80 \times 8 \times 4096 \times 128 \times 2 \approx 1.34 \text{ GB}$$
 
@@ -772,7 +772,7 @@ The complete forward pass stacks N decoder blocks between the embedding layer an
          v
     +-----------------------+
     | Token Embedding       |     lookup table: (V, D)
-    | + Position info       |     V=32000 for Llama, D=8192
+    | + Position info       |     V=128000 for Llama, D=8192
     +-----------------------+
          |
          v
@@ -807,7 +807,7 @@ The complete forward pass stacks N decoder blocks between the embedding layer an
          v
     +-----------------------+
     | LM Head (linear)      |     weight matrix: (D, V)
-    +-----------------------+     D=8192, V=32000
+    +-----------------------+     D=8192, V=128000
          |
          v
     Logits: (B, S, V)             raw scores over vocabulary
@@ -834,18 +834,18 @@ The complete forward pass stacks N decoder blocks between the embedding layer an
     Decode:   S = 1 (single new token; KV cache provides context)
 
     ═══════════════════════════════════════════════════════════
-    PARAMETER COUNT (Llama 2 70B, approximate):
+    PARAMETER COUNT (Llama 3 70B, approximate):
     ═══════════════════════════════════════════════════════════
 
     Component                Count           Notes
     ─────────────────────────────────────────────────────
-    Token embedding          V × D = 262M    (32000 × 8192)
+    Token embedding          V × D = 1049M   (128000 × 8192)
     Per-layer attention      ~201M           (reduced by GQA)
     Per-layer FFN            ~704M           (SwiGLU, F=28672)
     Per-layer LayerNorm      2 × D = 16K     (negligible)
     × 80 layers              ~72.4B
     Final LayerNorm          D = 8K          (negligible)
-    LM Head                  D × V = 262M   (may be tied)
+    LM Head                  D × V = 1049M  (may be tied)
     ─────────────────────────────────────────────────────
     Total                    ~70B
 
@@ -883,9 +883,9 @@ For inference purposes, the distinction matters mainly for two reasons. First, R
 
 ### Weight tying
 
-Some architectures share weights between the token embedding layer (shape V×D) and the LM head (shape D×V, transposed). This is called **weight tying**. When the vocabulary is large, these matrices are significant -- for V = 32,000 and D = 8192, each matrix has 262M parameters. Tying them saves 262M parameters and ensures that the model's input and output representations are in the same space.
+Some architectures share weights between the token embedding layer (shape V×D) and the LM head (shape D×V, transposed). This is called **weight tying**. When the vocabulary is large, these matrices are significant -- for V = 128,000 and D = 8192, each matrix has about 1B parameters. Tying them saves 1B parameters and ensures that the model's input and output representations are in the same space.
 
-<!-- TODO: Confirm whether Llama 2 70B uses weight tying. The original Llama paper does not tie weights, but this should be verified. -->
+<!-- TODO: Confirm whether Llama 3 70B uses weight tying. The original Llama paper does not tie weights, but this should be verified. -->
 
 Weight tying matters for inference because it affects the parameter count and, consequently, the quantization analysis in @sec-quantization. If the embedding and LM head share weights, quantizing one affects the other.
 
@@ -910,6 +910,6 @@ For intuitive explanations of the transformer architecture:
 - Lilian Weng's "The Transformer Family Version 2.0" [@weng2023transformer] surveys transformer variants including the attention alternatives mentioned in @sec-self-attention.
 - Andrej Karpathy's "Let's build GPT: from scratch, in code" [@karpathy2023gpt] walks through a complete implementation in about two hours.
 
-For the specific architectural choices used in modern LLMs, the Llama papers [@touvron2023llama; @touvron2023llama2] are a good reference because they clearly document the model dimensions and design decisions (SwiGLU, RoPE, GQA). The PaLM paper [@chowdhery2022palm] provides a thorough analysis of scaling behavior that motivates the decoder-only design.
+For the specific architectural choices used in modern LLMs, the Llama papers [@touvron2023llama; @touvron2023llama2; @grattafiori2024llama3] are a good reference because they clearly document the model dimensions and design decisions (SwiGLU, RoPE, GQA). The PaLM paper [@chowdhery2022palm] provides a thorough analysis of scaling behavior that motivates the decoder-only design.
 
 For the attention variants mentioned in this appendix: MQA [@shazeer2019mqa] and GQA [@ainslie2023gqa] are covered in @sec-efficient-attention. FlashAttention [@dao2022flashattention] is covered in @sec-request. The SwiGLU activation is introduced in [@shazeer2020glu].

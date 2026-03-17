@@ -1,8 +1,7 @@
 # Eliminating Request Compute, Memory, and Latency Bottlenecks {#sec-request}
 
-The previous chapter tackled scheduling -- how to keep the GPU busy by batching requests and managing when prefills and decodes happen. But even with a perfectly scheduled pipeline, each individual request still has its own bottlenecks. The attention kernel reads and writes far more data than it needs to. The KV cache grows without bound and fragments GPU memory. And the autoregressive decoding loop forces us to generate tokens one at a time, each waiting on the last.
-
-This chapter attacks those per-request problems. The first two sections address memory-bandwidth bottlenecks at the kernel level -- optimizations that apply to both prefill and decode. The remaining sections target the sequential decoding constraint specifically, exploring techniques that generate multiple tokens per step or amortize the cost of each one.
+The previous chapter tackled scheduling --- how to keep the GPU busy by managing how requests are handled. 
+This chapter examines the efficiency with which individual requests are handled. The first two sections address memory-bandwidth bottlenecks at the kernel level -- optimizations that apply to both prefill and decode. The remaining sections target the sequential decoding constraint, exploring techniques that generate multiple tokens per step or amortize the cost of each one.
 
 ## Memory-Aware Attention Kernels {#sec-attention-kernels}
 

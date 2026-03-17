@@ -1,8 +1,8 @@
 # Eliminating Scheduling Bottlenecks {#sec-scheduling}
 
-The previous chapters focused on making the model itself smaller and faster -- fewer parameters, lower precision, more efficient attention mechanisms. Those techniques change *what* gets computed. This chapter takes a different angle: it changes *how requests flow through the system*. Even with a perfectly optimized model, a naive scheduler can leave the GPU sitting idle while requests wait in line, waste compute on padding tokens that contribute nothing, or let a single long prefill block dozens of shorter requests from making progress.
+The previous chapter focused on making the model itself smaller and faster -- fewer parameters, lower precision, more efficient attention mechanisms. Those techniques change what gets computed. This chapter drills into how requests flow through the system. Even with a well-optimized model, a naive scheduler can leave the GPU sitting idle while requests wait in line, waste compute on padding tokens that contribute nothing, or let a single long prefill block dozens of shorter requests from making progress.
 
-The techniques here -- batching strategies, prefill management, and request scheduling -- act on the serving system layer, not the model layer. They're about keeping the GPU busy doing useful work as much of the time as possible.
+The techniques here --- batching strategies, prefill management, and request scheduling --- act on the serving system layer. They're about keeping the GPU busy doing useful work as much of the time as possible, regardless of what model is being used.
 
 ## Batching Strategies {#sec-batching}
 

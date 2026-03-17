@@ -227,7 +227,7 @@ where $X$ has shape (B, S, D) and $W_Q$, $W_K$, $W_V$ each have shape (D, D). Th
 
 The intuition is roughly this: the query represents "what this token is looking for," the key represents "what this token offers to other tokens," and the value represents "the information this token will contribute when attended to." These are loose analogies, but they help build intuition for why we need three separate projections rather than just one or two.
 
-![Data flow of weights and activations in an attention layer using a basic implementation](images/under_construction.jpg){#fig-attn-flow}
+![Data flow of weights and activations in an multi-head attention layer using a basic, unoptimized implementation](images/attn_flow.svg){#fig-attn-flow height=700 .lightbox}
 
 ### Multi-head attention and the reshape
 

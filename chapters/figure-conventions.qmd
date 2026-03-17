@@ -6,7 +6,7 @@
 
 Tensors in figures are labeled with their shapes using the single-letter abbreviations below. The full names and abbreviations match those used in the text.
 
-| Symbol | Full name | Typical values (Llama 3 70B) |
+| Symbol | Full name | Example values (Llama 3 70B) |
 |:------:|:----------|:-----------------------------|
 | $B$    | Batch size | 1--64 |
 | $S$    | Sequence length | Prefill: prompt length (e.g., 2048); Decode: 1 |
@@ -36,19 +36,19 @@ Tensor rectangles use **colored edges** to indicate which dimension runs along t
 <tbody>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#F59E0B" stroke-width="3"/></svg>
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#DC2626" stroke-width="3"/></svg>
   </td>
   <td style="padding: 8px 16px;">Sequence length ($S$)</td>
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#3B82F6" stroke-width="3"/></svg>
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#1E40AF" stroke-width="3"/></svg>
   </td>
   <td style="padding: 8px 16px;">Model dimension ($D$)</td>
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#EF4444" stroke-width="3"/></svg>
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#93C5FD" stroke-width="3"/></svg>
   </td>
   <td style="padding: 8px 16px;">Head / Q-K dimension ($d_k$)</td>
 </tr>
@@ -98,31 +98,31 @@ The **fill color** of a tensor rectangle indicates its role in the computation.
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1"/></svg>
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#EFF6FF" stroke="#1E40AF" stroke-width="1"/></svg>
   </td>
   <td style="padding: 8px 16px;">Queries ($Q$)</td>
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1"/></svg>
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#FFF8E1" stroke="#6B7280" stroke-width="1"/></svg>
   </td>
   <td style="padding: 8px 16px;">Keys ($K$)</td>
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#D1FAE5" stroke="#10B981" stroke-width="1"/></svg>
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#FEE2E2" stroke="#6B7280" stroke-width="1"/></svg>
   </td>
   <td style="padding: 8px 16px;">Values ($V$)</td>
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#FECACA" stroke="#EF4444" stroke-width="1"/></svg>
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#D1FAE5" stroke="#6B7280" stroke-width="1"/></svg>
   </td>
   <td style="padding: 8px 16px;">Attention scores / weights</td>
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">
-    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#E9D5FF" stroke="#7C3AED" stroke-width="1"/></svg>
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#F3E8FF" stroke="#6B7280" stroke-width="1"/></svg>
   </td>
   <td style="padding: 8px 16px;">Weight matrices</td>
 </tr>

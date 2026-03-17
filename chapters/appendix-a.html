@@ -64,6 +64,9 @@ div.csl-indent {
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="../site_libs/bootstrap/bootstrap-9e3e5b9121e68b3f077afb32f2c64d95.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="../site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="../site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -328,7 +331,7 @@ window.Quarto = {
 
 
 <p>This appendix covers the architecture of the basic decoder-only transformer architecture used by most LLMs such as ChatGPT and Llama. We will walk through in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions. If you’re already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skip ahead to the main chapters and only refer back here as needed.</p>
-<p>We’ll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modernLLMs and its parameters are public. When we say “a 70B model,” we mean something with roughly Llama 3 70B’s dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens <span class="citation" data-cites="grattafiori2024llama3">(<a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span>.</p>
+<p>We’ll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modern LLMs and its parameters are public. When we say “a 70B model,” we mean something with roughly Llama 3 70B’s dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens <span class="citation" data-cites="grattafiori2024llama3">(<a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span>.</p>
 <section id="sec-enc-dec" class="level2" data-number="A.1">
 <h2 data-number="A.1" class="anchored" data-anchor-id="sec-enc-dec"><span class="header-section-number">A.1</span> From Encoder-Decoder to Decoder-Only</h2>
 <p>The original transformer architecture introduced in “Attention Is All You Need” <span class="citation" data-cites="vaswani2017attention">(<a href="references.html#ref-vaswani2017attention" role="doc-biblioref">Vaswani et al. 2017</a>)</span> has two distinct halves: an <strong>encoder</strong> that processes the input sequence and a <strong>decoder</strong> that generates the output sequence. The encoder builds a rich representation of the input through layers of self-attention. The decoder then attends to that representation through <strong>cross-attention</strong> layers while also attending to its own previously generated tokens through <strong>masked self-attention</strong>.</p>
@@ -393,33 +396,48 @@ Figure should emphasize the simplicity of the decoder-only design.
 Left side uses two colors for encoder vs decoder stacks.
 Right side is a single color showing the unified stack.
 -->
-<div id="fig-orig-transformer" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-orig-transformer" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-orig-transformer-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/transformer_architecture.svg" class="img-fluid figure-img">
+<a href="images/transformer_architecture.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;A.1: The original transformer architecture"><img src="images/transformer_architecture.svg" height="300" class="figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-orig-transformer-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;A.1: The original transformer architecture
 </figcaption>
 </figure>
 </div>
-<div id="fig-decoder-only" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-decoder" class="quarto-layout-panel">
 <figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-decoder-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="quarto-layout-row quarto-layout-valign-center">
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-decoder" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-decoder-only" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-decoder-only-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/decoder_only.svg" class="img-fluid figure-img">
+<a href="images/decoder_only.svg" class="lightbox" data-gallery="fig-decoder" title="Figure&nbsp;A.2&nbsp;(a): Original decoder-only LLM"><img src="images/decoder_only.svg" data-ref-parent="fig-decoder" height="300" class="figure-img"></a>
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-decoder-only-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;A.2: A decoder-only LLM
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-decoder-only-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) Original decoder-only LLM
 </figcaption>
 </figure>
 </div>
-<div id="fig-straight-through" class="quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-straight-through-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/straight_through.svg" class="img-fluid figure-img">
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-straight-through-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;A.3: A straight through version of a pre-norm decoder-only LLM
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-decoder" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-straight-through" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-straight-through-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/straight_through.svg" class="lightbox" data-gallery="fig-decoder" title="Figure&nbsp;A.2&nbsp;(b): Straight through view of pre-norm decoder-only LLM"><img src="images/straight_through.svg" data-ref-parent="fig-decoder" height="300" class="figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-straight-through-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b) Straight through view of pre-norm decoder-only LLM
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-decoder-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;A.2: A decoder-only LLM, shown in two variants
 </figcaption>
 </figure>
 </div>
@@ -482,13 +500,13 @@ Figure should use distinct colors or patterns for each layer's weight
 block to emphasize independence. Use the same color for embedding
 and LM head to show they are shared (and sometimes weight-tied).
 --&gt;
-<div id="fig-vert-stack" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-vert-stack" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-vert-stack-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/vertical_deep_stack.svg" class="img-fluid figure-img">
+<a href="images/vertical_deep_stack.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;A.3: Explicit multiple layers"><img src="images/vertical_deep_stack.svg" height="500" class="figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-vert-stack-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;A.4: Explicit multiple layers
+Figure&nbsp;A.3: Explicit multiple layers
 </figcaption>
 </figure>
 </div>
@@ -533,7 +551,19 @@ positions "pass through," with arrows converging into attention
 and diverging back out. Color the weight matrices the same color
 across all positions to emphasize sharing.
 -->
-<p><img src="images/horizontal_stacks.svg" id="fig-horiz-stack" class="img-fluid" alt="Explicit multiple sequence positions"> <img src="images/full_model_grid.svg" id="fig-model-grid" class="img-fluid" alt="Explicit full grid"></p>
+<!-- FIGURE 3: Weight Sharing Across the Sequence Dimension
+![Explicit multiple sequence positions](images/horizontal_stacks.svg){#fig-horiz-stack}
+-->
+<div id="fig-model-grid" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-model-grid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/full_model_grid.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;A.4: Explicit full grid"><img src="images/full_model_grid.svg" height="500" class="figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-model-grid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;A.4: Explicit full grid
+</figcaption>
+</figure>
+</div>
 <p>This weight-sharing-across-positions property is critical for inference. During prefill, we process all S positions simultaneously as a batch of matrix multiplications. During decode, we process one position at a time but use the <em>same</em> weights. The weights are read from memory once per step regardless of sequence length – it’s the KV cache (which stores past positions’ keys and values) that grows with sequence length.</p>
 </section>
 </section>
@@ -1745,8 +1775,40 @@ Weng, Lilian. 2023. <span>“The Transformer Family Version 2.0.”</span> <a hr
   </div>
 </nav>
 </div> <!-- /content -->
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer><script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
 
 
 
 
-<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
+</body></html>

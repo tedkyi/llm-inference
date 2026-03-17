@@ -1,8 +1,10 @@
 # The Decoder-Only Transformer {#sec-appendix-a}
 
-This appendix covers the architecture of the decoder-only transformer in enough detail that you can trace a token through the full model, name every tensor dimension, and estimate parameter counts and memory requirements. If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skip ahead to the main chapters and refer back here as needed.
+This appendix covers the architecture of the basic decoder-only transformer architecture used by most LLMs such as ChatGPT and Llama.
+We will walk through in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions.
+If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skip ahead to the main chapters and only refer back here as needed.
 
-We'll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modern open-weight LLMs and its parameters are public. When we say "a 70B model," we mean something with roughly Llama 3 70B's dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens [@grattafiori2024llama3].
+We'll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modern LLMs and its parameters are public. When we say "a 70B model," we mean something with roughly Llama 3 70B's dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens [@grattafiori2024llama3].
 
 ## From Encoder-Decoder to Decoder-Only {#sec-enc-dec}
 
@@ -73,11 +75,17 @@ Right side is a single color showing the unified stack.
 -->
 ```
 
-![The original transformer architecture](images/transformer_architecture.svg){#fig-orig-transformer}
+![The original transformer architecture](images/transformer_architecture.svg){#fig-orig-transformer height=300 .lightbox}
 
-![A decoder-only LLM](images/decoder_only.svg){#fig-decoder-only}
 
-![A straight through version of a pre-norm decoder-only LLM](images/straight_through.svg){#fig-straight-through}
+::: {#fig-decoder layout-ncol=2 layout-valign="center"}
+
+![Original decoder-only LLM](images/decoder_only.svg){#fig-decoder-only height=300 .lightbox}
+
+![Straight through view of pre-norm decoder-only LLM](images/straight_through.svg){#fig-straight-through height=300 .lightbox}
+
+A decoder-only LLM, shown in two variants
+:::
 
 The decoder-only transformer, used by GPT-2 [@radford2019gpt2], LLaMA [@touvron2023llama], and essentially all modern large language models, takes this architecture and strips it down. The entire encoder is removed. The cross-attention layers in the decoder are removed. What's left is a single stack of transformer blocks, each containing masked self-attention and a feed-forward network, preceded by a token embedding layer and followed by a linear language model head.
 
@@ -144,7 +152,7 @@ block to emphasize independence. Use the same color for embedding
 and LM head to show they are shared (and sometimes weight-tied).
 -->
 ```
-![Explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack}
+![Explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=500 .lightbox}
 
 Second, the architecture is applied **identically across every position in the sequence**, sharing all weights. When we process a sequence of S tokens, the same weight matrices are applied to every token position. The self-attention mechanism is what allows information to flow between positions -- the weights themselves don't distinguish between position 0 and position 99.
 
@@ -190,8 +198,13 @@ and diverging back out. Color the weight matrices the same color
 across all positions to emphasize sharing.
 -->
 ```
+
+```{=html}
+<!-- FIGURE 3: Weight Sharing Across the Sequence Dimension
 ![Explicit multiple sequence positions](images/horizontal_stacks.svg){#fig-horiz-stack}
-![Explicit full grid](images/full_model_grid.svg){#fig-model-grid}
+-->
+```
+![Explicit full grid](images/full_model_grid.svg){#fig-model-grid height=500 .lightbox}
 
 This weight-sharing-across-positions property is critical for inference. During prefill, we process all S positions simultaneously as a batch of matrix multiplications. During decode, we process one position at a time but use the *same* weights. The weights are read from memory once per step regardless of sequence length -- it's the KV cache (which stores past positions' keys and values) that grows with sequence length.
 

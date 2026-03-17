@@ -10,7 +10,7 @@ From the time you send a prompt to an LLM until you get a response back, a lot h
 
 Let's walk through the stages needed to load an LLM and process a user request. We will break this down into five stages that have distinct properties in terms of when they happen, where they happen, and what kinds of resources they consume. These stages are shown in @fig-pipeline-stages.
 
-![The stages of LLM inference for a single request. Model loading is a one-time setup cost. Ingestion and response completion are fast. Prefill and decode dominate wall-clock time.](images/pipeline_stages.svg){#fig-pipeline-stages}
+![The stages of LLM inference for a single request. Model loading is a one-time setup cost. Ingestion and response completion are fast. Prefill and decode dominate wall-clock time.](images/pipeline_stages.svg){#fig-pipeline-stages .lightbox}
 
 ```{=html}
 <!-- Figure: Timeline of the five pipeline stages for a single request
@@ -103,7 +103,7 @@ Note that TTFT isn't as simple as the prefill duration plus fixed costs for the 
 
 TPOT is an average, and individual decode steps can vary. The KV cache grows with each token, so later decode steps read slightly more data than earlier ones. In practice, this variation is usually small relative to the total step time, but it can matter for very long sequences.
 
-![Request timeline showing TTFT and TPOT durations](images/ttft_tpot_timeline.svg){#fig-ttft-tpot}
+![Request timeline showing TTFT and TPOT durations](images/ttft_tpot_timeline.svg){#fig-ttft-tpot .lightbox}
 
 ```{=html}
 <!-- Figure: Timeline showing TTFT and TPOT for a single request
@@ -204,7 +204,7 @@ Not all LLM requests look the same. A one-line classification question and a mul
 
 The simplest way to characterize an LLM workload is by the length of the input and the length of the output. These two dimensions create four quadrants, and each one has a distinct performance profile.
 
-![The four workload quadrants defined by input and output length](images/io_quadrants.svg){#fig-io-quadrants}
+![The four workload quadrants defined by input and output length](images/io_quadrants.svg){#fig-io-quadrants .lightbox}
 
 **Short input, short output** is the lightest quadrant. Think of a simple one-off chatbot exchange or a classification task: a sentence or two goes in, and a sentence or two comes out. Prefill is fast because there aren't many input tokens. Decode is fast because there aren't many output tokens to generate. The KV cache stays small. Individually, these requests are cheap. For these requests serving systems will achieve the highest requests per minute, because they are so cheap.
 
@@ -306,7 +306,7 @@ ASCII art sketch:
 -->
 ```
 
-![GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level](images/gpu_memory_hierarchy.svg){#fig-gpu-memory-hierarchy}
+![GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level](images/gpu_memory_hierarchy.svg){#fig-gpu-memory-hierarchy .lightbox}
 
 **Registers** are the fastest storage, private to each thread. They're plentiful in aggregate (about 256 KB per SM on the H100, totaling roughly 33 MB across all SMs) but each thread running on a SM only sees a small portion. Data in registers is available essentially every clock cycle.
 
@@ -392,7 +392,7 @@ Attainable FLOP/s (log scale)
 -->
 ```
 
-![Roofline plot for the H100 SXM at FP16](images/roofline.svg){#fig-roofline}
+![Roofline plot for the H100 SXM at FP16](images/roofline.svg){#fig-roofline .lightbox}
 
 If we were calculating the roofline plot for FP8, the peak bandwidth remains the same, but the peak throughput is about double at 1,979 TFLOPS. The blue line would be extended further up to the right before it hit our 1,979 TFLOPS compute ceiling, so our ridge point would be further right, at 591 FLOP/byte. When you increase compute throughput through lower precision, the bar for being compute-bound gets higher. This means that switching to FP8 can actually make some workloads that were compute-bound at FP16 become memory-bandwidth-bound at FP8. For this reason, workloads don't always run twice as fast when switching from FP16 to FP8. We will revisit this in @sec-quantization when we discuss model quantization.
 
@@ -515,7 +515,7 @@ For FP16 weights ($b_w = 2$), we end up with $\text{AI}_{\text{batch}} = B \text
 
 : Arithmetic intensity of decode steps as a function of batch size for FP16 weights on H100 SXM. The ridge point is \~295 FLOP/byte.
 
-![Roofline plot showing decode operating points at different batch sizes. Each point sits on the roofline at arithmetic intensity equal to the batch size (for FP16 weights). Batching moves the operating point rightward, from deeply bandwidth-bound toward the compute ceiling.](images/roofline_batching.svg){#fig-roofline-batching}
+![Roofline plot showing decode operating points at different batch sizes. Each point sits on the roofline at arithmetic intensity equal to the batch size (for FP16 weights). Batching moves the operating point rightward, from deeply bandwidth-bound toward the compute ceiling.](images/roofline_batching.svg){#fig-roofline-batching .lightbox}
 
 ```{=html}
 <!-- Figure: Roofline plot showing decode operating points at different batch sizes

@@ -328,7 +328,7 @@ window.Quarto = {
 <li><strong>Compute</strong>: <span class="math inline">\(2Bd^2\)</span> FLOPs (<span class="math inline">\(B\)</span> matrix-vector multiplications)</li>
 <li><strong>Arithmetic intensity</strong>: <span class="math inline">\(2Bd^2 / 2d^2 = B\)</span> FLOP/byte</li>
 </ul>
-<p>Recall <a href="ch1-framing.html#fig-roofline-batching" class="quarto-xref">Figure&nbsp;<span>1.6</span></a>.</p>
+<p>Recall <a href="ch1-framing.html#fig-roofline-batching" class="quarto-xref">Figure&nbsp;<span>1.7</span></a>.</p>
 <p>With batch size 1, the arithmetic intensity is about 1 FLOP/byte – far below the H100’s FP16 ridge point of ~295 FLOP/byte. The GPU’s tensor cores are almost entirely idle, waiting for data to arrive from HBM. With batch size 64, the intensity rises to 64 FLOP/byte. Still below the ridge point, but now the GPU is doing 64x more useful work per byte read. With batch size 256, we’re approaching the ridge point and the GPU’s compute units are finally getting busy.</p>
 <!-- Figure: Roofline diagram showing decode at different batch sizes
 ASCII art sketch:

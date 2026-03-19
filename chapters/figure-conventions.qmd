@@ -13,7 +13,7 @@ Tensors in figures are labeled with their shapes using the single-letter abbrevi
 | $D$    | Model dimension ($d_\text{model}$) | 8192 |
 | $H$    | Number of attention heads ($n_\text{heads}$) | 64 |
 | $H_\text{kv}$ | Number of KV heads | 8 (with GQA) |
-| $d_k$  | Head dimension ($D / H$) | 128 |
+| $d_K$  | Head dimension ($D / H$) | 128 |
 | $F$    | FFN intermediate dimension ($d_\text{ff}$) | 28672 (SwiGLU) |
 | $V$    | Vocabulary size | 128000 |
 | $L$    | Number of layers | 80 |
@@ -50,7 +50,7 @@ Tensor rectangles use **colored edges** to indicate which dimension runs along t
   <td style="padding: 8px 16px; text-align: center;">
     <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#93C5FD" stroke-width="3"/></svg>
   </td>
-  <td style="padding: 8px 16px;">Head / Q-K dimension ($d_k$)</td>
+  <td style="padding: 8px 16px;">Head / Q-K dimension ($d_K$)</td>
 </tr>
 <tr>
   <td style="padding: 8px 16px; text-align: center;">

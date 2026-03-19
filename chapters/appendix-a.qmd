@@ -771,7 +771,7 @@ The residual connections are critical for training deep networks -- they allow g
     Use consistent colors for LayerNorm, Attention, FFN.
 -->
 ```
-![Data flow of one decoder block](images/decoder_block.svg){#fig-decoder-flow}
+![Data flow of one decoder layer](images/decoder_block.svg){#fig-decoder-flow height=500 .lightbox}
 
 ### The full model
 

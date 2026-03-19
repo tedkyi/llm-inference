@@ -268,13 +268,19 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#sec-inference-pipeline" id="toc-sec-inference-pipeline" class="nav-link active" data-scroll-target="#sec-inference-pipeline"><span class="header-section-number">1.1</span> The Inference Pipeline</a>
+  <li><a href="#sec-overview" id="toc-sec-overview" class="nav-link active" data-scroll-target="#sec-overview"><span class="header-section-number">1.1</span> Overview</a>
+  <ul class="collapse">
+  <li><a href="#a-simple-example" id="toc-a-simple-example" class="nav-link" data-scroll-target="#a-simple-example">A simple example</a></li>
+  <li><a href="#why-inference-optimization-matters" id="toc-why-inference-optimization-matters" class="nav-link" data-scroll-target="#why-inference-optimization-matters">Why inference optimization matters</a></li>
+  <li><a href="#about-this-book" id="toc-about-this-book" class="nav-link" data-scroll-target="#about-this-book">About this book</a></li>
+  </ul></li>
+  <li><a href="#sec-inference-pipeline" id="toc-sec-inference-pipeline" class="nav-link" data-scroll-target="#sec-inference-pipeline"><span class="header-section-number">1.2</span> The Inference Pipeline</a>
   <ul class="collapse">
   <li><a href="#sec-pipeline-stages" id="toc-sec-pipeline-stages" class="nav-link" data-scroll-target="#sec-pipeline-stages">The stages of inference</a></li>
   <li><a href="#where-the-time-goes" id="toc-where-the-time-goes" class="nav-link" data-scroll-target="#where-the-time-goes">Where the time goes</a></li>
   <li><a href="#two-fundamentally-different-regimes" id="toc-two-fundamentally-different-regimes" class="nav-link" data-scroll-target="#two-fundamentally-different-regimes">Two fundamentally different regimes</a></li>
   </ul></li>
-  <li><a href="#sec-metrics" id="toc-sec-metrics" class="nav-link" data-scroll-target="#sec-metrics"><span class="header-section-number">1.2</span> Performance Metrics</a>
+  <li><a href="#sec-metrics" id="toc-sec-metrics" class="nav-link" data-scroll-target="#sec-metrics"><span class="header-section-number">1.3</span> Performance Metrics</a>
   <ul class="collapse">
   <li><a href="#user-facing-latency-metrics" id="toc-user-facing-latency-metrics" class="nav-link" data-scroll-target="#user-facing-latency-metrics">User-facing latency metrics</a></li>
   <li><a href="#throughput" id="toc-throughput" class="nav-link" data-scroll-target="#throughput">Throughput</a></li>
@@ -286,14 +292,14 @@ window.Quarto = {
   <li><a href="#preemption-metrics" id="toc-preemption-metrics" class="nav-link" data-scroll-target="#preemption-metrics">Preemption metrics</a></li>
   <li><a href="#putting-it-all-together" id="toc-putting-it-all-together" class="nav-link" data-scroll-target="#putting-it-all-together">Putting it all together</a></li>
   </ul></li>
-  <li><a href="#sec-workloads" id="toc-sec-workloads" class="nav-link" data-scroll-target="#sec-workloads"><span class="header-section-number">1.3</span> Workload Patterns</a>
+  <li><a href="#sec-workloads" id="toc-sec-workloads" class="nav-link" data-scroll-target="#sec-workloads"><span class="header-section-number">1.4</span> Workload Patterns</a>
   <ul class="collapse">
   <li><a href="#the-inputoutput-quadrants" id="toc-the-inputoutput-quadrants" class="nav-link" data-scroll-target="#the-inputoutput-quadrants">The input/output quadrants</a></li>
   <li><a href="#why-the-quadrants-matter" id="toc-why-the-quadrants-matter" class="nav-link" data-scroll-target="#why-the-quadrants-matter">Why the quadrants matter</a></li>
   <li><a href="#batch-vs.-real-time-inference" id="toc-batch-vs.-real-time-inference" class="nav-link" data-scroll-target="#batch-vs.-real-time-inference">Batch vs.&nbsp;real-time inference</a></li>
   <li><a href="#arrival-patterns" id="toc-arrival-patterns" class="nav-link" data-scroll-target="#arrival-patterns">Arrival patterns</a></li>
   </ul></li>
-  <li><a href="#sec-bottleneck-framework" id="toc-sec-bottleneck-framework" class="nav-link" data-scroll-target="#sec-bottleneck-framework"><span class="header-section-number">1.4</span> The Hardware Model and Bottleneck Framework</a>
+  <li><a href="#sec-bottleneck-framework" id="toc-sec-bottleneck-framework" class="nav-link" data-scroll-target="#sec-bottleneck-framework"><span class="header-section-number">1.5</span> The Hardware Model and Bottleneck Framework</a>
   <ul class="collapse">
   <li><a href="#gpu-compute-throughput" id="toc-gpu-compute-throughput" class="nav-link" data-scroll-target="#gpu-compute-throughput">GPU compute throughput</a></li>
   <li><a href="#the-memory-hierarchy" id="toc-the-memory-hierarchy" class="nav-link" data-scroll-target="#the-memory-hierarchy">The memory hierarchy</a></li>
@@ -301,7 +307,7 @@ window.Quarto = {
   <li><a href="#the-bottleneck-framework" id="toc-the-bottleneck-framework" class="nav-link" data-scroll-target="#the-bottleneck-framework">The bottleneck framework</a></li>
   <li><a href="#the-roofline-model" id="toc-the-roofline-model" class="nav-link" data-scroll-target="#the-roofline-model">The roofline model</a></li>
   </ul></li>
-  <li><a href="#sec-prefill-decode" id="toc-sec-prefill-decode" class="nav-link" data-scroll-target="#sec-prefill-decode"><span class="header-section-number">1.5</span> Putting Numbers on a Baseline</a>
+  <li><a href="#sec-prefill-decode" id="toc-sec-prefill-decode" class="nav-link" data-scroll-target="#sec-prefill-decode"><span class="header-section-number">1.6</span> Putting Numbers on a Baseline</a>
   <ul class="collapse">
   <li><a href="#sec-prefill-stage" id="toc-sec-prefill-stage" class="nav-link" data-scroll-target="#sec-prefill-stage">Prefill is compute-bound</a></li>
   <li><a href="#sec-decode-stage" id="toc-sec-decode-stage" class="nav-link" data-scroll-target="#sec-decode-stage">Decode is memory-bandwidth-bound</a></li>
@@ -310,7 +316,7 @@ window.Quarto = {
   <li><a href="#back-of-envelope-summary" id="toc-back-of-envelope-summary" class="nav-link" data-scroll-target="#back-of-envelope-summary">Back-of-envelope summary</a></li>
   <li><a href="#map-of-the-book" id="toc-map-of-the-book" class="nav-link" data-scroll-target="#map-of-the-book">Map of the book</a></li>
   </ul></li>
-  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">1.6</span> Further Reading</a></li>
+  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">1.7</span> Further Reading</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -337,8 +343,67 @@ window.Quarto = {
 
 
 <p>Before ChatGPT, most of the focus on language models was on how to train better, smarter models. Now that we are in a world where millions of people use <strong>large language models (LLMs)</strong> every day, much recent energy has gone into making serving these models more efficient and less expensive. This book summarizes many of the key advancements with LLM inference. We will attempt to provide clarity about each concept, but this is not an ML Ops book, and we will not drill down into coding each technique. In this chapter, we start by understanding the components of LLM inference. In the remainder of this book, we will look at different bottlenecks and techniques for improving performance.</p>
-<section id="sec-inference-pipeline" class="level2" data-number="1.1">
-<h2 data-number="1.1" class="anchored" data-anchor-id="sec-inference-pipeline"><span class="header-section-number">1.1</span> The Inference Pipeline</h2>
+<section id="sec-overview" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="sec-overview"><span class="header-section-number">1.1</span> Overview</h2>
+<p>At its core, LLM inference is the process of generating text. You give the model some input tokens, and it predicts what comes next, one token at a time. Before we get into the technical details of how inference systems are built and optimized, let’s walk through a simple example to build intuition for what’s actually happening.</p>
+<section id="a-simple-example" class="level3">
+<h3 class="anchored" data-anchor-id="a-simple-example">A simple example</h3>
+<p>Suppose we give an LLM the prompt <strong>“The quick brown fox jumps”</strong> — five tokens. The model’s job is to predict what token comes next.</p>
+<p>To do this, the model runs a single <strong>forward pass</strong> over all five input tokens at once. The entire neural network processes these tokens together, and at the end, it produces a probability distribution over its vocabulary — every possible next token gets a score. In this case, the model would likely assign a high probability to “over,” since “The quick brown fox jumps over the lazy dog” is such a well-known phrase. The system samples from this distribution and selects “over” as the first output token. This initial phase — processing all of the input tokens in one pass and producing the first output token — is called <strong>prefill</strong>.</p>
+<p>Now the model has to generate the rest of the response. But here’s the key constraint: each next token depends on everything that came before it. The model can’t predict “the” until it has committed to “over.” It can’t predict “lazy” until it has committed to “the.” And so on. So generation proceeds one token at a time:</p>
+<ul>
+<li>Forward pass over the sequence so far → predict <strong>“the”</strong></li>
+<li>Forward pass → predict <strong>“lazy”</strong></li>
+<li>Forward pass → predict <strong>“dog”</strong></li>
+<li>Forward pass → predict <strong>&lt;EOS&gt;</strong> (end of sequence)</li>
+</ul>
+<p>Each of these steps is called a <strong>decode step</strong>. At each step, the model runs another forward pass, but this time it only needs to process the single new token — the keys and values for all previous tokens have already been computed and cached. The model produces a probability distribution, a token is sampled, and the process repeats. When the model generates a special end-of-sequence token, generation stops.</p>
+<!-- Figure: Show the prefill and decode steps for "The quick brown fox jumps"
+ASCII art sketch:
+  Input tokens:     [The] [quick] [brown] [fox] [jumps]
+                         |
+                    Prefill (one forward pass)
+                         |
+                         v
+                      [over]          ← first output token
+                         |
+                    Decode step 1
+                         |
+                         v
+                      [the]
+                         |
+                    Decode step 2
+                         |
+                         v
+                      [lazy]
+                         |
+                    Decode step 3
+                         |
+                         v
+                      [dog]
+                         |
+                    Decode step 4
+                         |
+                         v
+                      [EOS]           ← stop
+-->
+<p>TODO: Figure showing prefill processing the five input tokens in one pass, then decode steps generating one token at a time.</p>
+<p>That’s the basic rhythm of autoregressive LLM inference: one big parallel step to process the input, followed by a sequential loop that generates output tokens one at a time.</p>
+</section>
+<section id="why-inference-optimization-matters" class="level3">
+<h3 class="anchored" data-anchor-id="why-inference-optimization-matters">Why inference optimization matters</h3>
+<p>That simple loop — run the model, get a token, repeat — sounds straightforward. But the raw cost of running it naively is staggering. A 70-billion-parameter model stores its weights in about 140 GB of GPU memory (at 2 bytes per parameter). Every single decode step has to read through all of those weights just to produce one token. Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU. Serve that to one user at a time with no batching, and you’ve got an extremely expensive system that’s also leaving most of the GPU’s capability on the table.</p>
+<p>The situation gets much better with the right techniques. Modern serving frameworks like vLLM and SGLang apply a combination of the optimizations covered in this book — smarter batching, memory management, kernel optimization, and more — and the results are dramatic. In one benchmark, an unoptimized serving setup on an A100 GPU achieved about 80 tokens per second for a 13B model. The same model served through vLLM achieved roughly 1,900 tokens per second — a 23x improvement <span class="citation" data-cites="anyscale2024batching">(<a href="references.html#ref-anyscale2024batching" role="doc-biblioref">Anyscale 2024</a>)</span>. On newer hardware, optimized frameworks routinely serve models like Llama 3 8B at over 16,000 tokens per second on a single H100 GPU, with per-token latencies in the single-digit milliseconds.</p>
+<p>These aren’t gains from better hardware alone. They come from understanding the bottlenecks in the inference pipeline and systematically eliminating them. That’s what this book is about.</p>
+</section>
+<section id="about-this-book" class="level3">
+<h3 class="anchored" data-anchor-id="about-this-book">About this book</h3>
+<p>This book is written for ML engineers who want to understand what happens between sending a prompt to an LLM and getting a response back — and how to make that process faster. We assume you’re familiar with neural networks, the transformer architecture, and self-attention at a conceptual level. If you need a refresher on how a decoder-only transformer works — how queries, keys, and values flow through the attention mechanism, what the KV cache is and why it exists, and how the feed-forward layers fit in — <a href="appendix-a.html" class="quarto-xref"><span>Appendix A</span></a> covers these topics with the level of detail needed for the rest of the book.</p>
+<p>With that, let’s get into the technical details. We’ll start by breaking down the full inference pipeline and building a precise vocabulary for talking about its performance.</p>
+</section>
+</section>
+<section id="sec-inference-pipeline" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="sec-inference-pipeline"><span class="header-section-number">1.2</span> The Inference Pipeline</h2>
 <p>From the time you send a prompt to an LLM until you get a response back, a lot happens between those two moments. The full journey of a single request breaks down into a few stages. Some of these are one-time setup costs, some happen once per request, and some repeat for every output token. Understanding the characteristics of the stages will help you focus your attention on the ones that actually dominate wall-clock time. In this section, as with most of the book, we will assume the LLM is running on a computer with a GPU. The principles will be the same if it is running on CPU, TPU, or other hardware.</p>
 <section id="sec-pipeline-stages" class="level3">
 <h3 class="anchored" data-anchor-id="sec-pipeline-stages">The stages of inference</h3>
@@ -406,7 +471,7 @@ Note
 <h3 class="anchored" data-anchor-id="two-fundamentally-different-regimes">Two fundamentally different regimes</h3>
 <p>While prefill and decode are both expensive, the contrast between the types of resources they need is worth emphasizing.</p>
 <p>During prefill, we have a large set of tokens to process, so we can keep the GPU’s compute units busy with very large matrix multiplications. During decode, we’re typically generating one token at a time, so we need many forward passes which each require much smaller computations that mostly involve reading a lot of data.</p>
-<p>This means prefill and decode need different resources from the hardware. Prefill wants raw compute horsepower. Decode wants memory bandwidth. As we’ll see in <a href="#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.4</span></a>, the roofline model gives us a precise way to reason about where the boundary between these two bottlenecks falls for a given GPU or hardware accelerator.</p>
+<p>This means prefill and decode need different resources from the hardware. Prefill wants raw compute horsepower. Decode wants memory bandwidth. As we’ll see in <a href="#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.5</span></a>, the roofline model gives us a precise way to reason about where the boundary between these two bottlenecks falls for a given GPU or hardware accelerator.</p>
 <p>Many of the optimizations covered in this book target just prefill or just decode, and some of the techniques span between the two of them. Understanding the fundamental difference in resource needs between prefill and decode will provide a good foundation for everything that follows.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -423,8 +488,8 @@ Note
 </div>
 </section>
 </section>
-<section id="sec-metrics" class="level2" data-number="1.2">
-<h2 data-number="1.2" class="anchored" data-anchor-id="sec-metrics"><span class="header-section-number">1.2</span> Performance Metrics</h2>
+<section id="sec-metrics" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="sec-metrics"><span class="header-section-number">1.3</span> Performance Metrics</h2>
 <p>Now that we have a mental model of what happens during inference, the natural next question is: how do we know if our system is doing it <em>well</em>? This section introduces the metrics you’ll encounter throughout the rest of the book. We’ll group them by what they measure, because different concerns utilize different metrics.</p>
 <section id="user-facing-latency-metrics" class="level3">
 <h3 class="anchored" data-anchor-id="user-facing-latency-metrics">User-facing latency metrics</h3>
@@ -451,7 +516,7 @@ ASCII art sketch:
       |                        |                |         |         |
       |     [  Prefill  ]     [ D ]            [ D ]     [ D ]    [ D ]
 -->
-<p>Together, TTFT and TPOT define the end-to-end latency of a request, as shown in <a href="#fig-ttft-tpot" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>. The total time to generate a response of <span class="math inline">\(N\)</span> output tokens is approximately <span class="math inline">\(\text{TTFT} + (N - 1) \times \text{TPOT}\)</span>. For short outputs, TTFT dominates. For long outputs, TPOT dominates. This is why the workload shape — the ratio of input length to output length — matters so much for understanding metrics and performing optimizations, as we’ll see in <a href="#sec-workloads" class="quarto-xref"><span>Section 1.3</span></a>.</p>
+<p>Together, TTFT and TPOT define the end-to-end latency of a request, as shown in <a href="#fig-ttft-tpot" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>. The total time to generate a response of <span class="math inline">\(N\)</span> output tokens is approximately <span class="math inline">\(\text{TTFT} + (N - 1) \times \text{TPOT}\)</span>. For short outputs, TTFT dominates. For long outputs, TPOT dominates. This is why the workload shape — the ratio of input length to output length — matters so much for understanding metrics and performing optimizations, as we’ll see in <a href="#sec-workloads" class="quarto-xref"><span>Section 1.4</span></a>.</p>
 </section>
 <section id="throughput" class="level3">
 <h3 class="anchored" data-anchor-id="throughput">Throughput</h3>
@@ -493,7 +558,7 @@ ASCII art sketch:
 <h3 class="anchored" data-anchor-id="hardware-utilization-metrics">Hardware utilization metrics</h3>
 <p>The metrics above describe what the system achieves. The next two measure how efficiently it uses the hardware to get there. To diagnose whether or not you’re maximizing the capabilities of your hardware, you need different metrics.</p>
 <p><strong>Model FLOPs Utilization (MFU)</strong> is the fraction of the GPU’s peak floating-point throughput that is actually used for model computation. This metric was introduced in the PaLM paper <span class="citation" data-cites="chowdhery2022palm">(<a href="references.html#ref-chowdhery2022palm" role="doc-biblioref"><span class="nocase">Chowdhery et al.</span> 2022</a>)</span> and has become a standard efficiency metric. If your GPU can do 990 TFLOP/s at FP16, and your model computation actually achieves 300 TFLOP/s, your MFU is about 30%.</p>
-<p>MFU is most useful for characterizing compute-bound workloads like prefill. A low MFU during prefill suggests that something is preventing the GPU from doing math at full speed –- perhaps memory transfers, kernel launch overhead, or poorly shaped matrix multiplications. We’ll see how to use the roofline model to reason about this precisely in <a href="#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.4</span></a>.</p>
+<p>MFU is most useful for characterizing compute-bound workloads like prefill. A low MFU during prefill suggests that something is preventing the GPU from doing math at full speed –- perhaps memory transfers, kernel launch overhead, or poorly shaped matrix multiplications. We’ll see how to use the roofline model to reason about this precisely in <a href="#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.5</span></a>.</p>
 <p><strong>Model Bandwidth Utilization (MBU)</strong> is the analogous metric for memory bandwidth. MBU is the fraction of peak memory bandwidth that is actually used for reading model data. During decode, the bottleneck is typically how fast you can stream model weights and KV cache entries from HBM. If your GPU has 3.35 TB/s of HBM bandwidth and your decode step actually achieves 2.5 TB/s, your MBU is about 75%.</p>
 <p>MBU is a good diagnostic for decode activity. A low MBU during decode means the memory system is not being fully utilized –- perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management. Together, MFU and MBU give you a quick read on whether your system is limited by compute efficiency, memory bandwidth efficiency, or something else entirely. Note that manufacturers often report peak compute and bandwidth numbers on very specific workloads that yield the highest numbers. You should not expect to get close to 100% MFU or MBU for any real world use case.</p>
 </section>
@@ -501,7 +566,7 @@ ASCII art sketch:
 <h3 class="anchored" data-anchor-id="capacity-metrics">Capacity metrics</h3>
 <p>These metrics describe the system’s resource utilization.</p>
 <p><strong>Concurrency</strong> is the average number of in-flight requests the system is serving simultaneously. This is primarily bounded by GPU memory: each active request needs space for its KV cache, and the KV cache grows with sequence length. If your GPU has 80 GB of HBM and your model weights consume 30 GB, you have roughly 50 GB left for KV caches (minus some overhead). How many requests fit in that budget depends on the model architecture, the precision of the KV cache, and how long the sequences are. The scheduler policy dictates whether to reserve memory conservatively or to pack it more aggressively and risk running out of memory.</p>
-<p><strong>GPU memory usage</strong> is the average amount of GPU memory that is being used. Usage is comprised of four components: model weights, KV cache, activations temporarily stored during the forward pass, and framework overhead (memory allocated by the CUDA runtime, the serving framework, and so on). The weights are fixed once the model is loaded. Activations are transient and relatively small. The KV cache is the variable that dominates, and it scales with both concurrency and sequence length. We’ll revisit this decomposition in detail in <a href="#sec-inference-pipeline" class="quarto-xref"><span>Section 1.1</span></a>.</p>
+<p><strong>GPU memory usage</strong> is the average amount of GPU memory that is being used. Usage is comprised of four components: model weights, KV cache, activations temporarily stored during the forward pass, and framework overhead (memory allocated by the CUDA runtime, the serving framework, and so on). The weights are fixed once the model is loaded. Activations are transient and relatively small. The KV cache is the variable that dominates, and it scales with both concurrency and sequence length. We’ll revisit this decomposition in detail in <a href="#sec-inference-pipeline" class="quarto-xref"><span>Section 1.2</span></a>.</p>
 <p><strong>Maximum sequence length supported</strong> is the longest sequence (counting both input and output tokens) that the system can handle. Note that even if the model was trained to support 128K tokens, your deployment might be limited to 32K if that’s all the KV cache memory you can afford while maintaining your target concurrency. This is usually a hard constraint that is set up front.</p>
 </section>
 <section id="preemption-metrics" class="level3">
@@ -515,8 +580,8 @@ ASCII art sketch:
 <p>For a thorough treatment of how to measure these metrics reproducibly and avoid common benchmarking pitfalls, see <span class="citation" data-cites="anyscale2024metrics">Kadous et al. (<a href="references.html#ref-anyscale2024metrics" role="doc-biblioref">2023</a>)</span>.</p>
 </section>
 </section>
-<section id="sec-workloads" class="level2" data-number="1.3">
-<h2 data-number="1.3" class="anchored" data-anchor-id="sec-workloads"><span class="header-section-number">1.3</span> Workload Patterns</h2>
+<section id="sec-workloads" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="sec-workloads"><span class="header-section-number">1.4</span> Workload Patterns</h2>
 <p>Not all LLM requests look the same. A one-line classification question and a multi-page document summary put very different demands on the inference system, even if they’re running on the same model with the same hardware. Before we get into the mechanics of how inference systems are built and optimized, it’s worth stepping back and thinking about what kinds of work they’re actually asked to do. The shape of the workload greatly impacts many metrics.</p>
 <section id="the-inputoutput-quadrants" class="level3">
 <h3 class="anchored" data-anchor-id="the-inputoutput-quadrants">The input/output quadrants</h3>
@@ -532,7 +597,7 @@ Figure&nbsp;1.3: The four workload quadrants defined by input and output length
 </figure>
 </div>
 <p><strong>Short input, short output</strong> is the lightest quadrant. Think of a simple one-off chatbot exchange or a classification task: a sentence or two goes in, and a sentence or two comes out. Prefill is fast because there aren’t many input tokens. Decode is fast because there aren’t many output tokens to generate. The KV cache stays small. Individually, these requests are cheap. For these requests serving systems will achieve the highest requests per minute, because they are so cheap.</p>
-<p><strong>Short input, long output</strong> is what you get with creative writing, open-ended code generation, or detailed explanations. Prefill is still quick, but decode dominates the request’s lifetime because the model has to generate hundreds or thousands of tokens sequentially. The KV cache grows with each decode step, so memory pressure increases over the life of the request. For the user, what matters here is the sustained token generation rate — the TPOT we defined in <a href="#sec-metrics" class="quarto-xref"><span>Section 1.2</span></a>. A slow decode loop means a long wait for the full response.</p>
+<p><strong>Short input, long output</strong> is what you get with creative writing, open-ended code generation, or detailed explanations. Prefill is still quick, but decode dominates the request’s lifetime because the model has to generate hundreds or thousands of tokens sequentially. The KV cache grows with each decode step, so memory pressure increases over the life of the request. For the user, what matters here is the sustained token generation rate — the TPOT we defined in <a href="#sec-metrics" class="quarto-xref"><span>Section 1.3</span></a>. A slow decode loop means a long wait for the full response.</p>
 <p><strong>Long input, short output</strong> is the pattern you see in summarization, information extraction, and retrieval-augmented generation (RAG). A large document or a long retrieved context goes in, and a relatively brief answer comes out. Prefill is expensive because the model has to process a large number of input tokens. But once prefill is done, decode finishes quickly. The KV cache is large from the start, but it doesn’t grow much further. For the user, TTFT is the metric that matters most, since the wait is almost entirely in prefill.</p>
 <p><strong>Long input, long output</strong> is the most demanding quadrant. Document translation, detailed analysis with a lengthy report, and long multi-turn conversations all fall here. Prefill is expensive, decode is expensive, and the KV cache is large throughout. These requests consume the most GPU memory and occupy a batch slot for the most time. They’re also the hardest to schedule efficiently alongside other requests, because they consume so many resources.</p>
 </section>
@@ -545,7 +610,7 @@ Figure&nbsp;1.3: The four workload quadrants defined by input and output length
 <h3 class="anchored" data-anchor-id="batch-vs.-real-time-inference">Batch vs.&nbsp;real-time inference</h3>
 <p>Beyond the shape of individual requests, the other major dimension of a workload is whether it runs in <strong>batch</strong> (offline) mode or <strong>real-time</strong> (online) mode. This distinction changes which metrics you care about and how aggressively you can optimize.</p>
 <p>In <strong>batch inference</strong>, you have a known set of requests to process and no one is waiting on the other end for an immediate response. Maybe the user is scoring a dataset, generating synthetic training data, or running evaluations. The metric that matters most is <strong>throughput</strong> –- tokens per second across all requests –- and its close relative, <strong>cost per token</strong>. Because there’s no latency constraint, the goal is to take the time to plan the best way to minimize the total cost of processing these requests. You can fill batches to capacity, use cheaper or slower hardware, and let individual requests wait while the system finds the most efficient packing. Larger batches mean better GPU utilization, which means lower cost.</p>
-<p>In <strong>real-time inference</strong>, a user (or another system) is waiting for a response, and how fast that response arrives directly affects the experience. Here, the metrics from <a href="#sec-metrics" class="quarto-xref"><span>Section 1.2</span></a> that matter most are <strong>TTFT</strong> and <strong>TPOT</strong>. A chatbot that takes five seconds to start responding feels broken, even if its overall throughput is excellent. This means the serving system has to balance resource utilization against latency. You can’t hold requests in a queue too long to form larger batches, because that increases TTFT for every waiting request.</p>
+<p>In <strong>real-time inference</strong>, a user (or another system) is waiting for a response, and how fast that response arrives directly affects the experience. Here, the metrics from <a href="#sec-metrics" class="quarto-xref"><span>Section 1.3</span></a> that matter most are <strong>TTFT</strong> and <strong>TPOT</strong>. A chatbot that takes five seconds to start responding feels broken, even if its overall throughput is excellent. This means the serving system has to balance resource utilization against latency. You can’t hold requests in a queue too long to form larger batches, because that increases TTFT for every waiting request.</p>
 <p>Some systems serve both kinds of traffic, and some offer different priority tiers – high-priority real-time requests that get scheduled immediately, and lower-priority requests that can wait to fill in the gaps. Batch inference is the easier workload to optimize for, so many of the optimizations in this book will focus on real-time latency issues. The concept of goodput really helps interpret system performance in a way that measures user experience.</p>
 </section>
 <section id="arrival-patterns" class="level3">
@@ -560,9 +625,9 @@ have all been rewritten and can be used as good examples for the proper author's
 -->
 </section>
 </section>
-<section id="sec-bottleneck-framework" class="level2" data-number="1.4">
-<h2 data-number="1.4" class="anchored" data-anchor-id="sec-bottleneck-framework"><span class="header-section-number">1.4</span> The Hardware Model and Bottleneck Framework</h2>
-<p>In <a href="#sec-inference-pipeline" class="quarto-xref"><span>Section 1.1</span></a>, we explained that prefill is compute-bound and decode is memory-bandwidth-bound. That’s a good start, but to really be able to reason about optimizations more precisely, we need a more detailed picture of the hardware. This section covers just enough GPU architecture to build that picture, then introduces the roofline model as a framework for categorizing compute and memory bandwidth bottlenecks. This won’t be a GPU deep dive or programming tutorial. We’ll cover just enough to understand inference performance quantitatively. In the next section, we’ll close this chapter with a map of how the rest of the book addresses different classes of bottlenecks.</p>
+<section id="sec-bottleneck-framework" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="sec-bottleneck-framework"><span class="header-section-number">1.5</span> The Hardware Model and Bottleneck Framework</h2>
+<p>In <a href="#sec-inference-pipeline" class="quarto-xref"><span>Section 1.2</span></a>, we explained that prefill is compute-bound and decode is memory-bandwidth-bound. That’s a good start, but to really be able to reason about optimizations more precisely, we need a more detailed picture of the hardware. This section covers just enough GPU architecture to build that picture, then introduces the roofline model as a framework for categorizing compute and memory bandwidth bottlenecks. This won’t be a GPU deep dive or programming tutorial. We’ll cover just enough to understand inference performance quantitatively. In the next section, we’ll close this chapter with a map of how the rest of the book addresses different classes of bottlenecks.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -767,8 +832,8 @@ Figure&nbsp;1.5: Roofline plot for the H100 SXM at FP16
 <p>If we were calculating the roofline plot for FP8, the peak bandwidth remains the same, but the peak throughput is about double at 1,979 TFLOPS. The blue line would be extended further up to the right before it hit our 1,979 TFLOPS compute ceiling, so our ridge point would be further right, at 591 FLOP/byte. When you increase compute throughput through lower precision, the bar for being compute-bound gets higher. This means that switching to FP8 can actually make some workloads that were compute-bound at FP16 become memory-bandwidth-bound at FP8. For this reason, workloads don’t always run twice as fast when switching from FP16 to FP8. We will revisit this in <a href="ch2-model.html#sec-quantization" class="quarto-xref"><span>Section 2.1</span></a> when we discuss model quantization.</p>
 </section>
 </section>
-<section id="sec-prefill-decode" class="level2" data-number="1.5">
-<h2 data-number="1.5" class="anchored" data-anchor-id="sec-prefill-decode"><span class="header-section-number">1.5</span> Putting Numbers on a Baseline</h2>
+<section id="sec-prefill-decode" class="level2" data-number="1.6">
+<h2 data-number="1.6" class="anchored" data-anchor-id="sec-prefill-decode"><span class="header-section-number">1.6</span> Putting Numbers on a Baseline</h2>
 <p>With the roofline model in hand, let’s look at real numbers for prefill and decode. We’ll use the NVIDIA H100 SXM as our reference hardware and a 70-billion-parameter model as our reference model. The goal is to establish a <strong>baseline</strong> for inference without any optimizations. Every technique in the rest of this book is an improvement on this baseline.</p>
 <section id="sec-prefill-stage" class="level3">
 <h3 class="anchored" data-anchor-id="sec-prefill-stage">Prefill is compute-bound</h3>
@@ -794,7 +859,7 @@ Note
 <p><span class="math display">\[\text{Weight bytes} = 70 \times 10^9 \times 2 = 140 \text{ GB}\]</span></p>
 <p>The arithmetic intensity is:</p>
 <p><span class="math display">\[\text{AI}_{\text{prefill}} = \frac{573 \times 10^{12}}{140 \times 10^9} \approx 4{,}093 \text{ FLOP/byte}\]</span></p>
-<p>Recall from <a href="#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.4</span></a> that the H100 SXM ridge point at FP16 is approximately 295 FLOP/byte. Our prefill arithmetic intensity of ~4,093 FLOP/byte is more than <strong>13x above the ridge point</strong>. Prefill is firmly in compute-bound territory.</p>
+<p>Recall from <a href="#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.5</span></a> that the H100 SXM ridge point at FP16 is approximately 295 FLOP/byte. Our prefill arithmetic intensity of ~4,093 FLOP/byte is more than <strong>13x above the ridge point</strong>. Prefill is firmly in compute-bound territory.</p>
 <p>What does this mean for execution time? Since we’re compute-bound, the time is limited by the GPU’s peak compute throughput:</p>
 <p><span class="math display">\[t_{\text{prefill}} \geq \frac{573 \times 10^{12}}{989.5 \times 10^{12}} \approx 0.58 \text{ seconds}\]</span></p>
 <p>In practice, you won’t achieve 100% of peak throughput due to overhead, memory access patterns that aren’t perfectly optimized, and the attention computation. A realistic MFU of 50-70% would put the actual prefill time at roughly 0.8-1.2 seconds for this workload.</p>
@@ -1065,8 +1130,8 @@ Note
 <p>The book concludes in <a href="ch6-production.html" class="quarto-xref"><span>Chapter 6</span></a> with a discusion of production LLM serving systems.</p>
 </section>
 </section>
-<section id="further-reading" class="level2" data-number="1.6">
-<h2 data-number="1.6" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">1.6</span> Further Reading</h2>
+<section id="further-reading" class="level2" data-number="1.7">
+<h2 data-number="1.7" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">1.7</span> Further Reading</h2>
 <p>The roofline model was introduced by <span class="citation" data-cites="williams2009roofline">Williams et al. (<a href="references.html#ref-williams2009roofline" role="doc-biblioref">2009</a>)</span> and remains one of the clearest frameworks for reasoning about hardware bottlenecks. Their original paper uses CPU examples, but the model applies directly to GPUs – the key insight is the same: compare arithmetic intensity against the ridge point to determine whether you’re compute-bound or bandwidth-bound.</p>
 <p>For GPU hardware specifics, the NVIDIA H100 datasheet <span class="citation" data-cites="nvidia2023h100">(<a href="references.html#ref-nvidia2023h100" role="doc-biblioref">NVIDIA 2023</a>)</span> and the CUDA Programming Guide <span class="citation" data-cites="nvidia2024cuda">(<a href="references.html#ref-nvidia2024cuda" role="doc-biblioref">NVIDIA 2024</a>)</span> are the authoritative references. The datasheet gives the peak throughput and bandwidth numbers used throughout this book. The programming guide covers the memory hierarchy, kernel launch mechanics, and CUDA graphs in much more detail than we do here.</p>
 <p>The back-of-envelope analysis in this chapter follows the approach laid out by <span class="citation" data-cites="pope2022scaling">Pope et al. (<a href="references.html#ref-pope2022scaling" role="doc-biblioref">2022</a>)</span>, who provide a thorough accounting of FLOPs, memory bandwidth, and arithmetic intensity for each layer of a transformer during inference. Their paper covers both prefill and decode on TPU hardware, but the methodology translates directly to GPUs. They also cover the effects of multi-query attention, different parallelism strategies, and how the roofline picture changes as you scale model size.</p>
@@ -1078,6 +1143,9 @@ Note
 
 
 <div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-anyscale2024batching" class="csl-entry" role="listitem">
+Anyscale. 2024. <span>“How Continuous Batching Enables 23x Throughput in <span>LLM</span> Inference While Reducing P50 Latency.”</span> <a href="https://www.anyscale.com/blog/continuous-batching-llm-inference">https://www.anyscale.com/blog/continuous-batching-llm-inference</a>.
+</div>
 <div id="ref-kipply2023arithmetic" class="csl-entry" role="listitem">
 Chen, Carol. 2022. <span>“Transformer Inference Arithmetic.”</span> <a href="https://kipp.ly/transformer-inference-arithmetic/">https://kipp.ly/transformer-inference-arithmetic/</a>.
 </div>

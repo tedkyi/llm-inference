@@ -704,7 +704,7 @@ Table&nbsp;5.2: Communication patterns and costs for each parallelism strategy. 
 <section id="network-latency-as-a-floor" class="level3">
 <h3 class="anchored" data-anchor-id="network-latency-as-a-floor">Network latency as a floor</h3>
 <p>During decode, each token generation requires a full forward pass through the model. If that forward pass spans two nodes connected by InfiniBand, each pipeline stage boundary (or TP all-reduce, if you’re running TP across nodes) adds network latency. InfiniBand NDR round-trip latency is roughly 2-5 μs, compared to ~100 ns for NVLink. This latency is per layer for TP or per stage for PP, and it accumulates across the forward pass.</p>
-<p>For a model using PP=2 across nodes, the activation transfer between stages adds a few microseconds per decode step. That’s usually acceptable. But for TP across nodes, where you need two all-reduces per layer across potentially 80+ layers, the cumulative latency can add milliseconds to each token, directly increasing TPOT (see <a href="ch1-framing.html#sec-metrics" class="quarto-xref"><span>Section 1.2</span></a>).</p>
+<p>For a model using PP=2 across nodes, the activation transfer between stages adds a few microseconds per decode step. That’s usually acceptable. But for TP across nodes, where you need two all-reduces per layer across potentially 80+ layers, the cumulative latency can add milliseconds to each token, directly increasing TPOT (see <a href="ch1-framing.html#sec-metrics" class="quarto-xref"><span>Section 1.3</span></a>).</p>
 </section>
 <section id="practical-deployment-patterns" class="level3">
 <h3 class="anchored" data-anchor-id="practical-deployment-patterns">Practical deployment patterns</h3>

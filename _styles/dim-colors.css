@@ -1,0 +1,9 @@
+/* Dimension letter colors — matching figure edge colors (conventions.qmd) */
+.dim-s  { color: #DC2626; }  /* Sequence length S      — red    */
+.dim-d  { color: #1E40AF; }  /* Model dimension D      — navy   */
+.dim-h  { color: #A855F7; }  /* Number of heads H      — violet */
+.dim-dk { color: #2563EB; }  /* Head dimension dK      — blue   */
+.dim-f  { color: #059669; }  /* FFN intermediate F     — teal   */
+.dim-v  { color: #D97706; }  /* Vocabulary V           — amber  */
+.dim-l  { color: #8B4513; }  /* Number of layers L     — brown  */
+.dim-hkv { color: #C084FC; } /* KV heads H_KV          — lilac  */

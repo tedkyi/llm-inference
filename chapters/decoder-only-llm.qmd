@@ -304,6 +304,8 @@ Two approaches are common:
 
 **Rotary Position Embeddings (RoPE)** [@su2021rope]: instead of adding position information to the input, RoPE applies a position-dependent rotation to the query and key vectors *inside* the attention computation. The rotation is defined such that the dot product between a query at position $i$ and a key at position $j$ depends only on the relative distance $i - j$. This is what most modern LLMs use, including Llama and its derivatives. RoPE enables better length generalization and is applied after the Q and K projections but before the attention score computation.
 
+TODO: mention other options like Alibi, NoPE
+
 For inference purposes, the distinction matters mainly for two reasons.
 First, RoPE's relative position encoding is what enables context length extension techniques.
 Second, RoPE is applied inside the attention block at a specific point in the computation, which matters when implementing custom attention kernels.
@@ -329,6 +331,7 @@ $$\begin{aligned}
 y &= \hat{X} + \text{FFN}(\text{LayerNorm}(\hat{X}))
 \end{aligned}$$
 
+(TODO: there are more options, with RMSNorm being the most popular now)
 **LayerNorm** [@ba2016layernorm] is applied *before* each sub-layer (self-attention and FFN), and the sub-layer's output is added to its input via a **residual connection**.
 This is the pre-norm formulation, used by GPT-2 [@radford2019gpt2] and all modern LLMs.
 The original transformer [@vaswani2017attention] used post-norm (LayerNorm *after* the residual add), but pre-norm is now standard because it provides better training stability at scale.
@@ -757,7 +760,7 @@ Over a 4096-token generation, the cache grows from zero to 1.34 GB.
 
 ## The Feed-Forward Network {#sec-ffn}
 
-Every transformer layer contains two main sub-layers: self-attention and a **feed-forward network (FFN)**, also called the **MLP block**.
+Every transformer layer contains two main sub-layers: self-attention and a **feed-forward network (FFN)**, also called the **MLP** (multi-layer perceptron) block.
 While self-attention handles cross-position communication, the FFN operates on each position independently, transforming the representation at each position through nonlinear learned mappings.
 The FFN is where the majority of a model's parameters live.
 
@@ -872,6 +875,7 @@ Standard dense models apply the same MLP to every token.
 
 The router is a simple learned linear layer of shape **([D]{.dim-d}, E)** that produces a score for each expert.
 For each token, the router selects the top-$k$ experts (typically $k$ = 2), and only those experts process the token.
+(TODO: clarify old fashioned large experts versus newer sparse experts)
 The outputs of the selected experts are combined using the router's softmax weights.
 
 ```{=html}
@@ -945,13 +949,14 @@ But this introduces all-to-all communication as tokens are routed to the GPU hol
 Load balancing across experts also matters: if the router sends most tokens to the same few experts, some GPUs do much more work than others.
 We'll revisit expert parallelism in @sec-scaling.
 
-### Why the FFN matters for inference
+### Why the MLP matters for inference
 
 The MLP layers typically account for roughly **two-thirds** of a model's parameters.
 For Llama 70B, each layer's SwiGLU MLP has about 704M parameters versus about 268M for attention, a ratio of roughly 2.6:1.
 Across 80 layers, that's about 56B parameters in MLPs versus 21B in attention.
 
 During decode, every active parameter is read from HBM once per token (at batch size 1).
+(TODO: do we need to further clarify *active* paramters versus *all* parameters?)
 The MLP weights are the single largest contributor to the memory bandwidth demand of each decode step.
 This is why quantization (@sec-quantization) has such an outsized effect: compressing the MLP weights from FP16 to INT4 roughly halves the memory bandwidth needed per decode step, directly increasing the achievable tokens-per-second.
 

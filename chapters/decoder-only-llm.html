@@ -327,8 +327,8 @@ window.Quarto = {
 </header>
 
 
-<p>This chapter covers the architecture of the basic decoder-only transformer architecture used by most LLMs such as ChatGPT and Llama. We will walk through in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions. If you’re already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter. We recommend that you examine <a href="#tip-data-flow" class="quarto-xref">Tip&nbsp;<span>2.1</span></a> to understand the conventions used in data flow diagrams before moving ahead to the rest of the book.</p>
-<p>We’ll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modern LLMs and its parameters are public. When we say “a 70B model,” we mean something with roughly Llama 3 70B’s dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens <span class="citation" data-cites="grattafiori2024llama3">(<a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span>.</p>
+<p>This chapter covers the architecture of the basic decoder-only transformer architecture used by most LLMs such as ChatGPT and Llama. We will walk through in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions. If you’re already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter. We recommend that you examine the tip at the beginning of <a href="#sec-forward-pass" class="quarto-xref"><span>Section 2.2</span></a> to understand the conventions used in data flow diagrams before moving ahead to the rest of the book.</p>
+<p>We’ll use concrete numbers from the Llama family of models throughout. Not because Llama is special, but because its architecture is representative of modern LLMs and its parameters are public. There are many newer models with better performance, but Llama has a simpler, more canonical architecture which is a good fit for this introduction. When we say “a 70B model,” we mean something with roughly Llama 3 70B’s dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens <span class="citation" data-cites="grattafiori2024llama3">(<a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span>.</p>
 <section id="sec-enc-dec" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="sec-enc-dec"><span class="header-section-number">2.1</span> From Encoder-Decoder to Decoder-Only</h2>
 <p>The original transformer architecture introduced in “Attention Is All You Need” <span class="citation" data-cites="vaswani2017attention">(<a href="references.html#ref-vaswani2017attention" role="doc-biblioref">Vaswani et al. 2017</a>)</span> has two distinct halves: an <strong>encoder</strong> that processes the input sequence and a <strong>decoder</strong> that generates the output sequence. The encoder builds a rich representation of the input through layers of self-attention. The decoder then attends to that representation through <strong>cross-attention</strong> layers while also attending to its own previously generated tokens through <strong>masked self-attention</strong>.</p>
@@ -342,7 +342,7 @@ Figure&nbsp;2.1: The original transformer architecture
 </figcaption>
 </figure>
 </div>
-<p>This encoder-decoder design, shown in <a href="#fig-orig-transformer" class="quarto-xref">Figure&nbsp;<span>2.1</span></a> was built for sequence-to-sequence tasks like machine translation, where you have a clear separation between input (such as a sentence in French) and output (its English translation). The encoder reads the full input and builds a bidirectional representation – each token can attend to every other token, past and future. The decoder then generates the output one token at a time, attending both to the encoder’s representation and to its own partial output.</p>
+<p>This encoder-decoder design, shown in <a href="#fig-orig-transformer" class="quarto-xref">Figure&nbsp;<span>2.1</span></a> was built for sequence-to-sequence tasks like machine translation, where you have a clear separation between input (such as a sentence in French) and output (its English translation). The encoder on the left reads the full input and builds a bidirectional representation – each token can attend to every other token, past and future. The decoder on the right then generates the output one token at a time, attending both to the encoder’s representation and to its own partial output.</p>
 <p>The decoder-only transformer, used by GPT-2 <span class="citation" data-cites="radford2019gpt2">(<a href="references.html#ref-radford2019gpt2" role="doc-biblioref">Radford et al. 2019</a>)</span>, LLaMA <span class="citation" data-cites="touvron2023llama">(<a href="references.html#ref-touvron2023llama" role="doc-biblioref"><span class="nocase">Touvron, Lavril, et al.</span> 2023</a>)</span>, and virtually all modern large language models in production today, takes this architecture and strips it down. The entire encoder is removed. The cross-attention layers in the decoder are removed. What’s left is a single stack of transformer blocks, each containing masked self-attention and a feed-forward network, preceded by a token embedding layer and followed by a linear language model head.</p>
 <div id="fig-decoder" class="quarto-layout-panel">
 <figure class="quarto-float quarto-float-fig figure">
@@ -384,7 +384,7 @@ Figure&nbsp;2.2: A decoder-only LLM, shown in two variants
 <section id="layer-repetition-and-weight-sharing" class="level3">
 <h3 class="anchored" data-anchor-id="layer-repetition-and-weight-sharing">Layer repetition and weight sharing</h3>
 <p>Two aspects of the architecture are worth making very explicit, because they matter for understanding inference costs.</p>
-<p>First, the “N×” in the architecture diagram means that the same block structure is repeated N times. Note that each layer has the same structure, shape, and size, but each layer has its own independent set of weights. Layer 0’s attention weights are completely separate from Layer 1’s. A 70B model with 80 layers has 80 distinct sets of attention and feed-forward weights. During inference, the model must read each layer’s weights from memory in sequence – there is no reuse across layers. A diagram making the N copies explicit is shown in <a href="#fig-vert-stack" class="quarto-xref">Figure&nbsp;<span>2.3</span></a>. This is what a decoder-only LLM really looks like, and if you review the PyTorch code for one, you will see this exact structure. We will mention that the input to the first layers is a vector of floating point numbers of length <span class="math inline">\(d_{model}\)</span>, which will will abbreviate D.</p>
+<p>First, the “N×” in the architecture diagram means that the same block structure is repeated N times. Note that each layer has the same structure, shape, and size, but each layer has its own independent set of weights. For example, Layer 0’s attention weights are completely separate from Layer 1’s. A 70B model with 80 layers has 80 distinct sets of attention and feed-forward weights. During inference, the model must read each layer’s weights from memory in sequence – there is no reuse across layers in the standard LLM. A diagram making the N copies explicit is shown in <a href="#fig-vert-stack" class="quarto-xref">Figure&nbsp;<span>2.3</span></a>. This is what a decoder-only LLM really looks like, and if you review the PyTorch code for one, you will see this exact structure. We will mention that the input to the first layers is a vector of floating point numbers of length <span class="math inline">\(d_{model}\)</span>, which will will abbreviate <strong>(<span class="dim-d">D</span>)</strong>.</p>
 <div id="fig-vert-stack" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-vert-stack-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -395,7 +395,7 @@ Figure&nbsp;2.3: Explicit multiple layers
 </figcaption>
 </figure>
 </div>
-<p>Second, the architecture is applied identically across every position in the sequence, sharing all weights. When we process a sequence of S tokens, the same weight matrices are applied to every token position. <a href="#fig-model-grid" class="quarto-xref">Figure&nbsp;<span>2.4</span></a> shows an intuition of the model being copied repeatedly for each token position.</p>
+<p>The second architectural understanding needed is that the model is applied identically across every token position in the sequence, sharing all weights. When we process a sequence of <strong>(<span class="dim-s">S</span>)</strong> tokens, the same weight matrices are applied to every token position. <a href="#fig-model-grid" class="quarto-xref">Figure&nbsp;<span>2.4</span></a> shows an intuition of the model being copied repeatedly for each token position.</p>
 <div id="fig-model-grid" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-model-grid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -417,7 +417,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>For efficiency reasons, almost all deep learning training and inference happens in batches. This is true as well for LLM inference, and we will discuss batching in <a href="ch3-scheduling.html#sec-batching" class="quarto-xref"><span>Section 5.1</span></a>. For the sake of brevity, especially in diagrams, we will discuss non-batched data flow and omit the explicit mention of the batch dimension. For LLMs, the full shape of the input to the first layer is <strong>(B, <span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, which we abbreviate to <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> for non-batched inputs. Wherever tensor shapes are mentioned without a leading batch dimension, it is appropriate to think about batched processing adding a single dimension to the beginning of the shape. We hope this convention of using non-batched shapes does not cause any confusion.</p>
+<p>For efficiency reasons, almost all deep learning training and inference happens in batches. This is true as well for LLM inference, and we will discuss batching in <a href="ch3-scheduling.html#sec-batching" class="quarto-xref"><span>Section 5.1</span></a>. For the sake of brevity, especially in diagrams, we will discuss non-batched data flow and omit the explicit mention of the batch dimension. For LLMs, the full batched shape of the input to the first layer is <strong>(B, <span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, which we abbreviate to <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> for non-batched inputs. Wherever tensor shapes are mentioned without a leading batch dimension, it is appropriate to think about batched processing adding a single dimension to the beginning of the shape. We hope this convention of using non-batched shapes does not cause any confusion.</p>
 </div>
 </div>
 <p>TODO: explain that self-attention gets applied across token positions but FFNs don’t. Probably as we explain each block. The self-attention mechanism is what allows information to flow between positions – the weights themselves don’t distinguish between position 0 and position 99.</p>
@@ -465,14 +465,14 @@ across all positions to emphasize sharing.
 </section>
 <section id="sec-forward-pass" class="level2" data-number="2.2">
 <h2 data-number="2.2" class="anchored" data-anchor-id="sec-forward-pass"><span class="header-section-number">2.2</span> Forward Pass Data Flow</h2>
-<p>To better understand how inference works, we will examine what happens when we send data through a forward pass of the model. We will start at the big picture and work our way down into the individual components. Let’s trace input token IDs from input to output logits, annotating every tensor shape along the way.</p>
-<div id="tip-data-flow" class="callout callout-style-default callout-tip callout-titled">
+<p>To better understand how inference works, we will examine what happens when we send data through a forward pass of the model. We will start at the big picture and work our way down into the individual components. Let’s trace input token IDs from input to output logits, annotating every tensor shape along the way. We call the diagrams we will use <strong>data flow diagrams</strong>, and they focus on the shapes of the tensors passed into operations more than the math of the calculation being performed. This is so we can understand the size and shape of the data, which directly affects transfer speeds and computation costs. The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-Tip&nbsp;2.1
+Tip
 </div>
 </div>
 <div class="callout-body-container callout-body">
@@ -481,16 +481,16 @@ Tip&nbsp;2.1
 <p><strong>Dimensions and edge color</strong>: The data tensor’s shape is shown next to it, on the right side unless there isn’t room. This first tensor on the bottom has shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, where <strong><span class="dim-s">S</span></strong> is the row dimension and <strong><span class="dim-d">D</span></strong> is the column dimension. Note that the left and right edges are colored red, and every tensor with a dimension that is length <strong><span class="dim-s">S</span></strong> will have that dimension colored red. Similarly, the top and bottom edges are colored blue because the column dimension is <strong><span class="dim-d">D</span></strong>, and all other dimensions length <strong><span class="dim-d">D</span></strong> will be the same color.</p>
 <p><strong>Fill color</strong>: The fill color of the tensor is gray. Tensors holding similar semantic information will have similar fill colors. Weights are fixed model tensors, and they always have the same purple fill color.</p>
 <p><strong>3D tensors</strong>: The tensor at the top of the diagram is 3D with shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>. Because it is 3D, it is shown with a “stacked” rectangle shape. The leading dimension, <strong><span class="dim-h">H</span></strong>, is the stacked dimension. The third dimsion’s purple edge color corresponds to this dimension.</p>
-<p><strong>Views</strong>: The middle tensor to the top tensor are connected by a dashed line. This indicates that there is a change of view, but no actual operation is performed.</p>
+<p><strong>Views</strong>: The middle tensor and the top tensor are connected by an arrow with a dotted line. The dotted stroke indicates that there is a change of view, but no actual operation is performed.</p>
 </div>
 </div>
 <section id="the-input" class="level3">
 <h3 class="anchored" data-anchor-id="the-input">The input</h3>
-<p>The input to our model is a list of integer token IDs. It’s shape is <strong>(<span class="dim-s">S</span>)</strong>, where <strong><span class="dim-s">S</span></strong> is the sequence length (number of tokens). As a reminder, in this book we are using the simpler notation of non-batched processing. For batched processing, the input shape would be <strong>(B, <span class="dim-s">S</span>)</strong>. The value of <strong><span class="dim-s">S</span></strong> varies. <strong><span class="dim-s">S</span></strong> starts as the length of the prompt, and it increases as generated tokens are appended. It is reasonable that <strong><span class="dim-s">S</span></strong> will be less than <strong><span class="dim-d">D</span></strong> at the beginning of generation, but <strong><span class="dim-s">S</span></strong> will be greater than <strong><span class="dim-d">D</span></strong> by the end of generating a long response. We will call this input tensor <span class="math inline">\(X\)</span>.</p>
+<p>The input to our LLM model is a list of integer token IDs. It’s shape is <strong>(<span class="dim-s">S</span>)</strong>, where <strong><span class="dim-s">S</span></strong> is the sequence length (number of tokens). As a reminder, in this book we are using the simpler notation of non-batched processing. (For batched processing, the input shape would be <strong>(B, <span class="dim-s">S</span>)</strong>.) The value of <strong><span class="dim-s">S</span></strong> varies. <strong><span class="dim-s">S</span></strong> starts as the length of the prompt, and it increases as generated tokens are appended. It is reasonable that <strong><span class="dim-s">S</span></strong> might be less than <strong><span class="dim-d">D</span></strong> at the beginning of generation, but then <strong><span class="dim-s">S</span></strong> grows to be greater than <strong><span class="dim-d">D</span></strong> by the end of generating a long response. We will call this input tensor <span class="math inline">\(X\)</span>.</p>
 </section>
 <section id="the-full-model" class="level3">
 <h3 class="anchored" data-anchor-id="the-full-model">The full model</h3>
-<p>The complete forward pass stacks N decoder blocks between the embedding layer and the language model head.</p>
+<p>The complete forward pass stacks N decoder blocks layers between the embedding layer and the language model head, as shown in <a href="#fig-llm-flow" class="quarto-xref">Figure&nbsp;<span>2.5</span></a>.</p>
 <!-- FIGURE 11: Full Model Architecture — Token IDs to Logits
 
     Input token IDs: (S)       integers in [0, V)
@@ -592,16 +592,17 @@ Tip&nbsp;2.1
     cache read/write with bidirectional arrows at each layer. Use
     3D "stack" effect for batch dimension B.
 -->
-<div id="fig-llm-flow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-llm-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-llm-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/llm_flow.svg" class="img-fluid figure-img">
+<a href="images/llm_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;2.5: Data flow of an entire decoder-only LLM"><img src="images/llm_flow.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-llm-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.5: Data flow of an entire decoder-only LLM
 </figcaption>
 </figure>
 </div>
+<p>We see our input with shape <strong>(<span class="dim-s">S</span>)</strong> at the bottom of <a href="#fig-llm-flow" class="quarto-xref">Figure&nbsp;<span>2.5</span></a>. It is converted to a sequence of one-hot vectors, and the input is now shape <strong>(<span class="dim-s">S</span>, <span class="dim-v">V</span>)</strong>. This flows into a matrix multiply with the embedding weights, which are a giant matrix of shape <strong>(<span class="dim-v">V</span>, <span class="dim-d">D</span>)</strong>. We now have a dense input matrix of shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>. This is fed to Layer 0, whose output is the same shape, <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, and the layer output is added to the existing values. As the data flows through all <strong><span class="dim-l">L</span></strong> layers, the shape never changes from <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> as the layer outputs continue to get added to the residual stream. After the last layer, the data passes through a final normalization layer, retaining its <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> shape. Finally, a Linear prediction head does a matrix multiply with and output weight matrix of shape <strong>(<span class="dim-d">D</span>, <span class="dim-v">V</span>)</strong> and it outputs the probability logits, which are shape <strong>(<span class="dim-s">S</span>, <span class="dim-v">V</span>)</strong>. These can be sharpened by passing through a SofMax and a sampling method used to finalize the next token prediction.</p>
 </section>
 <section id="positional-encoding" class="level3">
 <h3 class="anchored" data-anchor-id="positional-encoding">Positional encoding</h3>
@@ -684,7 +685,7 @@ y &amp;= \hat{X} + \text{FFN}(\text{LayerNorm}(\hat{X}))
 <div id="fig-decoder-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-decoder-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/decoder_block.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;2.6: Data flow of one decoder layer"><img src="images/decoder_block.svg" height="500" class="figure-img"></a>
+<a href="images/decoder_block.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-7" title="Figure&nbsp;2.6: Data flow of one decoder layer"><img src="images/decoder_block.svg" height="500" class="figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-decoder-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.6: Data flow of one decoder layer
@@ -709,7 +710,7 @@ Figure&nbsp;2.6: Data flow of one decoder layer
 <div id="fig-attn-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-attn-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/attn_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-7" title="Figure&nbsp;2.7: Data flow of weights and activations in an multi-head attention layer using a basic, unoptimized implementation"><img src="images/attn_flow.svg" height="700" class="figure-img"></a>
+<a href="images/attn_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-8" title="Figure&nbsp;2.7: Data flow of weights and activations in an multi-head attention layer using a basic, unoptimized implementation"><img src="images/attn_flow.svg" height="700" class="figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-attn-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.7: Data flow of weights and activations in an multi-head attention layer using a basic, unoptimized implementation

@@ -317,12 +317,12 @@ window.Quarto = {
 <section id="why-batching-matters" class="level3">
 <h3 class="anchored" data-anchor-id="why-batching-matters">Why batching matters</h3>
 <p>In <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a>, we established that decode is deeply memory-bandwidth-bound. Each decode step reads the entire set of model weights from HBM to produce just one token per request. On an H100 SXM with a 70B parameter model in FP16, that’s roughly 140 GB of weight data read through 3.35 TB/s of bandwidth – about 42 ms just to stream the weights, and all of that work produces a single token.</p>
-<p><strong>Batching</strong> changes this equation. When you process <span class="math inline">\(B\)</span> requests in a single decode step, you still read the weights once, but you apply them to <span class="math inline">\(B\)</span> token vectors instead of one. The compute scales linearly with <span class="math inline">\(B\)</span>, but the data movement stays roughly constant (dominated by the weight read). This directly increases the <strong>arithmetic intensity</strong> – the ratio of FLOPs to bytes moved – pushing decode toward the compute-bound side of the roofline.</p>
-<p>Let’s put concrete numbers on this. For a single linear layer with weight matrix of shape <span class="math inline">\([d, d]\)</span> in FP16:</p>
+<p><strong>Batching</strong> changes this equation. When you process <strong>B</strong> requests in a single decode step, you still read the weights once, but you apply them to <strong>B</strong> token vectors instead of one. The compute scales linearly with <strong>B</strong>, but the data movement stays roughly constant (dominated by the weight read). This directly increases the <strong>arithmetic intensity</strong> – the ratio of FLOPs to bytes moved – pushing decode toward the compute-bound side of the roofline.</p>
+<p>Let’s put concrete numbers on this. For a single linear layer with weight matrix of shape <strong>(<span class="dim-d">D</span>, <span class="dim-d">D</span>)</strong> in FP16:</p>
 <ul>
-<li><strong>Data moved</strong>: <span class="math inline">\(2d^2\)</span> bytes (reading the weight matrix)</li>
-<li><strong>Compute</strong>: <span class="math inline">\(2Bd^2\)</span> FLOPs (<span class="math inline">\(B\)</span> matrix-vector multiplications)</li>
-<li><strong>Arithmetic intensity</strong>: <span class="math inline">\(2Bd^2 / 2d^2 = B\)</span> FLOP/byte</li>
+<li><strong>Data moved</strong>: <span class="math inline">\(2\textcolor{#1E40AF}{D}^2\)</span> bytes (reading the weight matrix)</li>
+<li><strong>Compute</strong>: <span class="math inline">\(2B\textcolor{#1E40AF}{D}^2\)</span> FLOPs (<span class="math inline">\(B\)</span> matrix-vector multiplications)</li>
+<li><strong>Arithmetic intensity</strong>: <span class="math inline">\(2B\textcolor{#1E40AF}{D}^2 / 2\textcolor{#1E40AF}{D}^2 = B\)</span> FLOP/byte</li>
 </ul>
 <p>Recall <a href="inference.html#fig-roofline-batching" class="quarto-xref">Figure&nbsp;<span>3.6</span></a>.</p>
 <p>With batch size 1, the arithmetic intensity is about 1 FLOP/byte – far below the H100’s FP16 ridge point of ~295 FLOP/byte. The GPU’s tensor cores are almost entirely idle, waiting for data to arrive from HBM. With batch size 64, the intensity rises to 64 FLOP/byte. Still below the ridge point, but now the GPU is doing 64x more useful work per byte read. With batch size 256, we’re approaching the ridge point and the GPU’s compute units are finally getting busy.</p>

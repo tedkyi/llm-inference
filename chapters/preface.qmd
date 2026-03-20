@@ -13,7 +13,5 @@ it fast, efficient, and scalable.*
 
 ### Prerequisites {.unnumbered}
 
-This book assumes familiarity with neural networks, the transformer
-architecture, and self-attention at a conceptual level. Readers who need a
-refresher on the decoder-only transformer and self-attention should start
-with @sec-appendix-a.
+This book assumes familiarity with neural networks, the transformer architecture, and self-attention at a conceptual level.
+Readers who need a refresher on the decoder-only transformer and self-attention should start with @sec-appendix-a.

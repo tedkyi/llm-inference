@@ -5,33 +5,38 @@ project:
 book:
   title: "LLM Inference Illustrated"
   author: "Ted Kyi"
-  license: "CC BY-NC-SA"
   repo-url: https://github.com/tedkyi/llm-inference/
   repo-actions: [issue]
   # downloads: [pdf]
   sharing: [twitter, facebook]
   date: today
-  date-format: "[Version dated] YYYY-MM-DD"
+  date-format: "[Draft dated] YYYY-MM-DD"
+  license: "CC BY-NC-SA"
   chapters:
     - index.qmd
     - chapters/preface.qmd
-    - chapters/figure-conventions.qmd
-    - chapters/ch1-framing.qmd
-    - chapters/ch2-model.qmd
+    - chapters/conventions.qmd
+    - chapters/intro.qmd
+    - chapters/decoder-only-llm.qmd
+    - chapters/inference.qmd
+    - chapters/model-design.qmd
     - chapters/ch3-scheduling.qmd
     - chapters/ch4-request.qmd
     - chapters/ch5-scaling.qmd
     - chapters/ch6-production.qmd
-  appendices:
-    - chapters/appendix-a.qmd
+  # appendices:
     - chapters/references.qmd
 
 bibliography: references.bib
 link-citations: true
 
+filters:
+  - _filters/dim-colors.lua
+
 format:
   html:
     theme: cosmo
+    css: _styles/dim-colors.css
     code-tools: false
     toc-depth: 3
     number-depth: 2
@@ -47,6 +52,43 @@ format:
       - margin=1.2in
     include-in-header:
       text: |
+        \usepackage{float}
+        \usepackage{caption}
+        \usepackage[table]{xcolor}
+        \definecolor{dim-s}{HTML}{DC2626}
+        \definecolor{dim-d}{HTML}{1E40AF}
+        \definecolor{dim-h}{HTML}{A855F7}
+        \definecolor{dim-dk}{HTML}{2563EB}
+        \definecolor{dim-f}{HTML}{059669}
+        \definecolor{dim-v}{HTML}{D97706}
+        \definecolor{dim-l}{HTML}{8B4513}
+        \definecolor{dim-hkv}{HTML}{C084FC}
+        \definecolor{edge-dk}{HTML}{93C5FD}
+        \definecolor{edge-default}{HTML}{1E3A5F}
+        \definecolor{fill-neutral}{HTML}{F3F4F6}
+        \definecolor{stroke-neutral}{HTML}{6B7280}
+        \definecolor{fill-query}{HTML}{EFF6FF}
+        \definecolor{fill-key}{HTML}{FFF8E1}
+        \definecolor{fill-value}{HTML}{FEE2E2}
+        \definecolor{fill-attn}{HTML}{D1FAE5}
+        \definecolor{fill-weight}{HTML}{F3E8FF}
+        \definecolor{fill-kvcache}{HTML}{FEF3C7}
+        \definecolor{comp-embed}{HTML}{FCE0E1}
+        \definecolor{comp-attn}{HTML}{FFE2BB}
+        \definecolor{comp-ffn}{HTML}{C2E8F7}
+        \definecolor{comp-norm}{HTML}{F2F4C1}
+        \definecolor{comp-linear}{HTML}{DBDFEF}
+        \definecolor{comp-softmax}{HTML}{CCE7CF}
+        \definecolor{stroke-dark}{HTML}{333333}
+        \newcommand{\dims}[1]{\textcolor{dim-s}{#1}}
+        \newcommand{\dimd}[1]{\textcolor{dim-d}{#1}}
+        \newcommand{\dimh}[1]{\textcolor{dim-h}{#1}}
+        \newcommand{\dimdk}[1]{\textcolor{dim-dk}{#1}}
+        \newcommand{\dimf}[1]{\textcolor{dim-f}{#1}}
+        \newcommand{\dimv}[1]{\textcolor{dim-v}{#1}}
+        \newcommand{\dimb}[1]{\textcolor{black}{#1}}
+        \newcommand{\diml}[1]{\textcolor{dim-l}{#1}}
+        \newcommand{\dimhkv}[1]{\textcolor{dim-hkv}{#1}}
         \let\realmainmatter\mainmatter
         \renewcommand{\mainmatter}{}
     filters:

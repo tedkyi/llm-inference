@@ -1,0 +1,298 @@
+# Conventions {.unnumbered}
+
+*Figures throughout this book use a consistent visual language for tensor shapes, dimensions, and components. This page collects those conventions in one place so you can decode any diagram at a glance.*
+
+### Dimension names and abbreviations
+
+Tensors in figures are labeled with their shapes using the single-letter abbreviations below. The full names and abbreviations match those used in the text.
+
+| Symbol | Full name | Example values (Llama 3 70B) |
+|:------:|:----------|:-----------------------------|
+| **B**              | Batch size | 1--64 |
+| **[D]{.dim-d}**    | Model dimension ($d_\text{model}$) | 8192 |
+| $\dimdk{d_K}$      | Head dimension ($D / H$) | 128 |
+| **[F]{.dim-f}**    | FFN intermediate dimension ($d_\text{ff}$) | 28672 (SwiGLU) |
+| **[H]{.dim-h}**    | Number of attention heads ($n_\text{heads}$) | 64 |
+| $\dimhkv{H_\text{KV}}$ | Number of KV heads | 8 (with GQA) |
+| **[L]{.dim-l}**    | Number of layers | 80 |
+| **[S]{.dim-s}**    | Sequence length | Prefill: prompt length (e.g., 2048); Decode: 1 |
+| **[V]{.dim-v}**    | Vocabulary size | 128000 |
+
+: Standard dimension symbols used in figures and text. {#tbl-dim-symbols .striped}
+
+
+### Tensor edge colors
+
+Tensor rectangles use **colored edges** to indicate which dimension runs along that axis. Top/bottom edges represent one dimension; left/right edges represent another. This makes it possible to see at a glance how dimensions flow through a computation.
+
+::: {.content-visible when-format="html"}
+```{=html}
+<table style="border-collapse: collapse; margin: 1em 0;">
+<caption>Edge colors encode tensor dimensions.</caption>
+<thead>
+<tr>
+  <th style="padding: 8px 16px; border-bottom: 2px solid #333; text-align: center;">Edge</th>
+  <th style="padding: 8px 16px; border-bottom: 2px solid #333; text-align: left;">Dimension</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#1E40AF" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Model dimension (<strong><span class="dim-d">D</span></strong>)</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#93C5FD" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Head / Q-K dimension (<strong><span class="dim-dk">\(d_K\)</span></strong>)</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#059669" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">FFN intermediate dimension (<strong><span class="dim-f">F</span></strong>)</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#A855F7" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Number of attention heads (<strong><span class="dim-h">H</span></strong>)</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#C084FC" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Number of KV heads (<strong><span class="dim-hkv">H<sub>KV</sub></span></strong>)</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#8B4513" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Number of layers (<strong><span class="dim-l">L</span></strong>)</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#DC2626" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Sequence length (<strong><span class="dim-s">S</span></strong>)</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#D97706" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Vocabulary (<strong><span class="dim-v">V</span></strong>)</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="60" height="6"><line x1="0" y1="3" x2="60" y2="3" stroke="#1E3A5F" stroke-width="3"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Default / other</td>
+</tr>
+</tbody>
+</table>
+```
+:::
+
+::: {.content-visible when-format="pdf"}
+```{=latex}
+\begin{center}
+\captionof{table}{Edge colors encode tensor dimensions.}
+\label{tbl-edge-colors}
+\rowcolors{2}{white}{gray!8}
+\begin{tabular}{cl}
+\toprule
+Edge & Dimension \\
+\midrule
+\textcolor{dim-d}{\rule{1.5cm}{2.5pt}} & Model dimension ($\dimd{\mathbf{D}}$) \\[4pt]
+\textcolor{edge-dk}{\rule{1.5cm}{2.5pt}} & Head / Q-K dimension ($\dimdk{\mathbf{d_K}}$) \\[4pt]
+\textcolor{dim-f}{\rule{1.5cm}{2.5pt}} & FFN intermediate dimension ($\dimf{\mathbf{F}}$) \\[4pt]
+\textcolor{dim-h}{\rule{1.5cm}{2.5pt}} & Number of attention heads ($\dimh{\mathbf{H}}$) \\[4pt]
+\textcolor{dim-hkv}{\rule{1.5cm}{2.5pt}} & Number of KV heads ($\dimhkv{\mathbf{H_\text{KV}}}$) \\[4pt]
+\textcolor{dim-l}{\rule{1.5cm}{2.5pt}} & Number of layers ($\diml{\mathbf{L}}$) \\[4pt]
+\textcolor{dim-s}{\rule{1.5cm}{2.5pt}} & Sequence length ($\dims{\mathbf{S}}$) \\[4pt]
+\textcolor{dim-v}{\rule{1.5cm}{2.5pt}} & Vocabulary ($\dimv{\mathbf{V}}$) \\[4pt]
+\textcolor{edge-default}{\rule{1.5cm}{2.5pt}} & Default / other \\
+\bottomrule
+\end{tabular}
+\end{center}
+```
+:::
+
+
+### Tensor fill colors
+
+The **fill color** of a tensor rectangle indicates its role in the computation.
+
+::: {.content-visible when-format="html"}
+```{=html}
+<table style="border-collapse: collapse; margin: 1em 0;">
+<caption>Fill colors encode tensor roles.</caption>
+<thead>
+<tr>
+  <th style="padding: 8px 16px; border-bottom: 2px solid #333; text-align: center;">Fill</th>
+  <th style="padding: 8px 16px; border-bottom: 2px solid #333; text-align: left;">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#F3F4F6" stroke="#6B7280" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Input / activations (neutral)</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#F3E8FF" stroke="#6B7280" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Weight matrices</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#EFF6FF" stroke="#1E40AF" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Queries (<strong>Q</strong>)</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#FFF8E1" stroke="#6B7280" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Keys (<strong>K</strong>)</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#FEE2E2" stroke="#6B7280" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Values (<strong>V</strong>)</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#D1FAE5" stroke="#6B7280" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Attention scores / weights</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#FEF3C7" stroke="#6B7280" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">KV cache entries</td>
+</tr>
+</tbody>
+</table>
+```
+:::
+
+::: {.content-visible when-format="pdf"}
+```{=latex}
+\begin{center}
+\captionof{table}{Fill colors encode tensor roles.}
+\label{tbl-fill-colors}
+\rowcolors{2}{white}{gray!8}
+\begin{tabular}{cl}
+\toprule
+Fill & Meaning \\
+\midrule
+\fcolorbox{stroke-neutral}{fill-neutral}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Input / activations (neutral) \\[4pt]
+\fcolorbox{stroke-neutral}{fill-weight}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Weight matrices \\[4pt]
+\fcolorbox{dim-d}{fill-query}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Queries ($\mathbf{Q}$) \\[4pt]
+\fcolorbox{stroke-neutral}{fill-key}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Keys ($\mathbf{K}$) \\[4pt]
+\fcolorbox{stroke-neutral}{fill-value}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Values ($\mathbf{V}$) \\[4pt]
+\fcolorbox{stroke-neutral}{fill-attn}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Attention scores / weights \\[4pt]
+\fcolorbox{stroke-neutral}{fill-kvcache}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & KV cache entries \\
+\bottomrule
+\end{tabular}
+\end{center}
+```
+:::
+
+
+### Component colors
+
+Architectural block diagrams use a separate set of fill colors to distinguish transformer components.
+
+::: {.content-visible when-format="html"}
+```{=html}
+<table style="border-collapse: collapse; margin: 1em 0;">
+<caption>Component colors in architectural block diagrams.</caption>
+<thead>
+<tr>
+  <th style="padding: 8px 16px; border-bottom: 2px solid #333; text-align: center;">Color</th>
+  <th style="padding: 8px 16px; border-bottom: 2px solid #333; text-align: left;">Component</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#fce0e1" stroke="#333333" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Embedding layers</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#f2f4c1" stroke="#333333" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Layer normalization / Add & Norm</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#ffe2bb" stroke="#333333" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Self-attention blocks</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#c2e8f7" stroke="#333333" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Feed-forward blocks</td>
+</tr>
+<tr>
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#dbdfef" stroke="#333333" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Linear projections</td>
+</tr>
+<tr style="background-color: #f5f5f5;">
+  <td style="padding: 8px 16px; text-align: center;">
+    <svg width="40" height="24"><rect x="0" y="0" width="40" height="24" rx="3" fill="#cce7cf" stroke="#333333" stroke-width="1"/></svg>
+  </td>
+  <td style="padding: 8px 16px;">Softmax</td>
+</tr>
+</tbody>
+</table>
+```
+:::
+
+::: {.content-visible when-format="pdf"}
+```{=latex}
+\begin{center}
+\captionof{table}{Component colors in architectural block diagrams.}
+\label{tbl-component-colors}
+\rowcolors{2}{white}{gray!8}
+\begin{tabular}{cl}
+\toprule
+Color & Component \\
+\midrule
+\fcolorbox{stroke-dark}{comp-embed}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Embedding layers \\[4pt]
+\fcolorbox{stroke-dark}{comp-norm}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Layer normalization / Add \& Norm \\[4pt]
+\fcolorbox{stroke-dark}{comp-attn}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Self-attention blocks \\[4pt]
+\fcolorbox{stroke-dark}{comp-ffn}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Feed-forward blocks \\[4pt]
+\fcolorbox{stroke-dark}{comp-linear}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Linear projections \\[4pt]
+\fcolorbox{stroke-dark}{comp-softmax}{\hspace{0.7cm}\rule{0pt}{0.4cm}} & Softmax \\
+\bottomrule
+\end{tabular}
+\end{center}
+```
+:::
+
+
+## Reading a tensor diagram
+
+To illustrate how these conventions combine, here is how a typical tensor rectangle should be read:
+
+- The **fill color** tells you what kind of tensor it is (query, key, weight, etc.).
+- The **top and bottom edge colors** tell you the dimension that runs horizontally.
+- The **left and right edge colors** tell you the dimension that runs vertically.
+- The **shape label** (e.g., $(S, D)$) confirms the dimensions explicitly.
+
+When two tensors share an edge color on a connecting side, it means those dimensions are compatible for the operation that connects them --- a matrix multiply, a concatenation, or an elementwise operation.

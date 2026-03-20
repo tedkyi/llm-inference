@@ -64,7 +64,7 @@ Keep in mind that all four are actively developed, so specific feature gaps tend
 | Hardware support | NVIDIA, AMD, others | NVIDIA only | NVIDIA, AMD | NVIDIA |
 | Best suited for | General-purpose serving | Max throughput on NVIDIA | Prefix-heavy / multi-call | Very large models, multi-node |
 
-: Framework comparison across major open-source LLM serving systems. {#tbl-frameworks}
+: Framework comparison across major open-source LLM serving systems. {#tbl-frameworks .striped}
 
 ::: callout-note
 CPU and hybrid inference engines like llama.cpp and Apple MLX serve an important role for local and edge deployment, but they operate under fundamentally different constraints -- limited memory bandwidth, no HBM, CPU-only or unified-memory architectures.
@@ -175,7 +175,7 @@ The metrics that matter most in production go beyond averages:
 | KV cache hit rate | Prefix caching effectiveness | Low rate with shared prefixes means caching misconfigured |
 | Goodput | Useful throughput within SLA | Gap between throughput and goodput means SLA violations |
 
-: Key production metrics and their diagnostic value. {#tbl-metrics}
+: Key production metrics and their diagnostic value. {#tbl-metrics .striped}
 
 Percentile latencies (P50, P90, P99) are essential because averages hide tail behavior.
 A system can have a perfectly acceptable P50 TTFT of 200ms while its P99 is 5 seconds -- meaning one in a hundred users waits 25x longer than the median user.

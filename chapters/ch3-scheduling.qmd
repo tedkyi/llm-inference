@@ -17,15 +17,15 @@ Each decode step reads the entire set of model weights from HBM to produce just 
 On an H100 SXM with a 70B parameter model in FP16, that's roughly 140 GB of weight data read through 3.35 TB/s of bandwidth -- about 42 ms just to stream the weights, and all of that work produces a single token.
 
 **Batching** changes this equation.
-When you process $B$ requests in a single decode step, you still read the weights once, but you apply them to $B$ token vectors instead of one.
-The compute scales linearly with $B$, but the data movement stays roughly constant (dominated by the weight read).
+When you process **B** requests in a single decode step, you still read the weights once, but you apply them to **B** token vectors instead of one.
+The compute scales linearly with **B**, but the data movement stays roughly constant (dominated by the weight read).
 This directly increases the **arithmetic intensity** -- the ratio of FLOPs to bytes moved -- pushing decode toward the compute-bound side of the roofline.
 
-Let's put concrete numbers on this. For a single linear layer with weight matrix of shape $[d, d]$ in FP16:
+Let's put concrete numbers on this. For a single linear layer with weight matrix of shape **([D]{.dim-d}, [D]{.dim-d})** in FP16:
 
-- **Data moved**: $2d^2$ bytes (reading the weight matrix)
-- **Compute**: $2Bd^2$ FLOPs ($B$ matrix-vector multiplications)
-- **Arithmetic intensity**: $2Bd^2 / 2d^2 = B$ FLOP/byte
+- **Data moved**: $2\dimd{D}^2$ bytes (reading the weight matrix)
+- **Compute**: $2B\dimd{D}^2$ FLOPs ($B$ matrix-vector multiplications)
+- **Arithmetic intensity**: $2B\dimd{D}^2 / 2\dimd{D}^2 = B$ FLOP/byte
 
 Recall @fig-roofline-batching.
 

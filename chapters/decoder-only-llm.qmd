@@ -3,10 +3,11 @@
 This chapter covers the architecture of the basic decoder-only transformer architecture used by most LLMs such as ChatGPT and Llama.
 We will walk through in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions.
 If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter.
-We recommend that you examine @tip-data-flow to understand the conventions used in data flow diagrams before moving ahead to the rest of the book.
+We recommend that you examine the tip at the beginning of @sec-forward-pass to understand the conventions used in data flow diagrams before moving ahead to the rest of the book.
 
 We'll use concrete numbers from the Llama family of models throughout.
 Not because Llama is special, but because its architecture is representative of modern LLMs and its parameters are public.
+There are many newer models with better performance, but Llama has a simpler, more canonical architecture which is a good fit for this introduction.
 When we say "a 70B model," we mean something with roughly Llama 3 70B's dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens [@grattafiori2024llama3].
 
 ## From Encoder-Decoder to Decoder-Only {#sec-enc-dec}
@@ -18,8 +19,8 @@ The decoder then attends to that representation through **cross-attention** laye
 ![The original transformer architecture](images/transformer_architecture.svg){#fig-orig-transformer height=300 .lightbox}
 
 This encoder-decoder design, shown in @fig-orig-transformer was built for sequence-to-sequence tasks like machine translation, where you have a clear separation between input (such as a sentence in French) and output (its English translation).
-The encoder reads the full input and builds a bidirectional representation -- each token can attend to every other token, past and future.
-The decoder then generates the output one token at a time, attending both to the encoder's representation and to its own partial output.
+The encoder on the left reads the full input and builds a bidirectional representation -- each token can attend to every other token, past and future.
+The decoder on the right then generates the output one token at a time, attending both to the encoder's representation and to its own partial output.
 
 The decoder-only transformer, used by GPT-2 [@radford2019gpt2], LLaMA [@touvron2023llama], and virtually all modern large language models in production today, takes this architecture and strips it down.
 The entire encoder is removed.
@@ -55,17 +56,17 @@ Two aspects of the architecture are worth making very explicit, because they mat
 
 First, the "N×" in the architecture diagram means that the same block structure is repeated N times.
 Note that each layer has the same structure, shape, and size, but each layer has its own independent set of weights.
-Layer 0's attention weights are completely separate from Layer 1's.
+For example, Layer 0's attention weights are completely separate from Layer 1's.
 A 70B model with 80 layers has 80 distinct sets of attention and feed-forward weights.
-During inference, the model must read each layer's weights from memory in sequence -- there is no reuse across layers.
+During inference, the model must read each layer's weights from memory in sequence -- there is no reuse across layers in the standard LLM.
 A diagram making the N copies explicit is shown in @fig-vert-stack.
 This is what a decoder-only LLM really looks like, and if you review the PyTorch code for one, you will see this exact structure.
-We will mention that the input to the first layers is a vector of floating point numbers of length $d_{model}$, which will will abbreviate D.
+We will mention that the input to the first layers is a vector of floating point numbers of length $d_{model}$, which will will abbreviate **([D]{.dim-d})**.
 
 ![Explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=500 .lightbox}
 
-Second, the architecture is applied identically across every position in the sequence, sharing all weights.
-When we process a sequence of S tokens, the same weight matrices are applied to every token position.
+The second architectural understanding needed is that the model is applied identically across every token position in the sequence, sharing all weights.
+When we process a sequence of **([S]{.dim-s})** tokens, the same weight matrices are applied to every token position.
 @Fig-model-grid shows an intuition of the model being copied repeatedly for each token position.
 
 ![Intuition of the LLM model being copied for each token position](images/full_model_grid.svg){#fig-model-grid height=500 .lightbox}
@@ -77,7 +78,7 @@ Rather than making copies of the model, we simply take our vertical stack model 
 For efficiency reasons, almost all deep learning training and inference happens in batches.
 This is true as well for LLM inference, and we will discuss batching in @sec-batching.
 For the sake of brevity, especially in diagrams, we will discuss non-batched data flow and omit the explicit mention of the batch dimension.
-For LLMs, the full shape of the input to the first layer is **(B, [S]{.dim-s}, [D]{.dim-d})**, which we abbreviate to **([S]{.dim-s}, [D]{.dim-d})** for non-batched inputs.
+For LLMs, the full batched shape of the input to the first layer is **(B, [S]{.dim-s}, [D]{.dim-d})**, which we abbreviate to **([S]{.dim-s}, [D]{.dim-d})** for non-batched inputs.
 Wherever tensor shapes are mentioned without a leading batch dimension, it is appropriate to think about batched processing adding a single dimension to the beginning of the shape.
 We hope this convention of using non-batched shapes does not cause any confusion.
 :::
@@ -133,8 +134,11 @@ across all positions to emphasize sharing.
 To better understand how inference works, we will examine what happens when we send data through a forward pass of the model.
 We will start at the big picture and work our way down into the individual components.
 Let's trace input token IDs from input to output logits, annotating every tensor shape along the way.
+We call the diagrams we will use **data flow diagrams**, and they focus on the shapes of the tensors passed into operations more than the math of the calculation being performed.
+This is so we can understand the size and shape of the data, which directly affects transfer speeds and computation costs.
+The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed.
 
-::: {#tip-data-flow .callout-tip}
+::: {.callout-tip}
 Before diving into the data flow, here are a few conventions used in the data flow diagrams.
 ![Example data flow diagram](images/tensor.svg){#fig-tensor}
 
@@ -152,26 +156,26 @@ Weights are fixed model tensors, and they always have the same purple fill color
 Because it is 3D, it is shown with a "stacked" rectangle shape.
 The leading dimension, **[H]{.dim-h}**, is the stacked dimension. The third dimsion's purple edge color corresponds to this dimension.
 
-**Views**: The middle tensor to the top tensor are connected by a dashed line. 
-This indicates that there is a change of view, but no actual operation is performed.
+**Views**: The middle tensor and the top tensor are connected by an arrow with a dotted line. 
+The dotted stroke indicates that there is a change of view, but no actual operation is performed.
 
 :::
 
 
 ### The input
 
-The input to our model is a list of integer token IDs.
+The input to our LLM model is a list of integer token IDs.
 It's shape is **([S]{.dim-s})**, where **[S]{.dim-s}** is the sequence length (number of tokens).
 As a reminder, in this book we are using the simpler notation of non-batched processing.
-For batched processing, the input shape would be **(B, [S]{.dim-s})**.
+(For batched processing, the input shape would be **(B, [S]{.dim-s})**.)
 The value of **[S]{.dim-s}** varies.
 **[S]{.dim-s}** starts as the length of the prompt, and it increases as generated tokens are appended.
-It is reasonable that **[S]{.dim-s}** will be less than **[D]{.dim-d}** at the beginning of generation, but **[S]{.dim-s}** will be greater than **[D]{.dim-d}** by the end of generating a long response.
+It is reasonable that **[S]{.dim-s}** might be less than **[D]{.dim-d}** at the beginning of generation, but then **[S]{.dim-s}** grows to be greater than **[D]{.dim-d}** by the end of generating a long response.
 We will call this input tensor $X$.
 
 ### The full model
 
-The complete forward pass stacks N decoder blocks between the embedding layer and the language model head.
+The complete forward pass stacks N decoder blocks layers between the embedding layer and the language model head, as shown in @fig-llm-flow.
 
 ```{=html}
 <!-- FIGURE 11: Full Model Architecture — Token IDs to Logits
@@ -276,7 +280,17 @@ The complete forward pass stacks N decoder blocks between the embedding layer an
     3D "stack" effect for batch dimension B.
 -->
 ```
-![Data flow of an entire decoder-only LLM](images/llm_flow.svg){#fig-llm-flow}
+![Data flow of an entire decoder-only LLM](images/llm_flow.svg){#fig-llm-flow .lightbox}
+
+We see our input with shape **([S]{.dim-s})** at the bottom of @fig-llm-flow.
+It is converted to a sequence of one-hot vectors, and the input is now shape **([S]{.dim-s}, [V]{.dim-v})**. 
+This flows into a matrix multiply with the embedding weights, which are a giant matrix of shape **([V]{.dim-v}, [D]{.dim-d})**.
+We now have a dense input matrix of shape **([S]{.dim-s}, [D]{.dim-d})**.
+This is fed to Layer 0, whose output is the same shape, **([S]{.dim-s}, [D]{.dim-d})**, and the layer output is added to the existing values.
+As the data flows through all **[L]{.dim-l}** layers, the shape never changes from **([S]{.dim-s}, [D]{.dim-d})** as the layer outputs continue to get added to the residual stream.
+After the last layer, the data passes through a final normalization layer, retaining its **([S]{.dim-s}, [D]{.dim-d})** shape.
+Finally, a Linear prediction head does a matrix multiply with and output weight matrix of shape **([D]{.dim-d}, [V]{.dim-v})** and it outputs the probability logits, which are shape **([S]{.dim-s}, [V]{.dim-v})**.
+These can be sharpened by passing through a SofMax and a sampling method used to finalize the next token prediction.
 
 ### Positional encoding
 

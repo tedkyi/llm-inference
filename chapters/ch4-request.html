@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>4&nbsp; Eliminating Request Compute, Memory, and Latency Bottlenecks – LLM Inference Illustrated</title>
+<title>6&nbsp; Eliminating Request Compute, Memory, and Latency Bottlenecks – LLM Inference Illustrated</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -122,6 +122,7 @@ window.Quarto = {
 };
 </script>
 
+<link rel="stylesheet" href="../_styles/dim-colors.css">
 </head>
 
 <body class="nav-sidebar floating quarto-light">
@@ -133,7 +134,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/ch4-request.html"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/ch4-request.html"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -192,69 +193,64 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/figure-conventions.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Figure Conventions</span></a>
+  <a href="../chapters/conventions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conventions</span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch1-framing.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></a>
+  <a href="../chapters/intro.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch2-model.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Eliminating Model-Level Bottlenecks</span></span></a>
+  <a href="../chapters/decoder-only-llm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">The Decoder-Only Transformer</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/inference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/model-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Model Design Choices</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/ch3-scheduling.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/ch4-request.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/ch5-scaling.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span></a>
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/ch6-production.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
   </div>
 </li>
-        <li class="sidebar-item sidebar-item-section">
-      <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
- <span class="menu-text">Appendices</span></a>
-          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
-            <i class="bi bi-chevron-right ms-2"></i>
-          </a> 
-      </div>
-      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
-          <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../chapters/appendix-a.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">The Decoder-Only Transformer</span></span></a>
-  </div>
-</li>
-          <li class="sidebar-item">
+        <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/references.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">References</span></a>
   </div>
 </li>
-      </ul>
-  </li>
     </ul>
     </div>
 </nav>
@@ -265,19 +261,19 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#sec-attention-kernels" id="toc-sec-attention-kernels" class="nav-link active" data-scroll-target="#sec-attention-kernels"><span class="header-section-number">4.1</span> Memory-Aware Attention Kernels</a>
+  <li><a href="#sec-attention-kernels" id="toc-sec-attention-kernels" class="nav-link active" data-scroll-target="#sec-attention-kernels"><span class="header-section-number">6.1</span> Memory-Aware Attention Kernels</a>
   <ul class="collapse">
   <li><a href="#why-standard-attention-wastes-bandwidth" id="toc-why-standard-attention-wastes-bandwidth" class="nav-link" data-scroll-target="#why-standard-attention-wastes-bandwidth">Why standard attention wastes bandwidth</a></li>
   <li><a href="#flashattention" id="toc-flashattention" class="nav-link" data-scroll-target="#flashattention">FlashAttention</a></li>
   <li><a href="#flashattention-v1-v2-and-v3" id="toc-flashattention-v1-v2-and-v3" class="nav-link" data-scroll-target="#flashattention-v1-v2-and-v3">FlashAttention v1, v2, and v3</a></li>
   </ul></li>
-  <li><a href="#sec-kernel-fusion" id="toc-sec-kernel-fusion" class="nav-link" data-scroll-target="#sec-kernel-fusion"><span class="header-section-number">4.2</span> Kernel Fusion and Compute Graph Optimization</a>
+  <li><a href="#sec-kernel-fusion" id="toc-sec-kernel-fusion" class="nav-link" data-scroll-target="#sec-kernel-fusion"><span class="header-section-number">6.2</span> Kernel Fusion and Compute Graph Optimization</a>
   <ul class="collapse">
   <li><a href="#kernel-fusion" id="toc-kernel-fusion" class="nav-link" data-scroll-target="#kernel-fusion">Kernel fusion</a></li>
   <li><a href="#cuda-graphs" id="toc-cuda-graphs" class="nav-link" data-scroll-target="#cuda-graphs">CUDA graphs</a></li>
   <li><a href="#computation-graph-compilation" id="toc-computation-graph-compilation" class="nav-link" data-scroll-target="#computation-graph-compilation">Computation graph compilation</a></li>
   </ul></li>
-  <li><a href="#sec-kv-cache" id="toc-sec-kv-cache" class="nav-link" data-scroll-target="#sec-kv-cache"><span class="header-section-number">4.3</span> KV Cache Engineering</a>
+  <li><a href="#sec-kv-cache" id="toc-sec-kv-cache" class="nav-link" data-scroll-target="#sec-kv-cache"><span class="header-section-number">6.3</span> KV Cache Engineering</a>
   <ul class="collapse">
   <li><a href="#kv-cache-memory-formula" id="toc-kv-cache-memory-formula" class="nav-link" data-scroll-target="#kv-cache-memory-formula">KV cache memory formula</a></li>
   <li><a href="#pagedattention" id="toc-pagedattention" class="nav-link" data-scroll-target="#pagedattention">PagedAttention</a></li>
@@ -285,14 +281,14 @@ window.Quarto = {
   <li><a href="#kv-cache-compression" id="toc-kv-cache-compression" class="nav-link" data-scroll-target="#kv-cache-compression">KV cache compression</a></li>
   <li><a href="#selective-kv-cache-and-token-eviction" id="toc-selective-kv-cache-and-token-eviction" class="nav-link" data-scroll-target="#selective-kv-cache-and-token-eviction">Selective KV cache and token eviction</a></li>
   </ul></li>
-  <li><a href="#sec-prefix-caching" id="toc-sec-prefix-caching" class="nav-link" data-scroll-target="#sec-prefix-caching"><span class="header-section-number">4.4</span> Prompt and Prefix Caching</a>
+  <li><a href="#sec-prefix-caching" id="toc-sec-prefix-caching" class="nav-link" data-scroll-target="#sec-prefix-caching"><span class="header-section-number">6.4</span> Prompt and Prefix Caching</a>
   <ul class="collapse">
   <li><a href="#the-shared-prefix-opportunity" id="toc-the-shared-prefix-opportunity" class="nav-link" data-scroll-target="#the-shared-prefix-opportunity">The shared prefix opportunity</a></li>
   <li><a href="#radixattention" id="toc-radixattention" class="nav-link" data-scroll-target="#radixattention">RadixAttention</a></li>
   <li><a href="#prompt-caching-in-production-apis" id="toc-prompt-caching-in-production-apis" class="nav-link" data-scroll-target="#prompt-caching-in-production-apis">Prompt caching in production APIs</a></li>
   <li><a href="#implementation-dependencies" id="toc-implementation-dependencies" class="nav-link" data-scroll-target="#implementation-dependencies">Implementation dependencies</a></li>
   </ul></li>
-  <li><a href="#sec-speculative" id="toc-sec-speculative" class="nav-link" data-scroll-target="#sec-speculative"><span class="header-section-number">4.5</span> Multi-Token Prediction and Speculative Decoding</a>
+  <li><a href="#sec-speculative" id="toc-sec-speculative" class="nav-link" data-scroll-target="#sec-speculative"><span class="header-section-number">6.5</span> Multi-Token Prediction and Speculative Decoding</a>
   <ul class="collapse">
   <li><a href="#multi-token-prediction" id="toc-multi-token-prediction" class="nav-link" data-scroll-target="#multi-token-prediction">Multi-token prediction</a></li>
   <li><a href="#the-core-idea-of-speculative-decoding" id="toc-the-core-idea-of-speculative-decoding" class="nav-link" data-scroll-target="#the-core-idea-of-speculative-decoding">The core idea of speculative decoding</a></li>
@@ -302,13 +298,13 @@ window.Quarto = {
   <li><a href="#speculative-speculative-decoding" id="toc-speculative-speculative-decoding" class="nav-link" data-scroll-target="#speculative-speculative-decoding">Speculative speculative decoding</a></li>
   <li><a href="#when-speculative-decoding-helps-vs.-hurts" id="toc-when-speculative-decoding-helps-vs.-hurts" class="nav-link" data-scroll-target="#when-speculative-decoding-helps-vs.-hurts">When speculative decoding helps vs.&nbsp;hurts</a></li>
   </ul></li>
-  <li><a href="#sec-parallel" id="toc-sec-parallel" class="nav-link" data-scroll-target="#sec-parallel"><span class="header-section-number">4.6</span> Parallel Decoding</a>
+  <li><a href="#sec-parallel" id="toc-sec-parallel" class="nav-link" data-scroll-target="#sec-parallel"><span class="header-section-number">6.6</span> Parallel Decoding</a>
   <ul class="collapse">
   <li><a href="#lookahead-decoding" id="toc-lookahead-decoding" class="nav-link" data-scroll-target="#lookahead-decoding">Lookahead decoding</a></li>
   <li><a href="#medusa" id="toc-medusa" class="nav-link" data-scroll-target="#medusa">Medusa</a></li>
   <li><a href="#tree-based-verification-as-a-unifying-framework" id="toc-tree-based-verification-as-a-unifying-framework" class="nav-link" data-scroll-target="#tree-based-verification-as-a-unifying-framework">Tree-based verification as a unifying framework</a></li>
   </ul></li>
-  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">4.7</span> Further Reading</a></li>
+  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">6.7</span> Further Reading</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -317,7 +313,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title"><span id="sec-request" class="quarto-section-identifier"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></h1>
+<h1 class="title"><span id="sec-request" class="quarto-section-identifier"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></h1>
 </div>
 
 
@@ -335,11 +331,11 @@ window.Quarto = {
 
 
 <p>The previous chapter tackled scheduling — how to keep the GPU busy by managing how requests are handled. This chapter examines the efficiency with which individual requests are handled. The first two sections address memory-bandwidth bottlenecks at the kernel level – optimizations that apply to both prefill and decode. The remaining sections target the sequential decoding constraint, exploring techniques that generate multiple tokens per step or amortize the cost of each one.</p>
-<section id="sec-attention-kernels" class="level2" data-number="4.1">
-<h2 data-number="4.1" class="anchored" data-anchor-id="sec-attention-kernels"><span class="header-section-number">4.1</span> Memory-Aware Attention Kernels</h2>
+<section id="sec-attention-kernels" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="sec-attention-kernels"><span class="header-section-number">6.1</span> Memory-Aware Attention Kernels</h2>
 <section id="why-standard-attention-wastes-bandwidth" class="level3">
 <h3 class="anchored" data-anchor-id="why-standard-attention-wastes-bandwidth">Why standard attention wastes bandwidth</h3>
-<p>To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from <a href="ch1-framing.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.5</span></a> that the GPU has a small, fast on-chip SRAM and a large, slow off-chip HBM. The standard implementation of self-attention works roughly like this:</p>
+<p>To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a> that the GPU has a small, fast on-chip SRAM and a large, slow off-chip HBM. The standard implementation of self-attention works roughly like this:</p>
 <ol type="1">
 <li>Compute the score matrix <span class="math inline">\(S = QK^T\)</span> – a matrix multiplication producing a tensor of shape <span class="math inline">\((B, H, S, S)\)</span> where <span class="math inline">\(B\)</span> is the batch size, <span class="math inline">\(H\)</span> is the number of heads, and <span class="math inline">\(S\)</span> is the sequence length.</li>
 <li>Write <span class="math inline">\(S\)</span> to HBM.</li>
@@ -364,7 +360,7 @@ ASCII art sketch:
 <img src="images/under_construction.jpg" class="img-fluid figure-img">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-flash-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.1: Flash attention
+Figure&nbsp;6.1: Flash attention
 </figcaption>
 </figure>
 </div>
@@ -413,13 +409,13 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>FlashAttention handles the tiling of attention computation within a single GPU. When the KV sequence is very long, you may also want to parallelize the attention computation <em>across</em> the sequence dimension using multiple GPU cores or even multiple GPUs. This is the role of FlashDecoding, which we’ll cover in <a href="ch5-scaling.html#sec-sequence-parallelism" class="quarto-xref"><span>Section 5.6</span></a>.</p>
+<p>FlashAttention handles the tiling of attention computation within a single GPU. When the KV sequence is very long, you may also want to parallelize the attention computation <em>across</em> the sequence dimension using multiple GPU cores or even multiple GPUs. This is the role of FlashDecoding, which we’ll cover in <a href="ch5-scaling.html#sec-sequence-parallelism" class="quarto-xref"><span>Section 7.6</span></a>.</p>
 </div>
 </div>
 </section>
 </section>
-<section id="sec-kernel-fusion" class="level2" data-number="4.2">
-<h2 data-number="4.2" class="anchored" data-anchor-id="sec-kernel-fusion"><span class="header-section-number">4.2</span> Kernel Fusion and Compute Graph Optimization</h2>
+<section id="sec-kernel-fusion" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="sec-kernel-fusion"><span class="header-section-number">6.2</span> Kernel Fusion and Compute Graph Optimization</h2>
 <p>FlashAttention is a specific instance of a more general optimization strategy: reducing the number of times data makes a round trip to HBM by combining operations into fewer GPU kernels. This section covers the general techniques.</p>
 <section id="kernel-fusion" class="level3">
 <h3 class="anchored" data-anchor-id="kernel-fusion">Kernel fusion</h3>
@@ -435,7 +431,7 @@ Note
 </section>
 <section id="cuda-graphs" class="level3">
 <h3 class="anchored" data-anchor-id="cuda-graphs">CUDA graphs</h3>
-<p>We introduced CUDA graphs briefly in <a href="ch1-framing.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 1.5</span></a>. Here’s the full picture.</p>
+<p>We introduced CUDA graphs briefly in <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a>. Here’s the full picture.</p>
 <p>During decode, the GPU executes the same sequence of kernels at every step – the same transformer layers in the same order with the same shapes (for a given batch size). But the CPU doesn’t know that. At each step, it launches each kernel individually, waits for the GPU to be ready, sends the launch command, and moves on to the next kernel. Each launch takes roughly 5–10 microseconds, which doesn’t sound like much, but a single decode step through a large model might involve hundreds of kernel launches. At 5 <span class="math inline">\(\mu\)</span>s each, that’s hundreds of microseconds of pure overhead – time the GPU spends idle waiting for the CPU to tell it what to do next.</p>
 <p>A <strong>CUDA graph</strong> captures a fixed sequence of kernel launches into a single replayable object. You run the decode step once in “capture mode,” which records every kernel launch, memory copy, and synchronization point. Then on subsequent steps, you replay the entire graph with a single command. The CPU issues one launch instead of hundreds, and the GPU executes the full sequence without waiting.</p>
 <p>The main limitation is that CUDA graphs are static. The captured graph assumes fixed tensor shapes and memory addresses. If the batch size changes, or a request finishes and leaves the batch, the graph is invalidated and must be recaptured. Serving frameworks handle this with a small pool of pre-captured graphs for common batch sizes and sequence lengths, falling back to eager execution for uncommon shapes.</p>
@@ -448,15 +444,15 @@ Note
 <p>The tradeoff is flexibility versus performance. Eager execution (no compilation) is the most flexible but the slowest. <code>torch.compile</code> offers a middle ground. TensorRT-LLM produces the fastest code but requires a more involved build step and is harder to modify. Most production serving frameworks use some form of graph compilation, often TensorRT-LLM for NVIDIA hardware.</p>
 </section>
 </section>
-<section id="sec-kv-cache" class="level2" data-number="4.3">
-<h2 data-number="4.3" class="anchored" data-anchor-id="sec-kv-cache"><span class="header-section-number">4.3</span> KV Cache Engineering</h2>
+<section id="sec-kv-cache" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="sec-kv-cache"><span class="header-section-number">6.3</span> KV Cache Engineering</h2>
 <p>The KV cache is one of the biggest memory consumers during inference, and managing it well has a direct impact on how many requests you can serve concurrently and how long sequences can be. This section covers the core techniques for reducing KV cache memory pressure.</p>
 <section id="kv-cache-memory-formula" class="level3">
 <h3 class="anchored" data-anchor-id="kv-cache-memory-formula">KV cache memory formula</h3>
 <p>For a model with <span class="math inline">\(L\)</span> layers, <span class="math inline">\(n_{kv}\)</span> KV heads per layer, and head dimension <span class="math inline">\(d_h\)</span>, each token adds the following to the KV cache:</p>
 <p><span class="math display">\[\text{bytes per token} = 2 \times L \times n_{kv} \times d_h \times b_{\text{dtype}}\]</span></p>
 <p>The factor of 2 accounts for both keys and values. <span class="math inline">\(b_{\text{dtype}}\)</span> is the bytes per element (2 for FP16/BF16, 1 for FP8/INT8).</p>
-<p>For a concrete example, consider a 70B parameter model with <span class="math inline">\(L = 80\)</span> layers, <span class="math inline">\(n_{kv} = 8\)</span> GQA heads (see <a href="ch2-model.html#sec-efficient-attention" class="quarto-xref"><span>Section 2.4</span></a>), <span class="math inline">\(d_h = 128\)</span>, stored in FP16:</p>
+<p>For a concrete example, consider a 70B parameter model with <span class="math inline">\(L = 80\)</span> layers, <span class="math inline">\(n_{kv} = 8\)</span> GQA heads (see <a href="model-design.html#sec-efficient-attention" class="quarto-xref"><span>Section 4.4</span></a>), <span class="math inline">\(d_h = 128\)</span>, stored in FP16:</p>
 <p><span class="math display">\[\text{bytes per token} = 2 \times 80 \times 8 \times 128 \times 2 = 327{,}680 \text{ bytes} \approx 320 \text{ KB}\]</span></p>
 <p>For a sequence of 4,096 tokens, that’s about 1.28 GB per request. If you want to serve 32 concurrent requests, you need roughly 41 GB just for KV caches – and that’s before model weights, activations, and framework overhead. On an 80 GB GPU that’s already holding 35 GB of model weights (a 70B model in INT4), you’re already over budget.</p>
 <p>This arithmetic is why KV cache management is critical. Every technique in this section – paging, quantization, compression, and eviction – is aimed at fitting more requests into the same memory budget.</p>
@@ -490,7 +486,7 @@ ASCII art sketch:
 <img src="images/under_construction.jpg" class="img-fluid figure-img">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-paged-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.2: Paged attention
+Figure&nbsp;6.2: Paged attention
 </figcaption>
 </figure>
 </div>
@@ -498,21 +494,21 @@ Figure&nbsp;4.2: Paged attention
 <ul>
 <li><strong>Near-zero fragmentation</strong>: the only wasted space is the partial last page of each request. With 16-token pages, average waste is 8 tokens per request – negligible compared to the old approach of reserving memory for the maximum sequence length.</li>
 <li><strong>Dynamic allocation</strong>: pages are allocated on demand as the sequence grows, so a short request doesn’t tie up memory it will never use.</li>
-<li><strong>Sharing</strong>: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. This is the foundation for prefix caching, which we’ll cover in <a href="#sec-prefix-caching" class="quarto-xref"><span>Section 4.4</span></a>.</li>
-<li><strong>Fine-grained preemption</strong>: if the scheduler needs to free memory (<a href="ch3-scheduling.html#sec-request-scheduling" class="quarto-xref"><span>Section 3.3</span></a>), it can evict individual pages rather than killing an entire request. Pages can be swapped to CPU memory and swapped back later.</li>
+<li><strong>Sharing</strong>: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. This is the foundation for prefix caching, which we’ll cover in <a href="#sec-prefix-caching" class="quarto-xref"><span>Section 6.4</span></a>.</li>
+<li><strong>Fine-grained preemption</strong>: if the scheduler needs to free memory (<a href="ch3-scheduling.html#sec-request-scheduling" class="quarto-xref"><span>Section 5.3</span></a>), it can evict individual pages rather than killing an entire request. Pages can be swapped to CPU memory and swapped back later.</li>
 </ul>
 <p>PagedAttention has become the standard approach for KV cache memory management. Nearly every major serving framework – vLLM, SGLang, TensorRT-LLM – uses some variant of it.</p>
 </section>
 <section id="kv-cache-quantization" class="level3">
 <h3 class="anchored" data-anchor-id="kv-cache-quantization">KV cache quantization</h3>
 <p>The KV cache formula above assumed FP16 storage. If you store keys and values in INT8 or FP8 instead, you immediately halve the memory per token. For our 70B model example, that drops per-request KV cache memory from 1.28 GB to 640 MB at 4K sequence length.</p>
-<p>KV cache quantization is separate from weight quantization (<a href="ch2-model.html#sec-quantization" class="quarto-xref"><span>Section 2.1</span></a>). The model weights can be in one precision while the KV cache is stored in another. In practice, many deployments run model weights in INT4 or FP8 while keeping the KV cache in FP8 or INT8 – different components have different sensitivity to precision loss.</p>
+<p>KV cache quantization is separate from weight quantization (<a href="model-design.html#sec-quantization" class="quarto-xref"><span>Section 4.1</span></a>). The model weights can be in one precision while the KV cache is stored in another. In practice, many deployments run model weights in INT4 or FP8 while keeping the KV cache in FP8 or INT8 – different components have different sensitivity to precision loss.</p>
 <p>The quality impact is generally small. Keys and values are intermediate activations, not learned parameters, and small quantization errors in individual KV entries tend to average out across the many entries involved in an attention computation. The tradeoff is straightforward: half the memory for a small and often negligible reduction in output quality.</p>
 </section>
 <section id="kv-cache-compression" class="level3">
 <h3 class="anchored" data-anchor-id="kv-cache-compression">KV cache compression</h3>
 <p>Rather than quantizing individual elements, you can compress the KV cache using a learned low-rank representation. The idea is to store a compressed version of the keys and values that uses fewer dimensions, then reconstruct the full representation when needed for attention.</p>
-<p><strong>Multi-Head Latent Attention (MLA)</strong>, introduced in DeepSeek-V2 <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024</a>)</span>, is the most prominent example. Instead of caching separate key and value tensors for each head, MLA compresses them into a single low-rank latent representation. This can reduce KV cache size by 5–10x compared to standard multi-head attention, at the cost of additional compute to decompress during attention. The key difference from the attention architecture changes covered in <a href="ch2-model.html#sec-efficient-attention" class="quarto-xref"><span>Section 2.4</span></a> (like GQA and MQA) is that MLA achieves compression without reducing the number of effective attention heads – it maintains full representational capacity while storing less data.</p>
+<p><strong>Multi-Head Latent Attention (MLA)</strong>, introduced in DeepSeek-V2 <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024</a>)</span>, is the most prominent example. Instead of caching separate key and value tensors for each head, MLA compresses them into a single low-rank latent representation. This can reduce KV cache size by 5–10x compared to standard multi-head attention, at the cost of additional compute to decompress during attention. The key difference from the attention architecture changes covered in <a href="model-design.html#sec-efficient-attention" class="quarto-xref"><span>Section 4.4</span></a> (like GQA and MQA) is that MLA achieves compression without reducing the number of effective attention heads – it maintains full representational capacity while storing less data.</p>
 </section>
 <section id="selective-kv-cache-and-token-eviction" class="level3">
 <h3 class="anchored" data-anchor-id="selective-kv-cache-and-token-eviction">Selective KV cache and token eviction</h3>
@@ -522,8 +518,8 @@ Figure&nbsp;4.2: Paged attention
 <p>The general tradeoff with token eviction is that it reduces memory but introduces risk. If the eviction policy drops a token that turns out to be important for a later generation step, the output quality degrades. Conservative eviction (keeping more tokens) is safer but saves less memory. The most robust approach – as NSA demonstrates – is to build the sparsity into the model during training rather than bolting it on at inference time.</p>
 </section>
 </section>
-<section id="sec-prefix-caching" class="level2" data-number="4.4">
-<h2 data-number="4.4" class="anchored" data-anchor-id="sec-prefix-caching"><span class="header-section-number">4.4</span> Prompt and Prefix Caching</h2>
+<section id="sec-prefix-caching" class="level2" data-number="6.4">
+<h2 data-number="6.4" class="anchored" data-anchor-id="sec-prefix-caching"><span class="header-section-number">6.4</span> Prompt and Prefix Caching</h2>
 <section id="the-shared-prefix-opportunity" class="level3">
 <h3 class="anchored" data-anchor-id="the-shared-prefix-opportunity">The shared prefix opportunity</h3>
 <p>In many real-world deployments, a large fraction of requests share the same prefix. A chatbot application might prepend a 2,000-token system prompt to every user message. A RAG pipeline might prefix retrieved context that is identical across multiple queries. A coding assistant might include the same repository-level context for every completion request.</p>
@@ -556,7 +552,7 @@ ASCII art sketch:
 <img src="images/under_construction.jpg" class="img-fluid figure-img">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-radix-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.3: Radix attention
+Figure&nbsp;6.3: Radix attention
 </figcaption>
 </figure>
 </div>
@@ -570,12 +566,12 @@ Figure&nbsp;4.3: Radix attention
 </section>
 <section id="implementation-dependencies" class="level3">
 <h3 class="anchored" data-anchor-id="implementation-dependencies">Implementation dependencies</h3>
-<p>Prefix caching depends heavily on the paged KV cache from <a href="#sec-kv-cache" class="quarto-xref"><span>Section 4.3</span></a>. In the PagedAttention model, the shared prefix pages are simply referenced by multiple requests through their page tables. The pages themselves are stored once in GPU memory, and a reference count tracks how many requests are using each page. When the last request using a shared prefix completes, the pages can be freed or kept for future reuse based on an eviction policy (typically LRU).</p>
+<p>Prefix caching depends heavily on the paged KV cache from <a href="#sec-kv-cache" class="quarto-xref"><span>Section 6.3</span></a>. In the PagedAttention model, the shared prefix pages are simply referenced by multiple requests through their page tables. The pages themselves are stored once in GPU memory, and a reference count tracks how many requests are using each page. When the last request using a shared prefix completes, the pages can be freed or kept for future reuse based on an eviction policy (typically LRU).</p>
 <p>Without paged memory, sharing would require contiguous memory layouts to be identical across requests, which is impractical. PagedAttention makes prefix sharing a natural consequence of the memory model.</p>
 </section>
 </section>
-<section id="sec-speculative" class="level2" data-number="4.5">
-<h2 data-number="4.5" class="anchored" data-anchor-id="sec-speculative"><span class="header-section-number">4.5</span> Multi-Token Prediction and Speculative Decoding</h2>
+<section id="sec-speculative" class="level2" data-number="6.5">
+<h2 data-number="6.5" class="anchored" data-anchor-id="sec-speculative"><span class="header-section-number">6.5</span> Multi-Token Prediction and Speculative Decoding</h2>
 <p>Everything up to this point has optimized the cost of individual prefill or decode steps. But there’s a more fundamental constraint we haven’t attacked yet: the autoregressive loop itself. Standard decoding produces one token per forward pass, and each token depends on the previous one. For a 500-token response, that’s 500 sequential forward passes through the entire model. Even if each pass is perfectly optimized, you’re still bound by the serial dependency chain.</p>
 <p>This section covers techniques that break or amortize that sequential constraint – generating multiple tokens per model invocation.</p>
 <section id="multi-token-prediction" class="level3">
@@ -586,7 +582,7 @@ Figure&nbsp;4.3: Radix attention
 <img src="images/under_construction.jpg" class="img-fluid figure-img">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-multi-token-prediction-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.4: Multi-token prediction
+Figure&nbsp;6.4: Multi-token prediction
 </figcaption>
 </figure>
 </div>
@@ -603,7 +599,7 @@ Figure&nbsp;4.4: Multi-token prediction
 <img src="images/under_construction.jpg" class="img-fluid figure-img">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.5: Speculative decoding
+Figure&nbsp;6.5: Speculative decoding
 </figcaption>
 </figure>
 </div>
@@ -661,7 +657,7 @@ ASCII art sketch:
 <img src="images/under_construction.jpg" class="img-fluid figure-img">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-speculative-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.6: Speculative speculative decoding
+Figure&nbsp;6.6: Speculative speculative decoding
 </figcaption>
 </figure>
 </div>
@@ -675,8 +671,8 @@ Figure&nbsp;4.6: Speculative speculative decoding
 <p><strong>Batch size</strong>: this is the most important practical consideration. Speculative decoding’s benefit comes from replacing sequential target-model forward passes with one parallel verification pass. But in high-throughput serving with large batch sizes, the target model’s forward passes are already efficient – the GPU is well-utilized because it’s processing many requests at once. Adding draft model overhead on top of an already-efficient pipeline can actually hurt throughput. Speculative decoding shines in low-batch-size, latency-sensitive scenarios.</p>
 </section>
 </section>
-<section id="sec-parallel" class="level2" data-number="4.6">
-<h2 data-number="4.6" class="anchored" data-anchor-id="sec-parallel"><span class="header-section-number">4.6</span> Parallel Decoding</h2>
+<section id="sec-parallel" class="level2" data-number="6.6">
+<h2 data-number="6.6" class="anchored" data-anchor-id="sec-parallel"><span class="header-section-number">6.6</span> Parallel Decoding</h2>
 <p>Speculative decoding uses a separate draft model (or separate heads) to propose candidates. <strong>Parallel decoding</strong> methods take a different approach: they generate multiple future tokens using the base model itself, without any auxiliary model.</p>
 <section id="lookahead-decoding" class="level3">
 <h3 class="anchored" data-anchor-id="lookahead-decoding">Lookahead decoding</h3>
@@ -687,7 +683,7 @@ Figure&nbsp;4.6: Speculative speculative decoding
 <section id="medusa" class="level3">
 <h3 class="anchored" data-anchor-id="medusa">Medusa</h3>
 <p><strong>Medusa</strong> <span class="citation" data-cites="cai2024medusa">(<a href="references.html#ref-cai2024medusa" role="doc-biblioref">Cai et al. 2024</a>)</span> adds multiple lightweight <strong>decoding heads</strong> to the base model. The standard model has one head that predicts the next token. Medusa adds <span class="math inline">\(k\)</span> additional heads, where head <span class="math inline">\(i\)</span> predicts the token <span class="math inline">\(i+1\)</span> positions ahead. These heads are small (typically just a single linear layer or a small MLP) and are trained on top of the frozen base model.</p>
-<p>At inference time, all <span class="math inline">\(k+1\)</span> heads produce predictions simultaneously from the same hidden state. The candidates from all heads are organized into a tree structure and verified using the tree-based attention approach described in <a href="#sec-speculative" class="quarto-xref"><span>Section 4.5</span></a>. The longest accepted path through the tree gives the output.</p>
+<p>At inference time, all <span class="math inline">\(k+1\)</span> heads produce predictions simultaneously from the same hidden state. The candidates from all heads are organized into a tree structure and verified using the tree-based attention approach described in <a href="#sec-speculative" class="quarto-xref"><span>Section 6.5</span></a>. The longest accepted path through the tree gives the output.</p>
 <p>Medusa has a practical advantage over speculative decoding with a separate draft model: since the heads share the base model’s forward pass, there’s no need to run a separate model. The additional compute for the lightweight heads is small compared to the main model’s forward pass. The disadvantage is that the heads need to be trained for each specific base model, adding a fine-tuning step.</p>
 </section>
 <section id="tree-based-verification-as-a-unifying-framework" class="level3">
@@ -702,11 +698,11 @@ Figure&nbsp;4.6: Speculative speculative decoding
 <p>The differences between techniques lie entirely in step 1 – how candidates are generated. The verification and acceptance steps are the same across all methods. This unifying view makes it easier to reason about the tradeoffs: the quality and cost of the proposal mechanism determine the acceptance rate and overhead, while the verification step is always a single forward pass whose cost depends on the total number of candidate tokens.</p>
 <p>This also explains why these techniques interact with batch size the same way. The verification step is essentially a small prefill – it processes multiple tokens in parallel. At large batch sizes, the GPU is already busy with many requests, so the marginal cost of the extra verification tokens is higher relative to the benefit. At small batch sizes, the GPU has spare capacity, and the extra tokens come nearly for free.</p>
 <hr>
-<p>The techniques in this chapter operate at the level of individual requests – optimizing attention kernels, managing KV cache memory, and breaking the sequential decoding constraint. In <a href="ch5-scaling.html" class="quarto-xref"><span>Chapter 5</span></a>, we’ll move up a level and consider what happens when a single GPU isn’t enough: how to distribute the model across multiple devices while keeping communication overhead manageable.</p>
+<p>The techniques in this chapter operate at the level of individual requests – optimizing attention kernels, managing KV cache memory, and breaking the sequential decoding constraint. In <a href="ch5-scaling.html" class="quarto-xref"><span>Chapter 7</span></a>, we’ll move up a level and consider what happens when a single GPU isn’t enough: how to distribute the model across multiple devices while keeping communication overhead manageable.</p>
 </section>
 </section>
-<section id="further-reading" class="level2" data-number="4.7">
-<h2 data-number="4.7" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">4.7</span> Further Reading</h2>
+<section id="further-reading" class="level2" data-number="6.7">
+<h2 data-number="6.7" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">6.7</span> Further Reading</h2>
 <p><strong>Attention kernels.</strong> The FlashAttention series of papers <span class="citation" data-cites="dao2022flashattention dao2023flashattention2 shah2024flashattention3">(<a href="references.html#ref-dao2022flashattention" role="doc-biblioref">Dao et al. 2022</a>; <a href="references.html#ref-dao2023flashattention2" role="doc-biblioref">Dao 2023</a>; <a href="references.html#ref-shah2024flashattention3" role="doc-biblioref">Shah et al. 2024</a>)</span> is essential reading for understanding how IO-aware algorithm design can outperform naive implementations even when the naive version does fewer FLOPs. The original FlashAttention paper is notable for its clear presentation of the tiling strategy and the online softmax trick. FlashAttention-2 <span class="citation" data-cites="dao2023flashattention2">(<a href="references.html#ref-dao2023flashattention2" role="doc-biblioref">Dao 2023</a>)</span> improves parallelism across the sequence dimension and reduces non-matmul FLOPs. FlashAttention-3 <span class="citation" data-cites="shah2024flashattention3">(<a href="references.html#ref-shah2024flashattention3" role="doc-biblioref">Shah et al. 2024</a>)</span> targets Hopper-generation GPUs specifically, exploiting asynchronous memory transfers and FP8 computation. Tri Dao’s blog posts accompanying these papers are also worth reading for accessible explanations of the algorithms.</p>
 <p><strong>KV cache management.</strong> The PagedAttention paper <span class="citation" data-cites="kwon2023vllm">(<a href="references.html#ref-kwon2023vllm" role="doc-biblioref">Kwon et al. 2023</a>)</span> is the key reference for understanding KV cache fragmentation and the virtual-memory solution. The paper’s insight – that contiguous pre-allocation wastes 60-80% of KV cache memory in practice – motivates the entire paged approach. For KV cache compression through token eviction, Keyformer <span class="citation" data-cites="ribar2024keyformer">(<a href="references.html#ref-ribar2024keyformer" role="doc-biblioref">Adnan et al. 2024</a>)</span> introduces score-based key token selection, and NSA <span class="citation" data-cites="yuan2025nsa">(<a href="references.html#ref-yuan2025nsa" role="doc-biblioref"><span class="nocase">Yuan et al.</span> 2025</a>)</span> combines sparse attention with compressed inter-block summaries.</p>
 <p><strong>Prefix caching.</strong> SGLang’s RadixAttention <span class="citation" data-cites="zheng2023sglang">(<a href="references.html#ref-zheng2023sglang" role="doc-biblioref"><span class="nocase">Zheng et al.</span> 2023</a>)</span> generalized prefix caching from simple exact-match lookups to a radix-tree-based system that automatically identifies and shares common prefixes across requests. The paper is worth reading both for the caching mechanism and for its treatment of multi-call LLM programs, which create particularly large prefix-sharing opportunities.</p>
@@ -1169,12 +1165,12 @@ Yang, Nan, Tao Ge, Liang Wang, et al. 2023. <span>“Inference with Reference: L
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
       <a href="../chapters/ch3-scheduling.html" class="pagination-link" aria-label="Eliminating Scheduling Bottlenecks">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span>
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
       <a href="../chapters/ch5-scaling.html" class="pagination-link" aria-label="Scaling Across Hardware">
-        <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span> <i class="bi bi-arrow-right-short"></i>
+        <span class="nav-page-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

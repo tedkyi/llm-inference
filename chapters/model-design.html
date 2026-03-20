@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.31">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>4&nbsp; Model Design Choices – LLM Inference Illustrated</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../chapters/ch3-scheduling.html" rel="next">
+<link href="../chapters/inference.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7c69b197886ae2a34062761d21e44731.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-9e3e5b9121e68b3f077afb32f2c64d95.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../_styles/dim-colors.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/model-design.html"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Model Design Choices</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">LLM Inference Illustrated</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/tedkyi/llm-inference/" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <div class="dropdown">
+      <a href="" title="Share" id="quarto-navigation-tool-dropdown-0" class="quarto-navigation-tool dropdown-toggle px-1" data-bs-toggle="dropdown" aria-expanded="false" role="link" aria-label="Share"><i class="bi bi-share"></i></a>
+      <ul class="dropdown-menu" aria-labelledby="quarto-navigation-tool-dropdown-0">
+          <li>
+            <a class="dropdown-item sidebar-tools-main-item" href="https://twitter.com/intent/tweet?url=|url|">
+              <i class="bi bi-twitter pe-1"></i>
+            Twitter
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item sidebar-tools-main-item" href="https://www.facebook.com/sharer/sharer.php?u=|url|">
+              <i class="bi bi-facebook pe-1"></i>
+            Facebook
+            </a>
+          </li>
+      </ul>
+    </div>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Cover</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/preface.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Preface</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/conventions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conventions</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/intro.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/decoder-only-llm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">The Decoder-Only Transformer</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/inference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/model-design.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Model Design Choices</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/ch3-scheduling.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/ch4-request.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/ch5-scaling.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/ch6-production.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#sec-quantization" id="toc-sec-quantization" class="nav-link active" data-scroll-target="#sec-quantization"><span class="header-section-number">4.1</span> Quantization</a>
+  <ul class="collapse">
+  <li><a href="#lower-precision-datatypes" id="toc-lower-precision-datatypes" class="nav-link" data-scroll-target="#lower-precision-datatypes">Lower precision datatypes</a></li>
+  <li><a href="#weight-only-quantization" id="toc-weight-only-quantization" class="nav-link" data-scroll-target="#weight-only-quantization">Weight-only quantization</a></li>
+  <li><a href="#weight-activation-quantization" id="toc-weight-activation-quantization" class="nav-link" data-scroll-target="#weight-activation-quantization">Weight-activation quantization</a></li>
+  <li><a href="#granularity" id="toc-granularity" class="nav-link" data-scroll-target="#granularity">Granularity</a></li>
+  <li><a href="#when-quantization-is-applied" id="toc-when-quantization-is-applied" class="nav-link" data-scroll-target="#when-quantization-is-applied">When quantization is applied</a></li>
+  <li><a href="#techniques" id="toc-techniques" class="nav-link" data-scroll-target="#techniques">Techniques</a></li>
+  <li><a href="#connecting-quantization-to-mbu" id="toc-connecting-quantization-to-mbu" class="nav-link" data-scroll-target="#connecting-quantization-to-mbu">Connecting quantization to MBU</a></li>
+  </ul></li>
+  <li><a href="#sec-distillation" id="toc-sec-distillation" class="nav-link" data-scroll-target="#sec-distillation"><span class="header-section-number">4.2</span> Knowledge Distillation</a></li>
+  <li><a href="#sec-pruning" id="toc-sec-pruning" class="nav-link" data-scroll-target="#sec-pruning"><span class="header-section-number">4.3</span> Pruning</a>
+  <ul class="collapse">
+  <li><a href="#unstructured-pruning" id="toc-unstructured-pruning" class="nav-link" data-scroll-target="#unstructured-pruning">Unstructured pruning</a></li>
+  <li><a href="#structured-pruning" id="toc-structured-pruning" class="nav-link" data-scroll-target="#structured-pruning">Structured pruning</a></li>
+  </ul></li>
+  <li><a href="#sec-efficient-attention" id="toc-sec-efficient-attention" class="nav-link" data-scroll-target="#sec-efficient-attention"><span class="header-section-number">4.4</span> Efficient Attention Architectures</a>
+  <ul class="collapse">
+  <li><a href="#reducing-kv-cache-size" id="toc-reducing-kv-cache-size" class="nav-link" data-scroll-target="#reducing-kv-cache-size">Reducing KV cache size</a></li>
+  <li><a href="#reducing-attention-compute" id="toc-reducing-attention-compute" class="nav-link" data-scroll-target="#reducing-attention-compute">Reducing attention compute</a></li>
+  </ul></li>
+  <li><a href="#sec-tokenization" id="toc-sec-tokenization" class="nav-link" data-scroll-target="#sec-tokenization"><span class="header-section-number">4.5</span> Tokenization and Vocabulary Effects</a></li>
+  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary"><span class="header-section-number">4.6</span> Summary</a></li>
+  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">4.7</span> Further Reading</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title"><span id="sec-model" class="quarto-section-identifier"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Model Design Choices</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Now that we have an understanding the inference pipeline and where the bottlenecks live, starting with this chapter, we shift to doing something about them.</p>
+<p>The optimizations in this chapter are all about the model itself, separate from request handling. They change what the hardware has to do per token by reducing the model’s compute and memory footprint at the architecture and weight level. Some of these are choices made by model designers prior to training. Others are applied post-training to an existing model. Either way, the result is the same: fewer bytes to move, fewer FLOPs to compute, or both.</p>
+<p>We’ll keep the coverage here lighter than in subsequent chapters. Much of the time, you don’t get a choice about the model to be used. Because of this, much of the focus of this book is on what you can do when you’re given a model to serve. But understanding these techniques is still important, whether you have any say in the model or not.</p>
+<section id="sec-quantization" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-quantization"><span class="header-section-number">4.1</span> Quantization</h2>
+<p>One can make a strong argument that <strong>quantization</strong> is the single most impactful model-level optimization for LLM inference. The reason is straightforward, and it connects directly to the bottleneck framework from <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a>.</p>
+<p>During decode, the bottleneck is memory bandwidth. As we’ve discussed, each decode step reads the entire model’s weights from HBM just to produce one token. If your model has 70 billion parameters stored in FP16 (2 bytes each), that’s 140 GB of weight data read per token. On an H100 with 3.35 TB/s of bandwidth, reading 140 GB takes about 42 milliseconds – and that’s a hard floor on your per-token latency, ignoring everything else. If you quantize those same weights to INT4 (0.5 bytes each), you’re reading 35 GB instead, and the floor drops to about 10 milliseconds. That’s a 4x improvement in your theoretical best-case decode speed, and you didn’t change a single line of serving code.</p>
+<p>The key insight is that quantization doesn’t just reduce the amount of GPU memory needed to store the model weights (which is a pretty big benefit). Quantization also reduces the bandwidth demand that dominates decode latency, and it can speed up computation too. Let’s walk through the main approaches to quantization. We will assume 16-bit weights in FP16 or BF16 are our baseline.</p>
+<section id="lower-precision-datatypes" class="level3">
+<h3 class="anchored" data-anchor-id="lower-precision-datatypes">Lower precision datatypes</h3>
+<p>There are a number of datatypes supported, especially in the latest generation of GPUs. While higher precision datatypes, such as FP32, are needed for training, most models can run inference using FP16 without any noticeable difference. Datatypes that require fewer than 16 bits to store can save even more memory. <a href="#tbl-datatypes" class="quarto-xref">Table&nbsp;<span>4.1</span></a> lists commonly supported datatypes.</p>
+<div id="tbl-datatypes" class="striped quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-datatypes-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4.1: Common datatype precisions supported. The Layout column shows the number of bits allocated for the sign (“s”), exponent (“e”), and mantissa (“m”).
+</figcaption>
+<div aria-describedby="tbl-datatypes-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="table-striped caption-top table">
+<colgroup>
+<col style="width: 21%">
+<col style="width: 26%">
+<col style="width: 26%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Type</th>
+<th>Bits</th>
+<th>Layout</th>
+<th>Key Properties</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>FP32</td>
+<td>32</td>
+<td>1s + 8e + 23m</td>
+<td>Standard training precision; baseline</td>
+</tr>
+<tr class="even">
+<td>FP16</td>
+<td>16</td>
+<td>1s + 5e + 10m</td>
+<td>2x compression; narrower dynamic range (max ~65,504)</td>
+</tr>
+<tr class="odd">
+<td>BF16</td>
+<td>16</td>
+<td>1s + 8e + 7m</td>
+<td>Same dynamic range as FP32, less mantissa precision; preferred for training stability</td>
+</tr>
+<tr class="even">
+<td>FP8 E4M3</td>
+<td>8</td>
+<td>1s + 4e + 3m</td>
+<td>More precision; used for weights/activations in forward pass</td>
+</tr>
+<tr class="odd">
+<td>FP8 E5M2</td>
+<td>8</td>
+<td>1s + 5e + 2m</td>
+<td>More dynamic range; used for gradients</td>
+</tr>
+<tr class="even">
+<td>INT8</td>
+<td>8</td>
+<td>signed integer</td>
+<td>Range [-128, 127]; 4x compression vs FP32</td>
+</tr>
+<tr class="odd">
+<td>INT4</td>
+<td>4</td>
+<td>signed integer</td>
+<td>Range [-8, 7]; 8x compression; requires sophisticated algorithms</td>
+</tr>
+<tr class="even">
+<td>NF4</td>
+<td>4</td>
+<td>non-uniform</td>
+<td>16 levels at normal distribution quantiles; information-theoretically optimal for normally-distributed weights (QLoRA)</td>
+</tr>
+<tr class="odd">
+<td>FP4</td>
+<td>4</td>
+<td>1s + 2e + 1m</td>
+<td>Less common than NF4 for LLM weights</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>Older GPUs support 32-bit and 16-bit floating point, as well as 8-bit integer matrix multiplication. FP8 is a newer format supported on H100 and later GPUs. With the popularity of quantization, newer generations of GPUs are supporting more smaller datatypes.</p>
+</section>
+<section id="weight-only-quantization" class="level3">
+<h3 class="anchored" data-anchor-id="weight-only-quantization">Weight-only quantization</h3>
+<p>The simplest form of quantization leaves the activations in their original precision (typically FP16 or BF16) and only quantizes the weights. This is called <strong>weight-only quantization</strong>, and it’s the most common starting point. In weight-only quantization, the weights are stored in a smaller datatype, then dequantized back to FP16 on the fly before each matrix multiplication, so the compute still happens at FP16 precision. The benefit is purely about reducing how much data needs to be read from HBM.</p>
+<p>When quantizing below 16-bit precision, the storage space and memory read savings are usually slightly reduced because we also need to store conversion parameters. If we have both and offset and a scaling parameter, then when <span class="math inline">\(x\)</span> is the higher precision value and <span class="math inline">\(\tilde{x}\)</span> is the quantized value, the conversion is <span class="math inline">\(x = (\tilde{x} - \text{offset}) * \text{scaling}\)</span>. This dequantization step also adds a small amount of compute overhead to model inference.</p>
+<p>LLMs tolerate quantization well. While the lower precision datatypes could cause cascading rounding errors, in practice the errors tend to cancel out. Quantizing from FP16 to INT8, known as <strong>W8</strong>, cuts the weight memory in half compared to FP16. The quality impact is usually negligible for large models — a 70B model at W8 will behave almost identically to its FP16 counterpart on most benchmarks. If we drop to <strong>W4</strong> quantization, cutting weight memory by 4x compared to FP16, this is where quality tradeoffs start to become more visible, especially for smaller models. A 7B model at W4 may show degradation on some tasks, while a 70B model at W4 often remains remarkably capable. The general pattern is that larger models are more robust to aggressive quantization.</p>
+</section>
+<section id="weight-activation-quantization" class="level3">
+<h3 class="anchored" data-anchor-id="weight-activation-quantization">Weight-activation quantization</h3>
+<p>Weight-only quantization reduces memory bandwidth demand but doesn’t speed up the actual matrix multiplication – the compute still runs at FP16. <strong>Weight-activation quantization</strong> takes the next step: quantize both weights <em>and</em> activations so that the matrix multiplications themselves can run on lower-precision hardware units.</p>
+<p>For example, weight-activation quantization using INT8, known as <strong>W8A8</strong>, quantizes both weights and activations to INT8, allowing the use of INT8 tensor cores. On the H100, INT8 tensor cores deliver roughly 2x the throughput of FP16 tensor cores. This means W8A8 doesn’t just reduce memory traffic – it also increases the compute ceiling. As with weight-only quantization, there is some addition storage and compute overhead for the conversion parameters.</p>
+</section>
+<section id="granularity" class="level3">
+<h3 class="anchored" data-anchor-id="granularity">Granularity</h3>
+<p>Early attempts to quantize below 16-bit floating point took a simple approach that used the same datatype and conversion factor for all values in each weight matrix. In this scenario, one very large value distorts the conversion scale. This increases the rounding errors caused by quantization and can also cause small weights to get rounded to zero, which can cause even more problems. To mitigate the risk of outlier values, quantization can be performed at more fine-grained granularities:</p>
+<ul>
+<li>Per channel(s)</li>
+<li>Per block, potentially in a hierarchy of super-blocks and sub-blocks</li>
+<li>Per token</li>
+</ul>
+<p>Fine-grained quantization seeks to group similar values together, and is highly effective. It does, however, come at a cost of additional memory and compute overhead. For example, dividing a 2,048 by 2,048 weight matrix into groups of 32 values will require 131,072 scaling parameters and dequantization calculations. To reduce the storage of the scaling factors, they can themselves be quantized at a cost of additional dequantization overhead.</p>
+</section>
+<section id="when-quantization-is-applied" class="level3">
+<h3 class="anchored" data-anchor-id="when-quantization-is-applied">When quantization is applied</h3>
+<p><strong>Post-Training Quantization (PTQ)</strong> is performed after the model is fully trained. This is the dominant approach since it can be applied to any model from any source, without requiring any special training. Simple PTQ simply analyzes the weights, and more advanced techniques require processing a small set of calibration data through the model so activation information can also be analyzed. <strong>Quantization-Aware Training (QAT)</strong> modifies the model training procedure to minimize the rounding errors caused by quantization. While effective, the extra work required has limited adoption.</p>
+</section>
+<section id="techniques" class="level3">
+<h3 class="anchored" data-anchor-id="techniques">Techniques</h3>
+<p>One of the practical challenges of quantization – especially weight-activation quantization – is <strong>activation outliers</strong>. Large LLMs tend to develop a small number of activation channels with values that are orders of magnitude larger than the rest. If you try to quantize activations using a single scale factor per tensor, these outliers force a wide quantization range that wastes precision on the many small values. Here are a few post-training quantization methods and how they try to avoid activation outliers.</p>
+<p><strong>GPTQ</strong> <span class="citation" data-cites="frantar2022gptq">(<a href="references.html#ref-frantar2022gptq" role="doc-biblioref">Frantar et al. 2022</a>)</span> uses approximate second-order information to quantize weights to 4 bits (or even 3 bits) with minimal accuracy loss. It works by quantizing weights one layer at a time and adjusting the remaining weights to compensate for the error introduced by each quantization step. GPTQ can be applied to a pre-trained model without any additional training data – just a small calibration set.</p>
+<p><strong>AWQ (Activation-aware Weight Quantization)</strong> <span class="citation" data-cites="lin2023awq">(<a href="references.html#ref-lin2023awq" role="doc-biblioref">Lin et al. 2023</a>)</span> takes a different approach. It observes that a small fraction of weights are disproportionately important – specifically, the weights that correspond to large activation magnitudes. Rather than treating all weights equally, AWQ protects these salient weights by scaling them up before quantization and scaling the activations down correspondingly. This keeps the important weights at higher effective precision while allowing aggressive quantization elsewhere.</p>
+<p><strong>SmoothQuant</strong> <span class="citation" data-cites="xiao2023smoothquant">(<a href="references.html#ref-xiao2023smoothquant" role="doc-biblioref">Xiao et al. 2023</a>)</span> addresses activation outliers by migrating the quantization difficulty from activations to weights. The idea is to apply a per-channel scaling transformation that divides the activation by a smoothing factor and multiplies the corresponding weight by the same factor. This makes the activation distribution more uniform – and therefore easier to quantize – at the cost of making the weight distribution slightly less uniform. Since weights are fixed and can be quantized offline with more care, this is a favorable tradeoff.</p>
+</section>
+<section id="connecting-quantization-to-mbu" class="level3">
+<h3 class="anchored" data-anchor-id="connecting-quantization-to-mbu">Connecting quantization to MBU</h3>
+<p>In <a href="inference.html#sec-metrics" class="quarto-xref"><span>Section 3.2</span></a>, we introduced Model Bandwidth Utilization (MBU) as a key diagnostic for decode performance. Quantization improves the <em>theoretical</em> decode speed by reducing the bytes that need to be read per token. But it doesn’t automatically improve MBU — if your serving system has overhead that prevents it from saturating HBM bandwidth, quantization reduces the numerator (bytes of model data) but the denominator (peak bandwidth) stays the same, so the time improvement is proportional to the data reduction only if MBU remains constant.</p>
+<p>In practice, quantized models often achieve <em>higher</em> MBU because the smaller data footprint means fewer cache misses, better memory access patterns, and the possibility of fitting the entire model in a single GPU’s memory rather than splitting across devices. These secondary effects can make the real-world speedup even better than the raw byte reduction would suggest.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Quantization affects the roofline model in an important way. When you use FP8 or INT8 tensor cores, you raise the compute ceiling (from ~990 TFLOPS to ~1,979 TFLOPS on the H100) while the bandwidth ceiling stays constant. This shifts the ridge point higher, which means some workloads that were compute-bound at FP16 can become memory-bandwidth-bound at FP8. Keep this in mind when choosing quantization strategies for prefill-heavy workloads.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-distillation" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-distillation"><span class="header-section-number">4.2</span> Knowledge Distillation</h2>
+<p><strong>Knowledge distillation</strong> is a training technique where a smaller <strong>student</strong> model is trained to mimic the behavior of a larger <strong>teacher</strong> model. In the original distillation formulation <span class="citation" data-cites="hinton2015distilling">(<a href="references.html#ref-hinton2015distilling" role="doc-biblioref">Hinton et al. 2015</a>)</span>, the student learns not just from the ground-truth labels, but from the teacher’s full output distribution – the probability the teacher assigns to every token in the vocabulary, not just the top-1 prediction. These soft targets carry richer information than hard labels, which is why a distilled student can often outperform a model of the same size trained from scratch. Newer techniques vary the approach by training on sample outputs from the larger model or using reinforcement learning to impart some of the larger models capability into the smaller model.</p>
+<p>From an inference perspective, the result is simple: you get a smaller model. Fewer parameters means less data to read from HBM per decode step, a smaller KV cache (if the model also has fewer layers or a smaller hidden dimension), and less memory consumed overall. The inference system doesn’t need to know or care that the model was distilled — it just sees a model with fewer parameters that performs better than you’d expect for its size.</p>
+<p>The tradeoff is that distillation requires significant training compute, and you need the larger, more capable teacher model. This may not be an option for a frontier model, but distillation is popular in research and in use for smaller models.</p>
+</section>
+<section id="sec-pruning" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-pruning"><span class="header-section-number">4.3</span> Pruning</h2>
+<p><strong>Pruning</strong> removes weights or structures from a model that contribute little to its output. The motivation is similar to quantization: fewer parameters means less data to move, which speeds up bandwidth-bound decode. But while quantization keeps all the parameters and reduces their precision, pruning eliminates parameters entirely.</p>
+<section id="unstructured-pruning" class="level3">
+<h3 class="anchored" data-anchor-id="unstructured-pruning">Unstructured pruning</h3>
+<p><strong>Unstructured pruning</strong> zeroes out individual weights based on some importance criterion (typically magnitude). A pruned model might have 50% of its weights set to zero, theoretically cutting compute and memory in half. The problem is that these zeros are scattered throughout the weight matrices in an irregular pattern. If enough of the weights can be pruned, good speedups can be achieved for CPU inference. Standard GPU hardware and matrix multiplication kernels still process the full dense matrices, so they can’t exploit this sparsity efficiently, and sparse matrix multiplications are much slower than their dense counterparts, so they need extremely sparse matrices before they are faster than full dense matrix multiplication. To get real speedups from unstructured pruning, you need specialized sparse compute support, such as NVIDIA’s 2:4 structured sparsity format on Ampere and later GPUs, and it is more difficult to prune weights into this pattern.</p>
+</section>
+<section id="structured-pruning" class="level3">
+<h3 class="anchored" data-anchor-id="structured-pruning">Structured pruning</h3>
+<p><strong>Structured pruning</strong> takes a coarser approach: instead of zeroing individual weights, it removes entire structural units – attention heads, entire layers, or neurons in MLP blocks. The result is a smaller dense model that runs on standard hardware with no special sparse computation support required.</p>
+<p>Removing an attention head reduces the KV cache proportionally. Removing an entire layer reduces both parameters and the depth of the forward pass. These are straightforward wins for inference, and the cost model from <a href="inference.html#sec-prefill-decode" class="quarto-xref"><span>Section 3.5</span></a> applies directly — fewer parameters means proportionally less time reading weights during decode.</p>
+<p>The challenge with structured pruning is identifying which structures can be removed with minimal quality impact. Attention heads in the later layers of a model often contribute less than early or middle layers, but this varies by model and task. Structured pruning typically requires some retraining or fine-tuning after removal to recover quality, which limits its use as a purely post-training optimization.</p>
+<p>In practice, pruning is less widely adopted for LLM inference than quantization. Quantization offers a more predictable quality-performance tradeoff and is easier to apply post-training.</p>
+</section>
+</section>
+<section id="sec-efficient-attention" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="sec-efficient-attention"><span class="header-section-number">4.4</span> Efficient Attention Architectures</h2>
+<p>The sections above are post-training techniques you can apply to an existing model. This section covers architecture choices – decisions made during model design and training that affect inference efficiency from the start.</p>
+<p>MLP layers account for roughly two-thirds of a typical transformer’s parameters, but they operate independently on each token. Their cost scales linearly with sequence length, and they are straightforward to parallelize. Attention is the more interesting bottleneck. Its KV cache grows with sequence length, creating a per-request memory cost that directly limits concurrency. For long sequences, the quadratic cost of full attention also becomes significant during prefill. This makes attention the primary target for architectural optimization.</p>
+<section id="reducing-kv-cache-size" class="level3">
+<h3 class="anchored" data-anchor-id="reducing-kv-cache-size">Reducing KV cache size</h3>
+<p>The KV cache is one of the largest consumers of GPU memory during inference – and unlike model weights, it scales with the number of active requests and the sequence length of each. Reducing the KV cache per request lets you serve more concurrent requests in the same memory budget. We’ll cover KV cache management techniques in <a href="ch4-request.html#sec-kv-cache" class="quarto-xref"><span>Section 6.3</span></a>; here we focus on the architectural choices that determine how large the cache is in the first place.</p>
+<!-- Figure: KV cache size comparison across attention variants
+ASCII art sketch:
+  Attention Type    KV heads    KV cache relative size
+  ─────────────     ────────    ──────────────────────
+  MHA (h=32)          32        [████████████████████████████████]  1.0x
+  GQA (G=8)            8        [████████]                         0.25x
+  MQA               1           [█]                                0.03x
+  MLA               (latent)    [███]                              ~0.1x (varies)
+-->
+<div id="fig-attn-head-variants" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/under_construction.jpg" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.1: Techniques for reducing the KV cache size of a given layer
+</figcaption>
+</figure>
+</div>
+<p><strong>Multi-Head Attention (MHA)</strong> is the original design from the transformer paper <span class="citation" data-cites="vaswani2017attention">(<a href="references.html#ref-vaswani2017attention" role="doc-biblioref">Vaswani et al. 2017</a>)</span>. Each attention head has its own key and value projections, so the KV cache stores separate K and V vectors for every head, every layer, and every token in the sequence. For a model with 32 heads and a head dimension of 128, each token adds <span class="math inline">\(2 \times 32 \times 128 = 8{,}192\)</span> values to the KV cache per layer. This is the most expensive option.</p>
+<p><strong>Multi-Query Attention (MQA)</strong> <span class="citation" data-cites="shazeer2019mqa">(<a href="references.html#ref-shazeer2019mqa" role="doc-biblioref">Shazeer 2019</a>)</span> goes to the opposite extreme: all attention heads share a <em>single</em> set of key and value projections. Each head still has its own query projection, so the heads can attend to different aspects of the input, but the KV cache only stores one K and one V vector per layer per token. This reduces the KV cache by a factor equal to the number of heads – from 32 sets of K/V down to 1 in the example above. The quality impact is generally small for large models, and the inference speedup – especially for long sequences with many concurrent requests – can be substantial.</p>
+<p><strong>Grouped-Query Attention (GQA)</strong> <span class="citation" data-cites="ainslie2023gqa">(<a href="references.html#ref-ainslie2023gqa" role="doc-biblioref">Ainslie et al. 2023</a>)</span> is a middle ground between MHA and MQA. Instead of one shared KV set for all heads, GQA uses <span class="math inline">\(G\)</span> groups, where each group of heads shares one set of keys and values. With 32 heads and <span class="math inline">\(G = 8\)</span> groups, the KV cache is reduced by 4x compared to MHA. GQA has become the dominant choice in recent models – LLaMA 3, Mistral, and Gemma all use it. It offers most of MQA’s memory savings with less quality risk.</p>
+<p><strong>Multi-head Latent Attention (MLA)</strong> <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024</a>)</span> is DeepSeek’s approach to KV cache compression. Rather than storing full key and value vectors, MLA compresses them into a low-rank <strong>latent vector</strong> at each layer. At attention time, the full keys and values are reconstructed from the latent representation. The compression ratio depends on the latent dimension, but MLA can achieve significant cache reductions – comparable to or better than GQA – while preserving model quality. The tradeoff is additional compute to decompress the latent vectors during attention, but this compute is typically small relative to the bandwidth savings.</p>
+<div id="fig-cross-layer-attn" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-cross-layer-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/under_construction.jpg" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-cross-layer-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.2: Cross-layer attention
+</figcaption>
+</figure>
+</div>
+<p><strong>Cross-Layer Attention (CLA)</strong> <span class="citation" data-cites="brandon2024cla">(<a href="references.html#ref-brandon2024cla" role="doc-biblioref">Brandon et al. 2024</a>)</span> takes a different angle: rather than sharing KV across heads within a layer, it shares KV across adjacent layers. If every pair of consecutive layers shares the same KV cache, the total cache size is halved. CLA can be combined with GQA or MQA for even greater reductions.</p>
+</section>
+<section id="reducing-attention-compute" class="level3">
+<h3 class="anchored" data-anchor-id="reducing-attention-compute">Reducing attention compute</h3>
+<p>Beyond the KV cache, the attention computation itself can be a bottleneck, particularly during prefill for long sequences where the cost is quadratic in sequence length.</p>
+<div id="fig-sliding-window-attn" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sliding-window-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/under_construction.jpg" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sliding-window-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.3: Sliding window attention
+</figcaption>
+</figure>
+</div>
+<p><strong>Sliding window attention</strong> <span class="citation" data-cites="beltagy2020longformer">(<a href="references.html#ref-beltagy2020longformer" role="doc-biblioref">Beltagy et al. 2020</a>)</span> restricts each token to attend only to a fixed-size window of nearby tokens rather than the full sequence. This reduces the attention computation from <span class="math inline">\(O(n^2)\)</span> to <span class="math inline">\(O(n \times w)\)</span>, where <span class="math inline">\(w\)</span> is the window size. For inference, sliding window attention also bounds the KV cache size per layer to the window size, regardless of the total sequence length. Several recent models – including Mistral – use sliding window attention in some or all layers, often combined with a few full-attention layers to preserve the model’s ability to attend to distant tokens.</p>
+<div id="fig-attn-head-variants" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/parallel_block.svg" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.4: Parallel attention and MLP blocks
+</figcaption>
+</figure>
+</div>
+<p><strong>Parallel attention and MLP blocks</strong> is a simpler architectural trick used in some models, including PaLM <span class="citation" data-cites="chowdhery2022palm">(<a href="references.html#ref-chowdhery2022palm" role="doc-biblioref"><span class="nocase">Chowdhery et al.</span> 2022</a>)</span>. Instead of computing attention and MLP sequentially within each transformer block, they are computed in parallel and their outputs are summed. This doesn’t reduce total FLOPs, but it reduces the serial dependency within each layer, which can improve GPU utilization and reduce latency – especially when the attention and MLP computations can be overlapped on different hardware units.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This book focuses on the dominant transformer architecture with softmax attention. Alternative approaches like Mamba and other state-space models, as well as linear attention variants, replace the attention mechanism entirely with recurrent-style computations that have constant-size state rather than a growing KV cache. These are an active area of research, but the vast majority of deployed LLMs today use softmax attention, so we’ll focus our attention there.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-tokenization" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="sec-tokenization"><span class="header-section-number">4.5</span> Tokenization and Vocabulary Effects</h2>
+<p>One model-level lever that’s easy to overlook is the <strong>tokenizer</strong> and its vocabulary size. The tokenizer determines how many tokens a given piece of text is broken into, and that token count directly drives the number of decode steps – each of which requires a full forward pass through the model.</p>
+<p>A larger vocabulary means each token covers more text on average – common words or subwords that would otherwise be split into multiple tokens get their own single token. Fewer tokens means fewer decode steps, which means faster end-to-end generation. For latency-sensitive applications, this is a meaningful win. Going from a 32K vocabulary to a 128K vocabulary might reduce the average token count for a given text by 10-20%, which translates directly to 10-20% fewer decode steps.</p>
+<p>The tradeoff is that a larger vocabulary increases the size of two model components: the <strong>embedding table</strong> (which maps token IDs to vectors at the input) and the <strong>LM head</strong> (the output projection that produces logits over the vocabulary). For a model with a hidden dimension of 4,096 and a vocabulary of 128K tokens, the LM head alone has 4,096 <span class="math inline">\(\times\)</span> 128,000 <span class="math inline">\(\approx\)</span> 500 million parameters. At FP16, that’s about 1 GB – not negligible, but typically a small fraction of the total model size for large LLMs. The compute cost of the final softmax over a larger vocabulary also increases, though this is usually a minor contributor to overall latency.</p>
+<p>For most practical scenarios, the efficiency gains from fewer decode steps outweigh the increased embedding and LM head size. This is why the trend in recent LLMs has been toward larger vocabularies.</p>
+</section>
+<section id="summary" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="summary"><span class="header-section-number">4.6</span> Summary</h2>
+<p>The techniques in this chapter all reduce what the hardware has to do for each token. Quantization reduces the bytes-per-parameter, directly attacking the bandwidth bottleneck that dominates decode. Distillation and pruning produce smaller models with fewer total parameters. Efficient attention architectures reduce the KV cache footprint and, in some cases, the attention compute itself. Even vocabulary design affects inference cost by changing how many decode steps are needed.</p>
+<p>These are the model-level knobs. Once they’re set – once you have a quantized, architecturally efficient model ready to serve – the next set of optimizations operates at the system level: how to schedule requests, batch them together, and manage memory. That’s where we turn next in <a href="ch3-scheduling.html" class="quarto-xref"><span>Chapter 5</span></a>.</p>
+</section>
+<section id="further-reading" class="level2" data-number="4.7">
+<h2 data-number="4.7" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">4.7</span> Further Reading</h2>
+<p>Quantization is a deep field with a large body of work. The GPTQ <span class="citation" data-cites="frantar2022gptq">(<a href="references.html#ref-frantar2022gptq" role="doc-biblioref">Frantar et al. 2022</a>)</span> and AWQ <span class="citation" data-cites="lin2023awq">(<a href="references.html#ref-lin2023awq" role="doc-biblioref">Lin et al. 2023</a>)</span> papers are essential reading if you want to understand the mechanics of post-training weight quantization beyond the overview given here. GPTQ’s use of approximate second-order information to minimize quantization error is elegant, and AWQ’s insight that activation-aware scaling protects the most important weights is a useful design pattern that shows up in other contexts. SmoothQuant <span class="citation" data-cites="xiao2023smoothquant">(<a href="references.html#ref-xiao2023smoothquant" role="doc-biblioref">Xiao et al. 2023</a>)</span> is the key reference for weight-activation quantization, particularly its technique of migrating quantization difficulty from activations to weights. For an earlier take on INT8 inference that pioneered mixed-precision decomposition, see <span class="citation" data-cites="dettmers2022llmint8">Dettmers et al. (<a href="references.html#ref-dettmers2022llmint8" role="doc-biblioref">2022</a>)</span>.</p>
+<p>For a comprehensive survey of quantization methods applied to LLMs, <span class="citation" data-cites="zhu2024quantization">Zhu et al. (<a href="references.html#ref-zhu2024quantization" role="doc-biblioref">2024</a>)</span> covers the full taxonomy – from uniform to non-uniform quantization, weight-only to weight-activation, and post-training to quantization-aware training – with empirical comparisons across model sizes.</p>
+<p>On the attention architecture side, the progression from standard multi-head attention to MQA <span class="citation" data-cites="shazeer2019mqa">(<a href="references.html#ref-shazeer2019mqa" role="doc-biblioref">Shazeer 2019</a>)</span>, GQA <span class="citation" data-cites="ainslie2023gqa">(<a href="references.html#ref-ainslie2023gqa" role="doc-biblioref">Ainslie et al. 2023</a>)</span>, and MLA <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024</a>)</span> is well documented in the original papers. Shazeer’s MQA paper is particularly worth reading because it clearly explains the inference motivation – reducing KV cache bandwidth – rather than just reporting accuracy numbers. The Llama 3 paper <span class="citation" data-cites="grattafiori2024llama3">(<a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span> provides a good case study of GQA adopted in a production-grade model, with ablations showing the quality-efficiency tradeoff.</p>
+<p>For knowledge distillation applied to LLMs specifically, <span class="citation" data-cites="gu2024minillm">Gu et al. (<a href="references.html#ref-gu2024minillm" role="doc-biblioref">2024</a>)</span> covers the challenges of distilling autoregressive language models, including the mismatch between training-time and inference-time token distributions that makes naive distillation less effective for generative models.</p>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-ainslie2023gqa" class="csl-entry" role="listitem">
+Ainslie, Joshua, James Lee-Thorp, Michiel de Jong, Yury Zemlyanskiy, Federico Lebrón, and Sumit Sanghai. 2023. <span>“<span>GQA</span>: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints.”</span> <em>arXiv Preprint arXiv:2305.13245</em>. <a href="https://arxiv.org/abs/2305.13245">https://arxiv.org/abs/2305.13245</a>.
+</div>
+<div id="ref-beltagy2020longformer" class="csl-entry" role="listitem">
+Beltagy, Iz, Matthew E. Peters, and Arman Cohan. 2020. <span>“Longformer: The Long-Document Transformer.”</span> <em>arXiv Preprint arXiv:2004.05150</em>. <a href="https://arxiv.org/abs/2004.05150">https://arxiv.org/abs/2004.05150</a>.
+</div>
+<div id="ref-brandon2024cla" class="csl-entry" role="listitem">
+Brandon, William, Mayank Mishra, Aniruddha Nrusimha, Rameswar Panda, and Jonathan Ragan Kelly. 2024. <span>“Reducing Transformer Key-Value Cache Size with Cross-Layer Attention.”</span> <em>arXiv Preprint arXiv:2405.12981</em>. <a href="https://arxiv.org/abs/2405.12981">https://arxiv.org/abs/2405.12981</a>.
+</div>
+<div id="ref-chowdhery2022palm" class="csl-entry" role="listitem">
+<span class="nocase">Chowdhery, Aakanksha, Sharan Narang, Jacob Devlin, et al.</span> 2022. <span>“<span>PaLM</span>: Scaling Language Modeling with Pathways.”</span> <em>arXiv Preprint arXiv:2204.02311</em>. <a href="https://arxiv.org/abs/2204.02311">https://arxiv.org/abs/2204.02311</a>.
+</div>
+<div id="ref-dettmers2022llmint8" class="csl-entry" role="listitem">
+Dettmers, Tim, Mike Lewis, Younes Belkada, and Luke Zettlemoyer. 2022. <span>“<span class="nocase">LLM.int8()</span>: 8-Bit Matrix Multiplication for Transformers at Scale.”</span> <em>arXiv Preprint arXiv:2208.07339</em>. <a href="https://arxiv.org/abs/2208.07339">https://arxiv.org/abs/2208.07339</a>.
+</div>
+<div id="ref-frantar2022gptq" class="csl-entry" role="listitem">
+Frantar, Elias, Saleh Ashkboos, Torsten Hoefler, and Dan Alistarh. 2022. <span>“<span>GPTQ</span>: Accurate Post-Training Quantization for Generative Pre-Trained Transformers.”</span> <em>arXiv Preprint arXiv:2210.17323</em>. <a href="https://arxiv.org/abs/2210.17323">https://arxiv.org/abs/2210.17323</a>.
+</div>
+<div id="ref-grattafiori2024llama3" class="csl-entry" role="listitem">
+<span class="nocase">Grattafiori, Aaron, Abhimanyu Dubey, Abhinav Jauhri, et al.</span> 2024. <span>“The <span>Llama 3</span> Herd of Models.”</span> <em>arXiv Preprint arXiv:2407.21783</em>. <a href="https://arxiv.org/abs/2407.21783">https://arxiv.org/abs/2407.21783</a>.
+</div>
+<div id="ref-gu2024minillm" class="csl-entry" role="listitem">
+Gu, Yuxian, Li Dong, Furu Wei, and Minlie Huang. 2024. <span>“<span>MiniLLM</span>: On-Policy Distillation of Large Language Models.”</span> <em>arXiv Preprint arXiv:2306.08543</em>. <a href="https://arxiv.org/abs/2306.08543">https://arxiv.org/abs/2306.08543</a>.
+</div>
+<div id="ref-hinton2015distilling" class="csl-entry" role="listitem">
+Hinton, Geoffrey, Oriol Vinyals, and Jeff Dean. 2015. <span>“Distilling the Knowledge in a Neural Network.”</span> <em>arXiv Preprint arXiv:1503.02531</em>. <a href="https://arxiv.org/abs/1503.02531">https://arxiv.org/abs/1503.02531</a>.
+</div>
+<div id="ref-lin2023awq" class="csl-entry" role="listitem">
+Lin, Ji, Jiaming Tang, Haotian Tang, et al. 2023. <span>“<span>AWQ</span>: Activation-Aware Weight Quantization for <span>LLM</span> Compression and Acceleration.”</span> <em>arXiv Preprint arXiv:2306.00978</em>. <a href="https://arxiv.org/abs/2306.00978">https://arxiv.org/abs/2306.00978</a>.
+</div>
+<div id="ref-liu2024deepseekv2" class="csl-entry" role="listitem">
+<span class="nocase">Liu, Aixin et al.</span> 2024. <span>“<span>DeepSeek-V2</span>: A Strong, Economical, and Efficient Mixture-of-Experts Language Model.”</span> <em>arXiv Preprint arXiv:2405.04434</em>. <a href="https://arxiv.org/abs/2405.04434">https://arxiv.org/abs/2405.04434</a>.
+</div>
+<div id="ref-shazeer2019mqa" class="csl-entry" role="listitem">
+Shazeer, Noam. 2019. <span>“Fast Transformer Decoding: One Write-Head Is All You Need.”</span> <em>arXiv Preprint arXiv:1911.02150</em>. <a href="https://arxiv.org/abs/1911.02150">https://arxiv.org/abs/1911.02150</a>.
+</div>
+<div id="ref-vaswani2017attention" class="csl-entry" role="listitem">
+Vaswani, Ashish, Noam Shazeer, Niki Parmar, et al. 2017. <span>“Attention Is All You Need.”</span> <em>arXiv Preprint arXiv:1706.03762</em>. <a href="https://arxiv.org/abs/1706.03762">https://arxiv.org/abs/1706.03762</a>.
+</div>
+<div id="ref-xiao2023smoothquant" class="csl-entry" role="listitem">
+Xiao, Guangxuan, Ji Lin, Mickael Seznec, Hao Wu, Julien Demouth, and Song Han. 2023. <span>“<span>SmoothQuant</span>: Accurate and Efficient Post-Training Quantization for Large Language Models.”</span> <em>arXiv Preprint arXiv:2211.10438</em>. <a href="https://arxiv.org/abs/2211.10438">https://arxiv.org/abs/2211.10438</a>.
+</div>
+<div id="ref-zhu2024quantization" class="csl-entry" role="listitem">
+Zhu, Xunyu, Jian Li, Yong Liu, Can Ma, and Weiping Wang. 2024. <span>“A Survey on Model Compression for Large Language Models.”</span> <em>arXiv Preprint arXiv:2308.07633</em>. <a href="https://arxiv.org/abs/2308.07633">https://arxiv.org/abs/2308.07633</a>.
+</div>
+</div>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="../chapters/inference.html" class="pagination-link" aria-label="Framing LLM Inference">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../chapters/ch3-scheduling.html" class="pagination-link" aria-label="Eliminating Scheduling Bottlenecks">
+        <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

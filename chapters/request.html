@@ -64,6 +64,9 @@ div.csl-indent {
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="../site_libs/bootstrap/bootstrap-9e3e5b9121e68b3f077afb32f2c64d95.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="../site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="../site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -354,10 +357,10 @@ ASCII art sketch:
 
   Total HBM traffic for S and P:  O(S²) reads + O(S²) writes
 -->
-<div id="fig-flash-attention" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-flash-attention" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-flash-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;6.1: Flash attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-flash-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;6.1: Flash attention
@@ -480,10 +483,10 @@ ASCII art sketch:
   No contiguous allocation needed.
   Fragmentation: only the last page of each request may be partially filled.
 -->
-<div id="fig-paged-attention" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-paged-attention" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-paged-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;6.2: Paged attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-paged-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;6.2: Paged attention
@@ -546,10 +549,10 @@ ASCII art sketch:
   Requests A, B, C all share the system prompt KV cache.
   Only the divergent suffix needs prefill.
 -->
-<div id="fig-radix-attention" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-radix-attention" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-radix-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;6.3: Radix attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-radix-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;6.3: Radix attention
@@ -576,10 +579,10 @@ Figure&nbsp;6.3: Radix attention
 <p>This section covers techniques that break or amortize that sequential constraint – generating multiple tokens per model invocation.</p>
 <section id="multi-token-prediction" class="level3">
 <h3 class="anchored" data-anchor-id="multi-token-prediction">Multi-token prediction</h3>
-<div id="fig-multi-token-prediction" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-multi-token-prediction" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-multi-token-prediction-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;6.4: Multi-token prediction"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-multi-token-prediction-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;6.4: Multi-token prediction
@@ -593,10 +596,10 @@ Figure&nbsp;6.4: Multi-token prediction
 <section id="the-core-idea-of-speculative-decoding" class="level3">
 <h3 class="anchored" data-anchor-id="the-core-idea-of-speculative-decoding">The core idea of speculative decoding</h3>
 <p><strong>Speculative decoding</strong> <span class="citation" data-cites="leviathan2023speculative chen2023speculative">(<a href="references.html#ref-leviathan2023speculative" role="doc-biblioref">Leviathan et al. 2022</a>; <a href="references.html#ref-chen2023speculative" role="doc-biblioref">Chen et al. 2023</a>)</span> is based on a simple but powerful observation: verifying a sequence of tokens is cheaper than generating them one at a time.</p>
-<div id="fig-speculative-decoding" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-speculative-decoding" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;6.5: Speculative decoding"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;6.5: Speculative decoding
@@ -651,10 +654,10 @@ ASCII art sketch:
 <section id="speculative-speculative-decoding" class="level3">
 <h3 class="anchored" data-anchor-id="speculative-speculative-decoding">Speculative speculative decoding</h3>
 <p>Standard speculative decoding has a subtle inefficiency: the draft model must wait for the target model to complete verification before it can start drafting the next batch of tokens. This is because the draft model needs to know which tokens were accepted so it can condition on the correct prefix.</p>
-<div id="fig-speculative-speculative-decoding" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-speculative-speculative-decoding" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-speculative-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;6.6: Speculative speculative decoding"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-speculative-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;6.6: Speculative speculative decoding
@@ -1175,8 +1178,40 @@ Yang, Nan, Tao Ge, Liang Wang, et al. 2023. <span>“Inference with Reference: L
   </div>
 </nav>
 </div> <!-- /content -->
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer><script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
 
 
 
 
-<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
+</body></html>

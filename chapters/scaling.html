@@ -64,6 +64,9 @@ div.csl-indent {
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="../site_libs/bootstrap/bootstrap-9e3e5b9121e68b3f077afb32f2c64d95.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="../site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="../site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -364,10 +367,10 @@ ASCII art sketch:
   Each GPU ↔ NVSwitch: 900 GB/s bidirectional (NVLink)
   Each GPU ↔ PCIe:     128 GB/s bidirectional (Gen5 x16)
 -->
-<div id="fig-interconnect" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-interconnect" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-interconnect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;7.1: Intra-node and inter-node connections"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-interconnect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;7.1: Intra-node and inter-node connections
@@ -472,10 +475,10 @@ Table&nbsp;7.1: Interconnect bandwidth and latency comparison for common GPU inf
 <section id="sec-tensor-parallelism" class="level2" data-number="7.3">
 <h2 data-number="7.3" class="anchored" data-anchor-id="sec-tensor-parallelism"><span class="header-section-number">7.3</span> Tensor Parallelism (TP)</h2>
 <p><strong>Tensor parallelism</strong> splits individual weight matrices across devices, so each GPU computes a slice of every layer. This is the most communication-intensive parallelism strategy, but it directly reduces per-device memory and enables serving models that don’t fit on a single GPU.</p>
-<div id="fig-tp-attn" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-tp-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;7.2: Tensor parallel attention calculation"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;7.2: Tensor parallel attention calculation
@@ -507,10 +510,10 @@ Figure&nbsp;7.2: Tensor parallel attention calculation
 <p>where <span class="math inline">\(b\)</span> is the batch size (in tokens) and the factor of 2 accounts for the reduce-scatter and all-gather phases. With two all-reduces per transformer layer and <span class="math inline">\(L\)</span> layers, the total communication per forward pass is <span class="math inline">\(2L\)</span> all-reduce operations.</p>
 <p>For a 70B model with <span class="math inline">\(d_{\text{model}} = 8192\)</span> and TP=8 on H100 NVLink (900 GB/s), each all-reduce for a single-token decode step moves roughly 2 × 8192 × 2 bytes ≈ 32 KB. That completes in well under a microsecond – negligible. But for prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with <span class="math inline">\(b\)</span> and can start to matter.</p>
 <p>The key insight is that TP requires <strong>high-bandwidth, low-latency</strong> communication every layer, making it impractical across nodes where network bandwidth is 10-30x lower than NVLink.</p>
-<div id="fig-tp-mlp" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-tp-mlp" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;7.3: Tensor parallel MLP calculation"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;7.3: Tensor parallel MLP calculation
@@ -540,10 +543,10 @@ ASCII art sketch:
        │         transfers between stages           │
        └────────────── output ──────────────────────┘
 -->
-<div id="fig-pipeline-parallelism" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-pipeline-parallelism" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-pipeline-parallelism-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;7.4: Pipeline parallel layers"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pipeline-parallelism-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;7.4: Pipeline parallel layers
@@ -563,10 +566,10 @@ Figure&nbsp;7.4: Pipeline parallel layers
 <section id="sec-expert-parallelism" class="level2" data-number="7.5">
 <h2 data-number="7.5" class="anchored" data-anchor-id="sec-expert-parallelism"><span class="header-section-number">7.5</span> Expert Parallelism (EP)</h2>
 <p>Mixture-of-Experts (MoE) models – like Mixtral, DeepSeek-V2, and many recent large models – replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token. This dramatically reduces per-token compute, but it means the full set of expert weights must be in memory.</p>
-<div id="fig-ep-mlp" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-ep-mlp" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ep-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;7.5: Expert parallel MLP calculation"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ep-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;7.5: Expert parallel MLP calculation
@@ -592,10 +595,10 @@ Figure&nbsp;7.5: Expert parallel MLP calculation
 <section id="ring-attention" class="level3">
 <h3 class="anchored" data-anchor-id="ring-attention">Ring attention</h3>
 <p><strong>Ring self-attention</strong> <span class="citation" data-cites="li2021ring">(<a href="references.html#ref-li2021ring" role="doc-biblioref">Li et al. 2021</a>)</span> arranges the GPUs in a logical ring. Each GPU starts with a local chunk of queries and an initial chunk of keys and values. Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks. After <span class="math inline">\(T\)</span> steps (where <span class="math inline">\(T\)</span> is the number of GPUs), every GPU has computed attention over the full sequence.</p>
-<div id="fig-ring-attn" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-ring-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ring-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/under_construction.jpg" class="img-fluid figure-img">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;7.6: Ring attention calculation"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ring-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;7.6: Ring attention calculation
@@ -1190,8 +1193,40 @@ Shoeybi, Mohammad, Mostofa Patwary, Raul Puri, Patrick LeGresley, Jared Casper, 
   </div>
 </nav>
 </div> <!-- /content -->
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer><script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
 
 
 
 
-<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
+</body></html>

@@ -474,7 +474,7 @@ Tip
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Before diving into the data flow, here are a few conventions used in the data flow diagrams. <img src="images/tensor.svg" id="fig-tensor" class="img-fluid" alt="Example data flow diagram"></p>
+<p>Before diving into the data flow, here are a few conventions used in the data flow diagrams. <a href="images/tensor.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Example data flow diagram"><img src="images/tensor.svg" id="fig-tensor" class="img-fluid" alt="Example data flow diagram"></a></p>
 <p>In this example data flow diagram, the tensors are represented by rectangles, and the operand a rounded rectangle.</p>
 <p><strong>Dimensions and edge color</strong>: Each tensor’s shape is shown next to it on the right side, unless there isn’t room. This first tensor on the bottom has shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, where <strong><span class="dim-s">S</span></strong> is the the number of rows and <strong><span class="dim-d">D</span></strong> is the number of columns. Notice that the left and right edges are colored red, and every tensor with a dimension that is length <strong><span class="dim-s">S</span></strong> will have that dimension colored red. Similarly, the top and bottom edges are colored blue because the number of columns is <strong><span class="dim-d">D</span></strong>, and all other dimensions length <strong><span class="dim-d">D</span></strong> will be the same color.</p>
 <p><strong>Fill color</strong>: The fill color of the bottom tensor is gray. For convenience, tensors holding similar semantic information will have similar fill colors. Weights are fixed model tensors, and they always have the same purple fill color.</p>
@@ -510,7 +510,7 @@ Tip
 <div id="fig-llm-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-llm-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/llm_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;2.5: Data flow of an entire decoder-only LLM. The details within each decoder layer are hidden for now."><img src="images/llm_flow.svg" class="img-fluid figure-img"></a>
+<a href="images/llm_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-7" title="Figure&nbsp;2.5: Data flow of an entire decoder-only LLM. The details within each decoder layer are hidden for now."><img src="images/llm_flow.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-llm-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.5: Data flow of an entire decoder-only LLM. The details within each decoder layer are hidden for now.
@@ -544,7 +544,7 @@ y &amp;= \hat{X} + \text{FFN}(\text{Norm}(\hat{X}))
 <div id="fig-decoder-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-decoder-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/decoder_block.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-7" title="Figure&nbsp;2.6: Data flow of one decoder layer"><img src="images/decoder_block.svg" height="500" class="figure-img"></a>
+<a href="images/decoder_block.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-8" title="Figure&nbsp;2.6: Data flow of one decoder layer"><img src="images/decoder_block.svg" height="500" class="figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-decoder-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.6: Data flow of one decoder layer
@@ -571,7 +571,7 @@ Figure&nbsp;2.6: Data flow of one decoder layer
 <div id="fig-attn-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-attn-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/attn_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-8" title="Figure&nbsp;2.7: Data flow of weights and activations in a multi-head attention layer using a basic, unoptimized implementation"><img src="images/attn_flow.svg" height="700" class="figure-img"></a>
+<a href="images/attn_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-9" title="Figure&nbsp;2.7: Data flow of weights and activations in a multi-head attention layer using a basic, unoptimized implementation"><img src="images/attn_flow.svg" height="700" class="figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-attn-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.7: Data flow of weights and activations in a multi-head attention layer using a basic, unoptimized implementation
@@ -610,7 +610,7 @@ Figure&nbsp;2.7: Data flow of weights and activations in a multi-head attention 
 <div id="fig-causal-mask" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-causal-mask-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/causal_mask.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-9" title="Figure&nbsp;2.8: How the causal mask is applied in self-attention, shown for only one attention head for S = 5"><img src="images/causal_mask.svg" class="img-fluid figure-img"></a>
+<a href="images/causal_mask.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-10" title="Figure&nbsp;2.8: How the causal mask is applied in self-attention, shown for only one attention head for S = 5"><img src="images/causal_mask.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-causal-mask-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.8: How the causal mask is applied in self-attention, shown for only one attention head for <strong><span class="dim-s">S</span></strong> = 5
@@ -737,10 +737,10 @@ Note
     for V entries. Show the "new" entry appended at each step highlighted.
     Include a small inset showing that this cache exists at EVERY layer.
 -->
-<div id="fig-kv-cache" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-kv-cache" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-kv-cache-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/kv_cache.svg" class="img-fluid figure-img">
+<a href="images/kv_cache.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-11" title="Figure&nbsp;2.9: KV cache. TODO: this diagram needs to be completely redesigned."><img src="images/kv_cache.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-kv-cache-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.9: KV cache. TODO: this diagram needs to be completely redesigned.
@@ -748,10 +748,10 @@ Figure&nbsp;2.9: KV cache. TODO: this diagram needs to be completely redesigned.
 </figure>
 </div>
 <p>When we do inference with a KV cache, the attention calculation becomes much less computationally expensive because our query tensor shrinks from <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> to <strong>(1, <span class="dim-d">D</span>)</strong>. You can see this effect by comparing the original data flow for attention in <a href="#fig-attn-flow" class="quarto-xref">Figure&nbsp;<span>2.7</span></a> to the KV cache attention data flow in <a href="#fig-attn-flow-kv" class="quarto-xref">Figure&nbsp;<span>2.10</span></a>.</p>
-<div id="fig-attn-flow-kv" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-attn-flow-kv" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-attn-flow-kv-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/attn_flow_kv.svg" class="img-fluid figure-img">
+<a href="images/attn_flow_kv.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-12" title="Figure&nbsp;2.10: Data flow for multi-head attention when using a KV cache"><img src="images/attn_flow_kv.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-attn-flow-kv-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.10: Data flow for multi-head attention when using a KV cache
@@ -806,10 +806,10 @@ Note
     For D = 8192:
     Total = 8 × 8192² ≈ 537M parameters per layer
 -->
-<div id="fig-mlp-flow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-mlp-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-mlp-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/mlp_flow.svg" class="img-fluid figure-img">
+<a href="images/mlp_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-13" title="Figure&nbsp;2.11: Data flow of weights and activations in a standard MLP layer"><img src="images/mlp_flow.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mlp-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.11: Data flow of weights and activations in a standard MLP layer
@@ -822,10 +822,10 @@ Figure&nbsp;2.11: Data flow of weights and activations in a standard MLP layer
 <p>Modern LLMs like Llama and PaLM don’t use the standard FFN. They use a <strong>gated</strong> variant of the MLP called <strong>SwiGLU</strong> <span class="citation" data-cites="shazeer2020glu">(<a href="references.html#ref-shazeer2020glu" role="doc-biblioref">Shazeer 2020</a>)</span>, which adds a third linear layer and uses a gating mechanism:</p>
 <p><span class="math display">\[\text{FFN}_{\text{SwiGLU}}(x) = (\text{SiLU}(x W_{\text{gate}}) \odot x W_{\text{up}}) W_{\text{down}}\]</span></p>
 <p>where <span class="math inline">\(\odot\)</span> denotes element-wise multiplication and SiLU (also called Swish) is the activation function <span class="math inline">\(\text{SiLU}(x) = x \cdot \sigma(x)\)</span>.</p>
-<div id="fig-gated-mlp-flow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-gated-mlp-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-gated-mlp-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/gated_mlp_flow.svg" class="img-fluid figure-img">
+<a href="images/gated_mlp_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-14" title="Figure&nbsp;2.12: Data flow of weights and activations in a gated MLP layer"><img src="images/gated_mlp_flow.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gated-mlp-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.12: Data flow of weights and activations in a gated MLP layer
@@ -906,10 +906,10 @@ Figure&nbsp;2.12: Data flow of weights and activations in a gated MLP layer
     Show the sparse activation pattern with filled/empty blocks.
     Annotate total vs. active parameter counts.
 -->
-<div id="fig-moe-flow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-moe-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-moe-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/moe_flow.svg" class="img-fluid figure-img">
+<a href="images/moe_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-15" title="Figure&nbsp;2.13: Data flow of weights and activations in an MOE MLP layer. TODO: this figure needs more work."><img src="images/moe_flow.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-moe-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;2.13: Data flow of weights and activations in an MOE MLP layer. TODO: this figure needs more work.

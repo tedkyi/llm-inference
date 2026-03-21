@@ -30,7 +30,7 @@ ASCII art sketch:
   Total HBM traffic for S and P:  O(S²) reads + O(S²) writes
 -->
 ```
-![Flash attention](images/under_construction.jpg){#fig-flash-attention}
+![Flash attention](images/under_construction.jpg){#fig-flash-attention .lightbox}
 
 The problem is the intermediate matrices $S$ and $P$.
 They each have $S^2$ elements per head, and they are materialized in HBM just to be read back in the next step.
@@ -226,7 +226,7 @@ ASCII art sketch:
   Fragmentation: only the last page of each request may be partially filled.
 -->
 ```
-![Paged attention](images/under_construction.jpg){#fig-paged-attention}
+![Paged attention](images/under_construction.jpg){#fig-paged-attention .lightbox}
 
 The benefits are significant:
 
@@ -320,7 +320,7 @@ ASCII art sketch:
   Only the divergent suffix needs prefill.
 -->
 ```
-![Radix attention](images/under_construction.jpg){#fig-radix-attention}
+![Radix attention](images/under_construction.jpg){#fig-radix-attention .lightbox}
 
 When a new request arrives, the system walks the radix tree matching its token sequence.
 If the first 2,048 tokens match a cached prefix, those KV entries are reused directly -- no prefill needed for them.
@@ -364,7 +364,7 @@ This section covers techniques that break or amortize that sequential constraint
 
 ### Multi-token prediction
 
-![Multi-token prediction](images/under_construction.jpg){#fig-multi-token-prediction}
+![Multi-token prediction](images/under_construction.jpg){#fig-multi-token-prediction .lightbox}
 
 **Multi-token prediction (MTP)** [@gloeckle2024mtp] modifies the model architecture to predict multiple future tokens at each position.
 In addition to the standard next-token prediction head, the model has auxiliary heads that predict the token 2, 3, or $k$ steps ahead.
@@ -382,7 +382,7 @@ The cost is a modest increase in model size and training complexity from the aux
 
 **Speculative decoding** [@leviathan2023speculative; @chen2023speculative] is based on a simple but powerful observation: verifying a sequence of tokens is cheaper than generating them one at a time.
 
-![Speculative decoding](images/under_construction.jpg){#fig-speculative-decoding}
+![Speculative decoding](images/under_construction.jpg){#fig-speculative-decoding .lightbox}
 
 Here's the setup.
 You have a large **target model** -- the model you actually want to sample from -- and a small, fast **draft model**.
@@ -469,7 +469,7 @@ The acceptance rate can be very high -- often above 0.95 for close matches -- ma
 Standard speculative decoding has a subtle inefficiency: the draft model must wait for the target model to complete verification before it can start drafting the next batch of tokens.
 This is because the draft model needs to know which tokens were accepted so it can condition on the correct prefix.
 
-![Speculative speculative decoding](images/under_construction.jpg){#fig-speculative-speculative-decoding}
+![Speculative speculative decoding](images/under_construction.jpg){#fig-speculative-speculative-decoding .lightbox}
 
 **Speculative speculative decoding** [@mamou2025specspec] eliminates this dependency.
 The draft model speculatively starts generating the next batch of candidates *before* the target model finishes verifying the current batch.

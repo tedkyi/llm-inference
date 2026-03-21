@@ -100,7 +100,7 @@ Request 4: ..........................................[waiting............]
     Request 4 cannot start until Request 3 (the slowest) finishes
 -->
 ```
-![Static batching](images/under_construction.jpg){#fig-static-batching}
+![Static batching](images/under_construction.jpg){#fig-static-batching .lightbox}
 
 The problems are obvious.
 Request 1 finishes early but its batch slot sits empty -- the GPU does no useful work for that slot while waiting for Request 3 to complete.
@@ -141,7 +141,7 @@ Slot 3: [Req C prefill][C decode][C decode][C decode][C done][Req F prefill]...
     - No slot ever sits idle waiting for other requests to finish
 -->
 ```
-![Continuous batching](images/under_construction.jpg){#fig-continuous-batching}
+![Continuous batching](images/under_construction.jpg){#fig-continuous-batching .lightbox}
 
 This eliminates **head-of-line blocking** -- the problem where a single slow request holds up the entire batch.
 In the static batching example, Request 4 had to wait for the entire first batch to complete.
@@ -178,7 +178,7 @@ Padded batching:                    Ragged batching:
   6 pad tokens wasted
 -->
 ```
-![Ragged batching](images/under_construction.jpg){#fig-ragged-batching}
+![Ragged batching](images/under_construction.jpg){#fig-ragged-batching .lightbox}
 
 This matters most during prefill, where the input lengths across requests can vary widely.
 A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching.
@@ -229,7 +229,7 @@ With chunked prefill (512-token chunks):
   Decode requests make progress every iteration -- no long stalls
 -->
 ```
-![Chunked prefill](images/under_construction.jpg){#fig-chunked-prefill}
+![Chunked prefill](images/under_construction.jpg){#fig-chunked-prefill .lightbox}
 
 The chunk size is a tuning parameter.
 Smaller chunks mean smoother decode progress but increase the number of iterations needed to complete the prefill, adding overhead from additional kernel launches and attention computations across chunk boundaries.
@@ -283,7 +283,7 @@ ASCII art sketch:
   - Communication cost: KV cache transfer
 -->
 ```
-![Disaggregated prefill](images/under_construction.jpg){#fig-disaggregated-prefill}
+![Disaggregated prefill](images/under_construction.jpg){#fig-disaggregated-prefill .lightbox}
 
 The main cost is the KV cache transfer.
 For a large model with a long prompt, the KV cache can be several gigabytes, and this data needs to move between machines before decoding can begin.

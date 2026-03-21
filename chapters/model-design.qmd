@@ -219,7 +219,7 @@ ASCII art sketch:
   MLA               (latent)    [███]                              ~0.1x (varies)
 -->
 ```
-![Techniques for reducing the KV cache size of a given layer](images/under_construction.jpg){#fig-attn-head-variants}
+![Techniques for reducing the KV cache size of a given layer](images/under_construction.jpg){#fig-attn-head-variants .lightbox}
 
 **Multi-Head Attention (MHA)** is the original design from the transformer paper [@vaswani2017attention].
 Each attention head has its own key and value projections, so the KV cache stores separate K and V vectors for every head, every layer, and every token in the sequence.
@@ -243,7 +243,7 @@ At attention time, the full keys and values are reconstructed from the latent re
 The compression ratio depends on the latent dimension, but MLA can achieve significant cache reductions -- comparable to or better than GQA -- while preserving model quality.
 The tradeoff is additional compute to decompress the latent vectors during attention, but this compute is typically small relative to the bandwidth savings.
 
-![Cross-layer attention](images/under_construction.jpg){#fig-cross-layer-attn}
+![Cross-layer attention](images/under_construction.jpg){#fig-cross-layer-attn .lightbox}
 
 **Cross-Layer Attention (CLA)** [@brandon2024cla] takes a different angle: rather than sharing KV across heads within a layer, it shares KV across adjacent layers.
 If every pair of consecutive layers shares the same KV cache, the total cache size is halved.
@@ -253,14 +253,14 @@ CLA can be combined with GQA or MQA for even greater reductions.
 
 Beyond the KV cache, the attention computation itself can be a bottleneck, particularly during prefill for long sequences where the cost is quadratic in sequence length.
 
-![Sliding window attention](images/under_construction.jpg){#fig-sliding-window-attn}
+![Sliding window attention](images/under_construction.jpg){#fig-sliding-window-attn .lightbox}
 
 **Sliding window attention** [@beltagy2020longformer] restricts each token to attend only to a fixed-size window of nearby tokens rather than the full sequence.
 This reduces the attention computation from $O(n^2)$ to $O(n \times w)$, where $w$ is the window size.
 For inference, sliding window attention also bounds the KV cache size per layer to the window size, regardless of the total sequence length.
 Several recent models -- including Mistral -- use sliding window attention in some or all layers, often combined with a few full-attention layers to preserve the model's ability to attend to distant tokens.
 
-![Parallel attention and MLP blocks](images/parallel_block.svg){#fig-attn-head-variants}
+![Parallel attention and MLP blocks](images/parallel_block.svg){#fig-attn-head-variants .lightbox}
 
 **Parallel attention and MLP blocks** is a simpler architectural trick used in some models, including PaLM [@chowdhery2022palm].
 Instead of computing attention and MLP sequentially within each transformer block, they are computed in parallel and their outputs are summed.

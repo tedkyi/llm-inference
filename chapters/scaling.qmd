@@ -47,7 +47,7 @@ ASCII art sketch:
   Each GPU ↔ PCIe:     128 GB/s bidirectional (Gen5 x16)
 -->
 ```
-![Intra-node and inter-node connections](images/under_construction.jpg){#fig-interconnect}
+![Intra-node and inter-node connections](images/under_construction.jpg){#fig-interconnect .lightbox}
 
 ### PCIe
 
@@ -123,7 +123,7 @@ When it doesn't, we need the techniques that follow.
 **Tensor parallelism** splits individual weight matrices across devices, so each GPU computes a slice of every layer.
 This is the most communication-intensive parallelism strategy, but it directly reduces per-device memory and enables serving models that don't fit on a single GPU.
 
-![Tensor parallel attention calculation](images/under_construction.jpg){#fig-tp-attn}
+![Tensor parallel attention calculation](images/under_construction.jpg){#fig-tp-attn .lightbox}
 
 ### Column-parallel and row-parallel linear layers
 
@@ -174,7 +174,7 @@ But for prefill with thousands of tokens, or with larger batch sizes, the commun
 
 The key insight is that TP requires **high-bandwidth, low-latency** communication every layer, making it impractical across nodes where network bandwidth is 10-30x lower than NVLink.
 
-![Tensor parallel MLP calculation](images/under_construction.jpg){#fig-tp-mlp}
+![Tensor parallel MLP calculation](images/under_construction.jpg){#fig-tp-mlp .lightbox}
 
 ## Pipeline Parallelism (PP) {#sec-pipeline-parallelism}
 
@@ -204,7 +204,7 @@ ASCII art sketch:
        └────────────── output ──────────────────────┘
 -->
 ```
-![Pipeline parallel layers](images/under_construction.jpg){#fig-pipeline-parallelism}
+![Pipeline parallel layers](images/under_construction.jpg){#fig-pipeline-parallelism .lightbox}
 
 The activation tensor passed between stages has shape $[b, d_{\text{model}}]$ (for $b$ tokens), which is much smaller than the all-reduce traffic in TP.
 This low communication volume makes PP well-suited for **multi-node** deployment, where network bandwidth is limited.
@@ -234,7 +234,7 @@ For latency-sensitive applications, this overhead can matter.
 Mixture-of-Experts (MoE) models -- like Mixtral, DeepSeek-V2, and many recent large models -- replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token.
 This dramatically reduces per-token compute, but it means the full set of expert weights must be in memory.
 
-![Expert parallel MLP calculation](images/under_construction.jpg){#fig-ep-mlp}
+![Expert parallel MLP calculation](images/under_construction.jpg){#fig-ep-mlp .lightbox}
 
 **Expert parallelism** assigns different experts to different GPUs.
 With 64 experts and 8 GPUs, each GPU holds 8 experts.
@@ -274,7 +274,7 @@ Each GPU starts with a local chunk of queries and an initial chunk of keys and v
 Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks.
 After $T$ steps (where $T$ is the number of GPUs), every GPU has computed attention over the full sequence.
 
-![Ring attention calculation](images/under_construction.jpg){#fig-ring-attn}
+![Ring attention calculation](images/under_construction.jpg){#fig-ring-attn .lightbox}
 
 The ring communication pattern overlaps neatly with computation: while a GPU computes attention with the current K/V chunk, it simultaneously sends that chunk to its neighbor and receives the next chunk.
 With enough computation per chunk, the communication is fully hidden.

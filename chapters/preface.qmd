@@ -17,6 +17,7 @@ I hope you find it useful for providing a good intuition and the necessary detai
 ### How this book was written {.unnumbered}
 This book started as a detailed list of topics, techniques, and research papers.
 The idea to use data flow diagrams and the design of most diagrams was entirely my own.
+
 **Full disclosure**: I used LLMs to suggest ways to organize the material and to write initial text based on my notes.
 I used Claude Code to speed up the implementation of the diagrams and to debug places where the appearence of text, formulas, or figures wasn't correct.
 If you are not interested in reading work that used AI assistance, that is your prerogative.

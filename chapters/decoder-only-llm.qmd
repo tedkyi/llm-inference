@@ -142,7 +142,7 @@ We still need to be familiar with the operands, especially to know how the input
 
 ::: {.callout-tip}
 Before diving into the data flow, here are a few conventions used in the data flow diagrams.
-![Example data flow diagram](images/tensor.svg){#fig-tensor}
+![Example data flow diagram](images/tensor.svg){#fig-tensor .lightbox}
 
 In this example data flow diagram, the tensors are represented by rectangles, and the operand a rounded rectangle.
 
@@ -511,12 +511,12 @@ This reduces the per token computation to $O({t})$ and the total computation to 
     Include a small inset showing that this cache exists at EVERY layer.
 -->
 ```
-![KV cache. TODO: this diagram needs to be completely redesigned.](images/kv_cache.svg){#fig-kv-cache}
+![KV cache. TODO: this diagram needs to be completely redesigned.](images/kv_cache.svg){#fig-kv-cache .lightbox}
 
 When we do inference with a KV cache, the attention calculation becomes much less computationally expensive because our query tensor shrinks from **([S]{.dim-s}, [D]{.dim-d})** to **(1, [D]{.dim-d})**.
 You can see this effect by comparing the original data flow for attention in @fig-attn-flow to the KV cache attention data flow in @fig-attn-flow-kv.
 
-![Data flow for multi-head attention when using a KV cache](images/attn_flow_kv.svg){#fig-attn-flow-kv}
+![Data flow for multi-head attention when using a KV cache](images/attn_flow_kv.svg){#fig-attn-flow-kv .lightbox}
 
 ### Memory consumption
 
@@ -584,7 +584,7 @@ Then the second linear layer "down-projects" back from **[F]{.dim-f}** to **[D]{
     Total = 8 × 8192² ≈ 537M parameters per layer
 -->
 ```
-![Data flow of weights and activations in a standard MLP layer](images/mlp_flow.svg){#fig-mlp-flow}
+![Data flow of weights and activations in a standard MLP layer](images/mlp_flow.svg){#fig-mlp-flow .lightbox}
 
 ### Gated MLP (SwiGLU)
 
@@ -595,7 +595,7 @@ $$\text{FFN}_{\text{SwiGLU}}(x) = (\text{SiLU}(x W_{\text{gate}}) \odot x W_{\te
 
 where $\odot$ denotes element-wise multiplication and SiLU (also called Swish) is the activation function $\text{SiLU}(x) = x \cdot \sigma(x)$.
 
-![Data flow of weights and activations in a gated MLP layer](images/gated_mlp_flow.svg){#fig-gated-mlp-flow}
+![Data flow of weights and activations in a gated MLP layer](images/gated_mlp_flow.svg){#fig-gated-mlp-flow .lightbox}
 
 The flow for the gated MLP is shown in @fig-gated-mlp-flow.
 The up and gate projections run in parallel, both mapping from **[D]{.dim-d}** to a higher intermediate dimension **[F]{.dim-f}**.
@@ -697,7 +697,7 @@ The outputs of the selected experts are combined using the router's SoftMax weig
     Annotate total vs. active parameter counts.
 -->
 ```
-![Data flow of weights and activations in an MOE MLP layer. TODO: this figure needs more work.](images/moe_flow.svg){#fig-moe-flow}
+![Data flow of weights and activations in an MOE MLP layer. TODO: this figure needs more work.](images/moe_flow.svg){#fig-moe-flow .lightbox}
 
 The key trade-off of MoE for inference is clear: **memory footprint is large** (all expert weights must reside in memory) but **per-token compute is modest** (only $k$ of $E$ experts are active).
 Mixtral 8×7B [@jiang2024mixtral] has roughly 47B total parameters but only ~13B active per token.

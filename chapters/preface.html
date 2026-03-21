@@ -175,25 +175,25 @@ ul.task-list li input[type="checkbox"] {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch3-scheduling.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/scheduling.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch4-request.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/request.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch5-scaling.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/scaling.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch6-production.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/production.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
   </div>
 </li>
@@ -215,9 +215,8 @@ ul.task-list li input[type="checkbox"] {
   <ul>
   <li><a href="#who-this-book-is-for" id="toc-who-this-book-is-for" class="nav-link active" data-scroll-target="#who-this-book-is-for">Who this book is for</a></li>
   <li><a href="#what-this-book-covers" id="toc-what-this-book-covers" class="nav-link" data-scroll-target="#what-this-book-covers">What this book covers</a></li>
-  <li><a href="#how-the-book-is-organized" id="toc-how-the-book-is-organized" class="nav-link" data-scroll-target="#how-the-book-is-organized">How the book is organized</a></li>
   <li><a href="#how-this-book-was-written" id="toc-how-this-book-was-written" class="nav-link" data-scroll-target="#how-this-book-was-written">How this book was written</a></li>
-  <li><a href="#prerequisites" id="toc-prerequisites" class="nav-link" data-scroll-target="#prerequisites">Prerequisites</a></li>
+  <li><a href="#acknowledgements" id="toc-acknowledgements" class="nav-link" data-scroll-target="#acknowledgements">Acknowledgements</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -246,19 +245,20 @@ ul.task-list li input[type="checkbox"] {
 <p><em>A short book on autoregressive LLM inference and the techniques that make it fast, efficient, and scalable.</em></p>
 <section id="who-this-book-is-for" class="level3 unnumbered">
 <h3 class="unnumbered anchored" data-anchor-id="who-this-book-is-for">Who this book is for</h3>
+<p>This book is for ML engineers (and people with similar background) who are already familiar with neural networks, the transformer architecture, self-attention, and autoregressive decoder-only LLMs. This book evolved from research into efficient ways to do LLM inference for special cases such as RAG, Writing in the Margins, and beam search. After spending time learning about attention kernels, prefix caching, and systems such as vLLM and SGLang, I decided to share the knowledge I had gathered in one convenient place.</p>
 </section>
 <section id="what-this-book-covers" class="level3 unnumbered">
 <h3 class="unnumbered anchored" data-anchor-id="what-this-book-covers">What this book covers</h3>
-</section>
-<section id="how-the-book-is-organized" class="level3 unnumbered">
-<h3 class="unnumbered anchored" data-anchor-id="how-the-book-is-organized">How the book is organized</h3>
+<p>This book discusses how LLM inference works, then reviews the techniques for optimizing and scaling LLM inference. This book should not be the first resource for learning about the transformer, nor will it teach how to code LLMs. It is also not a comprehensive ML Ops or system implementation book. I hope you find it useful for providing a good intuition and the necessary details about concepts like chunked prefill, ragged batching, tensor parallelism, and speculative decoding.</p>
 </section>
 <section id="how-this-book-was-written" class="level3 unnumbered">
 <h3 class="unnumbered anchored" data-anchor-id="how-this-book-was-written">How this book was written</h3>
+<p>This book started as a detailed list of topics, techniques, and research papers. The idea to use data flow diagrams and the design of most diagrams was entirely my own. <strong>Full disclosure</strong>: I used LLMs to suggest ways to organize the material and to write initial text based on my notes. I used Claude Code to speed up the implementation of the diagrams and to debug places where the appearence of text, formulas, or figures wasn’t correct. If you are not interested in reading work that used AI assistance, that is your prerogative. For what it’s worth, AI assistance shortened the process of getting the first release of this book from months to weeks. I probably would not have taken the time to write this book if it had required several months.</p>
 </section>
-<section id="prerequisites" class="level3 unnumbered">
-<h3 class="unnumbered anchored" data-anchor-id="prerequisites">Prerequisites</h3>
-<p>This book assumes familiarity with neural networks, the transformer architecture, and self-attention at a conceptual level. Readers who need a refresher on the decoder-only transformer and self-attention should start with <a href="decoder-only-llm.html" class="quarto-xref"><span>2&nbsp; The Decoder-Only Transformer</span></a>.</p>
+<section id="acknowledgements" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="acknowledgements">Acknowledgements</h3>
+<p>Thank you to everyone who provided feedback, starting with RC and RS.</p>
+<p>I thank you for reporting any errata or making suggestions for how this book could be better. The easiest way is to open a GitHub issue from within the electronic book.</p>
 
 
 </section>

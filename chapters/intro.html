@@ -197,25 +197,25 @@ div.csl-indent {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch3-scheduling.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/scheduling.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch4-request.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/request.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch5-scaling.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/scaling.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch6-production.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/production.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
   </div>
 </li>
@@ -332,8 +332,8 @@ ASCII art sketch:
 </section>
 <section id="about-this-book" class="level3">
 <h3 class="anchored" data-anchor-id="about-this-book">About this book</h3>
-<p>This book is written for ML engineers who know the LLM’s neural network architecture and want to understand what else is part of serving LLM requests, and in particular how to make that process faster. We assume you’re familiar with neural networks, the transformer architecture, and self-attention at a conceptual level. If you need a refresher on how a decoder-only transformer works — how queries, keys, and values flow through the attention mechanism, what the KV cache is, and why it exists, <a href="decoder-only-llm.html" class="quarto-xref"><span>Chapter 2</span></a> covers these topics with the level of detail needed for the rest of the book.</p>
-<p>With that, let’s get into the technical details. We’ll start by breaking down the inference pipeline in further detail and building a precise vocabulary for talking about its performance.</p>
+<p>This book is written for ML engineers who know the LLM’s neural network architecture and want to understand what else is part of serving LLM requests, and in particular how to make that process faster. We assume you’re familiar with neural networks, the transformer architecture, and self-attention at a conceptual level.</p>
+<p>With that, let’s get into the technical details. We’ll start by breaking down the decoder-only transformer architecture in further detail and building a precise understanding of the data and operations involved.</p>
 
 
 <div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">

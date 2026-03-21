@@ -204,25 +204,25 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch3-scheduling.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/scheduling.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch4-request.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/request.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch5-scaling.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/scaling.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Scaling Across Hardware</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/ch6-production.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/production.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
   </div>
 </li>
@@ -246,7 +246,7 @@ window.Quarto = {
   <li><a href="#tensor-edge-colors" id="toc-tensor-edge-colors" class="nav-link" data-scroll-target="#tensor-edge-colors">Tensor edge colors</a></li>
   <li><a href="#tensor-fill-colors" id="toc-tensor-fill-colors" class="nav-link" data-scroll-target="#tensor-fill-colors">Tensor fill colors</a></li>
   <li><a href="#component-colors" id="toc-component-colors" class="nav-link" data-scroll-target="#component-colors">Component colors</a></li>
-  <li><a href="#reading-a-tensor-diagram" id="toc-reading-a-tensor-diagram" class="nav-link" data-scroll-target="#reading-a-tensor-diagram">Reading a tensor diagram</a></li>
+  <li><a href="#reading-a-data-flow-diagram" id="toc-reading-a-data-flow-diagram" class="nav-link" data-scroll-target="#reading-a-data-flow-diagram">Reading a data flow diagram</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -536,14 +536,14 @@ Table&nbsp;1: Standard dimension symbols used in figures and text.
 </tbody>
 </table>
 </section>
-<section id="reading-a-tensor-diagram" class="level2">
-<h2 class="anchored" data-anchor-id="reading-a-tensor-diagram">Reading a tensor diagram</h2>
+<section id="reading-a-data-flow-diagram" class="level3">
+<h3 class="anchored" data-anchor-id="reading-a-data-flow-diagram">Reading a data flow diagram</h3>
 <p>To illustrate how these conventions combine, here is how a typical tensor rectangle should be read:</p>
 <ul>
-<li>The <strong>fill color</strong> tells you what kind of tensor it is (query, key, weight, etc.).</li>
-<li>The <strong>top and bottom edge colors</strong> tell you the dimension that runs horizontally.</li>
-<li>The <strong>left and right edge colors</strong> tell you the dimension that runs vertically.</li>
-<li>The <strong>shape label</strong> (e.g., <span class="math inline">\((S, D)\)</span>) confirms the dimensions explicitly.</li>
+<li>The <strong>top and bottom edge colors</strong> tell you the dimension that runs horizontally, the number of columns.</li>
+<li>The <strong>left and right edge colors</strong> tell you the dimension that runs vertically, the number of rows.</li>
+<li>The <strong>shape label</strong> (e.g., <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>) confirms the dimensions explicitly.</li>
+<li>The <strong>fill color</strong> helps disambiguate what kind of tensor it is (query, key, weight, etc.).</li>
 </ul>
 <p>When two tensors share an edge color on a connecting side, it means those dimensions are compatible for the operation that connects them — a matrix multiply, a concatenation, or an elementwise operation.</p>
 

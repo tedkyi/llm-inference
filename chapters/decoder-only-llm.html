@@ -395,7 +395,7 @@ Figure&nbsp;2.3: Explicit multiple layers
 </figcaption>
 </figure>
 </div>
-<p>The second architectural understanding needed is that the model is applied identically across every token position in the sequence, sharing all weights. When we process a sequence of <strong>(<span class="dim-s">S</span>)</strong> tokens, the same weight matrices are applied to every token position. <a href="#fig-model-grid" class="quarto-xref">Figure&nbsp;<span>2.4</span></a> shows an intuition of the model being copied repeatedly for each token position.</p>
+<p>The second architectural understanding needed is that the model is applied identically across every token position in the sequence, sharing all weights. When we process a sequence of <strong><span class="dim-s">S</span></strong> tokens, the same weight matrices are applied to every token position. <a href="#fig-model-grid" class="quarto-xref">Figure&nbsp;<span>2.4</span></a> shows an intuition of the model being copied repeatedly for each token position.</p>
 <div id="fig-model-grid" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-model-grid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -465,7 +465,7 @@ across all positions to emphasize sharing.
 </section>
 <section id="sec-forward-pass" class="level2" data-number="2.2">
 <h2 data-number="2.2" class="anchored" data-anchor-id="sec-forward-pass"><span class="header-section-number">2.2</span> Forward Pass Data Flow</h2>
-<p>To better understand how inference works, we will examine what happens when we send data through a forward pass of the model. We will start at the big picture and work our way down into the individual components. Let’s trace input token IDs from input to output logits, annotating every tensor shape along the way. We call the diagrams we will use <strong>data flow diagrams</strong>, and they focus on the shapes of the tensors passed into operations more than the math of the calculation being performed. This is so we can understand the size and shape of the data, which directly affects transfer speeds and computation costs. The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed.</p>
+<p>To better understand how inference works, we will examine what happens when we send data through a forward pass of the model. We will start at the big picture and work our way down into the individual components. Let’s trace input token IDs from input to output logits, annotating every tensor shape along the way. We call the diagrams we will use <strong>data flow diagrams</strong>, and they focus on the shapes of the tensors passed into operations more than the math of the calculation being performed. This is so we can understand the size and shape of the data, which directly affects transfer speeds and computation costs. The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed. We still need to be familiar with the operands, especially to know how the inputs can be partitioned, and how much data must be exchanged between partitions.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -479,7 +479,7 @@ Tip
 <p>Before diving into the data flow, here are a few conventions used in the data flow diagrams. <img src="images/tensor.svg" id="fig-tensor" class="img-fluid" alt="Example data flow diagram"></p>
 <p>In this example data flow diagram, the tensors are represented by rectangles, and the operand a rounded rectangle.</p>
 <p><strong>Dimensions and edge color</strong>: The data tensor’s shape is shown next to it, on the right side unless there isn’t room. This first tensor on the bottom has shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, where <strong><span class="dim-s">S</span></strong> is the row dimension and <strong><span class="dim-d">D</span></strong> is the column dimension. Note that the left and right edges are colored red, and every tensor with a dimension that is length <strong><span class="dim-s">S</span></strong> will have that dimension colored red. Similarly, the top and bottom edges are colored blue because the column dimension is <strong><span class="dim-d">D</span></strong>, and all other dimensions length <strong><span class="dim-d">D</span></strong> will be the same color.</p>
-<p><strong>Fill color</strong>: The fill color of the tensor is gray. Tensors holding similar semantic information will have similar fill colors. Weights are fixed model tensors, and they always have the same purple fill color.</p>
+<p><strong>Fill color</strong>: The fill color of the tensor is gray. Tensors holding similar semantic information will have similar fill colors, for convenience. Weights are fixed model tensors, and they always have the same purple fill color.</p>
 <p><strong>3D tensors</strong>: The tensor at the top of the diagram is 3D with shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>. Because it is 3D, it is shown with a “stacked” rectangle shape. The leading dimension, <strong><span class="dim-h">H</span></strong>, is the stacked dimension. The third dimsion’s purple edge color corresponds to this dimension.</p>
 <p><strong>Views</strong>: The middle tensor and the top tensor are connected by an arrow with a dotted line. The dotted stroke indicates that there is a change of view, but no actual operation is performed.</p>
 </div>
@@ -492,73 +492,6 @@ Tip
 <h3 class="anchored" data-anchor-id="the-full-model">The full model</h3>
 <p>The complete forward pass stacks N decoder blocks layers between the embedding layer and the language model head, as shown in <a href="#fig-llm-flow" class="quarto-xref">Figure&nbsp;<span>2.5</span></a>.</p>
 <!-- FIGURE 11: Full Model Architecture — Token IDs to Logits
-
-    Input token IDs: (S)       integers in [0, V)
-         |
-         v
-    +-----------------------+
-    | Token Embedding       |     lookup table: (V, D)
-    | + Position info       |     V=128000 for Llama, D=8192
-    +-----------------------+
-         |
-         v
-    Embeddings: (S, D)         each token ID → D-dimensional vector
-         |
-    ╔═══════════════════════════════════════════════════════════╗
-    ║  LAYER 0                                                  ║
-    ║  ┌──────────┐     ┌────────────────┐     ┌──────────┐    ║
-    ║  │ LayerNorm│────→│ Self-Attention  │──+──│ LayerNorm│────→│FFN│──+  ║
-    ║  └──────────┘  ↑  └────────────────┘  │  └──────────┘  ↑ └───┘  │  ║
-    ║                └──────────────────────-┘                └────────┘  ║
-    ║                         ↕ KV Cache Layer 0                          ║
-    ╚═══════════════════════════════════════════════════════════╝
-         | (S, D)
-    ╔═══════════════════════════════════════════════════════════╗
-    ║  LAYER 1               ↕ KV Cache Layer 1                ║
-    ╚═══════════════════════════════════════════════════════════╝
-         | (S, D)
-         .
-         .    (N layers total)
-         .
-         | (S, D)
-    ╔═══════════════════════════════════════════════════════════╗
-    ║  LAYER N-1             ↕ KV Cache Layer N-1              ║
-    ╚═══════════════════════════════════════════════════════════╝
-         | (S, D)
-         v
-    +-----------------------+
-    | Final LayerNorm       |     normalizes before projection
-    +-----------------------+
-         | (S, D)
-         v
-    +-----------------------+
-    | LM Head (linear)      |     weight matrix: (D, V)
-    +-----------------------+     D=8192, V=128000
-         |
-         v
-    Logits: (S, V)             raw scores over vocabulary
-         |
-         | (take last position)   only position S-1 matters for next-token prediction
-         v
-    (V) → softmax → sample → next token ID
-
-
-    ═══════════════════════════════════════════════════════════
-    TENSOR SHAPE SUMMARY:
-    ═══════════════════════════════════════════════════════════
-
-    Stage                    Shape           Notes
-    ─────────────────────────────────────────────────────
-    Input token IDs          (S)          integers
-    After embedding          (S, D)       floats
-    Through each layer       (S, D)       shape preserved
-    After final LayerNorm    (S, D)
-    After LM head            (S, V)       logits
-    After sampling           (1)          next token
-
-    Prefill:  S = prompt length (e.g., 2048)
-    Decode:   S = 1 (single new token; KV cache provides context)
-
     ═══════════════════════════════════════════════════════════
     PARAMETER COUNT (Llama 3 70B, approximate):
     ═══════════════════════════════════════════════════════════
@@ -575,22 +508,6 @@ Tip
     ─────────────────────────────────────────────────────
     Total                    ~70B
 
-    ═══════════════════════════════════════════════════════════
-    WHERE THE KV CACHE IS READ/WRITTEN:
-    ═══════════════════════════════════════════════════════════
-
-    During PREFILL:
-    • KV cache is WRITTEN at every layer (storing K,V for all prompt tokens)
-    • No cache is READ (no previous tokens exist)
-
-    During DECODE:
-    • KV cache is READ at every layer (retrieving K,V for all previous tokens)
-    • KV cache is WRITTEN at every layer (appending K,V for the new token)
-
-    Figure should be the "hero diagram" of the appendix. Show every
-    tensor shape. Highlight S dimension in a special color. Show KV
-    cache read/write with bidirectional arrows at each layer. Use
-    3D "stack" effect for batch dimension B.
 -->
 <div id="fig-llm-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
@@ -628,61 +545,6 @@ y &amp;= \hat{X} + \text{FFN}(\text{LayerNorm}(\hat{X}))
 \end{aligned}\]</span></p>
 <p>(TODO: there are more options, with RMSNorm being the most popular now) <strong>LayerNorm</strong> <span class="citation" data-cites="ba2016layernorm">(<a href="references.html#ref-ba2016layernorm" role="doc-biblioref">Ba et al. 2016</a>)</span> is applied <em>before</em> each sub-layer (self-attention and FFN), and the sub-layer’s output is added to its input via a <strong>residual connection</strong>. This is the pre-norm formulation, used by GPT-2 <span class="citation" data-cites="radford2019gpt2">(<a href="references.html#ref-radford2019gpt2" role="doc-biblioref">Radford et al. 2019</a>)</span> and all modern LLMs. The original transformer <span class="citation" data-cites="vaswani2017attention">(<a href="references.html#ref-vaswani2017attention" role="doc-biblioref">Vaswani et al. 2017</a>)</span> used post-norm (LayerNorm <em>after</em> the residual add), but pre-norm is now standard because it provides better training stability at scale.</p>
 <p>The residual connections are critical for training deep networks – they allow gradients to flow through the network without vanishing. For inference, they’re simple addition operations that don’t add meaningful compute cost.</p>
-<!-- FIGURE 10: One Decoder Block (Pre-Norm Formulation)
-
-    Input x: (S, D)
-         |
-         |──────────────────────────┐
-         |                          |  residual connection
-         v                          |
-    +-----------+                   |
-    | LayerNorm |                   |
-    +-----------+                   |
-         |                          |
-         v                          |
-    +================+              |
-    ‖ Self-Attention ‖              |
-    ‖                ‖              |
-    ‖  Q,K,V proj    ‖──── KV cache read/write
-    ‖  Multi-head    ‖
-    ‖  Attn scores   ‖
-    ‖  Output proj   ‖
-    +================+              |
-         | (S, D)                |
-         |                          |
-         +←── ADD ──────────────────┘     residual add
-         |
-         | x̂: (S, D)
-         |
-         |──────────────────────────┐
-         |                          |  residual connection
-         v                          |
-    +-----------+                   |
-    | LayerNorm |                   |
-    +-----------+                   |
-         |                          |
-         v                          |
-    +================+              |
-    ‖ Feed-Forward   ‖              |
-    ‖                ‖              |
-    ‖  SwiGLU MLP    ‖              |
-    ‖  (gate, up,    ‖              |
-    ‖   down)        ‖              |
-    +================+              |
-         | (S, D)                |
-         |                          |
-         +←── ADD ──────────────────┘     residual add
-         |
-    Output y: (S, D)
-
-    Shape is preserved: (S, D) in → (S, D) out
-    This block is repeated N times (N=80 for Llama 70B),
-    each with its own weights.
-
-    Figure should clearly show the two residual "skip" paths.
-    Mark the KV cache read/write point with a special symbol.
-    Use consistent colors for LayerNorm, Attention, FFN.
--->
 <div id="fig-decoder-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-decoder-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -737,25 +599,6 @@ Figure&nbsp;2.7: Data flow of weights and activations in an multi-head attention
 <p>In a decoder-only model used for autoregressive generation, each token should only attend to itself and to tokens that came <em>before</em> it – never to future tokens. This is enforced by a <strong>causal mask</strong>: an upper-triangular matrix of <span class="math inline">\(-\infty\)</span> values added to the attention scores before softmax.</p>
 <!-- FIGURE 5: Causal Mask Visualization
 
-   Attention scores BEFORE masking        Causal mask            AFTER masking
-   (H, S, S) - showing one head       (S, S)                 (H, S, S)
-
-        Key positions (j)              Key positions (j)         Key positions (j)
-        0   1   2   3   4             0   1   2   3   4         0   1   2   3   4
-      +---+---+---+---+---+         +---+---+---+---+---+     +---+---+---+---+---+
-  Q 0 |0.3|0.7|0.2|0.8|0.1|     0  | 0 |-∞ |-∞ |-∞ |-∞ |  0 |0.3| -∞| -∞| -∞| -∞|
-  u   +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-  e 1 |0.5|0.4|0.9|0.3|0.6|     1  | 0 | 0 |-∞ |-∞ |-∞ |  1 |0.5|0.4| -∞| -∞| -∞|
-  r   +---+---+---+---+---+   +    +---+---+---+---+---+  =  +---+---+---+---+---+
-  y 2 |0.2|0.1|0.5|0.7|0.3|     2  | 0 | 0 | 0 |-∞ |-∞ |  2 |0.2|0.1|0.5| -∞| -∞|
-      +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-  (i)3|0.8|0.3|0.4|0.6|0.2|     3  | 0 | 0 | 0 | 0 |-∞ |  3 |0.8|0.3|0.4|0.6| -∞|
-      +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-    4 |0.1|0.6|0.3|0.5|0.9|     4  | 0 | 0 | 0 | 0 | 0 |  4 |0.1|0.6|0.3|0.5|0.9|
-      +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-
-   After softmax, the -∞ entries become 0, so token i only attends to tokens 0..i.
-
    Row i: query from position i
    Col j: key from position j
    Token i can attend to token j only if j ≤ i (lower triangle + diagonal)
@@ -766,13 +609,13 @@ Figure&nbsp;2.7: Data flow of weights and activations in an multi-head attention
    Figure should use color shading: green for allowed entries, red/gray
    for masked entries. Show the staircase pattern clearly.
 -->
-<div id="fig-causal-mask" class="quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-causal-mask" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-causal-mask-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="images/causal_mask.svg" class="img-fluid figure-img">
+<a href="images/causal_mask.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-9" title="Figure&nbsp;2.8: How the causal mask is applied in self-attention, shown for only one attention head for S = 5"><img src="images/causal_mask.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-causal-mask-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2.8: How the causal mask is applied in self-attention
+Figure&nbsp;2.8: How the causal mask is applied in self-attention, shown for only one attention head for <strong><span class="dim-s">S</span></strong> = 5
 </figcaption>
 </figure>
 </div>

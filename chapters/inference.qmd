@@ -914,8 +914,11 @@ The book concludes in @sec-production with a discusion of production LLM serving
 
 ## Further Reading
 
-The roofline model was introduced by @williams2009roofline and remains one of the clearest frameworks for reasoning about hardware bottlenecks.
-Their original paper uses CPU examples, but the model applies directly to GPUs -- the key insight is the same: compare arithmetic intensity against the ridge point to determine whether you're compute-bound or bandwidth-bound.
+The Anyscale blog post on reproducible performance metrics [@anyscale2024metrics] is a practical guide to measuring the metrics introduced in this chapter -- TTFT, TPOT, throughput, and goodput -- without falling into common benchmarking traps.
+
+The NVIDIA Hopper architecture blog post [@nvidia2024hopper] provides detailed block diagrams of the H100's SM and full-chip layout, including the memory hierarchy, tensor core organization, and the Tensor Memory Accelerator.
+@gu2024gpusbrrr from Hazy Research gives a practitioner-oriented walkthrough of GPU memory levels with concrete bandwidth numbers at each tier, which is useful context for understanding why kernel design choices matter so much for inference performance.
+For a detailed empirical look at the H100's L2 cache behavior and measured bandwidth at different access patterns, @chipsandcheese2023h100 is an informative deep dive.
 
 For GPU hardware specifics, the NVIDIA H100 datasheet [@nvidia2023h100] and the CUDA Programming Guide [@nvidia2024cuda] are the authoritative references.
 The datasheet gives the peak throughput and bandwidth numbers used throughout this book.
@@ -931,12 +934,7 @@ It works through the same kinds of calculations we've done here -- parameter cou
 For a broader survey of LLM inference techniques and how they fit together, @miao2023efficient covers the full landscape from model compression through serving system design.
 It's a useful map of the territory before diving into the detailed treatments in the chapters that follow.
 
-The Anyscale blog post on reproducible performance metrics [@anyscale2024metrics] is a practical guide to measuring the metrics introduced in this chapter -- TTFT, TPOT, throughput, and goodput -- without falling into common benchmarking traps.
+The roofline model was introduced by @williams2009roofline and remains one of the clearest frameworks for reasoning about hardware bottlenecks.
+Their original paper uses CPU examples, but the model applies directly to GPUs -- the key insight is the same: compare arithmetic intensity against the ridge point to determine whether you're compute-bound or bandwidth-bound.
 
-The NVIDIA Hopper architecture blog post [@nvidia2024hopper] provides detailed block diagrams of the H100's SM and full-chip layout, including the memory hierarchy, tensor core organization, and the Tensor Memory Accelerator.
-@gu2024gpusbrrr from Hazy Research gives a practitioner-oriented walkthrough of GPU memory levels with concrete bandwidth numbers at each tier, which is useful context for understanding why kernel design choices matter so much for inference performance.
-For a detailed empirical look at the H100's L2 cache behavior and measured bandwidth at different access patterns, @chipsandcheese2023h100 is an informative deep dive.
-
-The KV cache analysis in this chapter is a simplified version of what we'll cover in much more detail in @sec-kv-cache.
-For now, the key takeaway is the memory formula: $2 \times L \times H_{\text{kv}} \times d_{\text{head}} \times b_{\text{kv}} \times S$ bytes per request.
-Readers who want to understand the full implications of this formula for system design should look ahead to the PagedAttention paper [@kwon2023vllm], which addresses the memory fragmentation problem that arises when managing KV caches across many concurrent requests.
+A comprehensive, in-depth treatment of hardware performance is in "How to Scale Your Model" [@austin2025scaling]. This book primarily focuses on TPUs, with one specific chapter on GPUs. All of the concepts apply to whatever hardware you have.

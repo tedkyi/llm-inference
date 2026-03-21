@@ -20,10 +20,10 @@ book:
     - chapters/decoder-only-llm.qmd
     - chapters/inference.qmd
     - chapters/model-design.qmd
-    - chapters/ch3-scheduling.qmd
-    - chapters/ch4-request.qmd
-    - chapters/ch5-scaling.qmd
-    - chapters/ch6-production.qmd
+    - chapters/scheduling.qmd
+    - chapters/request.qmd
+    - chapters/scaling.qmd
+    - chapters/production.qmd
   # appendices:
     - chapters/references.qmd
 

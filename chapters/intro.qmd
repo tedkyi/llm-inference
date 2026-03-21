@@ -94,8 +94,7 @@ That's what this book is about.
 
 This book is written for ML engineers who know the LLM's neural network architecture and want to understand what else is part of serving LLM requests, and in particular how to make that process faster.
 We assume you're familiar with neural networks, the transformer architecture, and self-attention at a conceptual level.
-If you need a refresher on how a decoder-only transformer works — how queries, keys, and values flow through the attention mechanism, what the KV cache is, and why it exists, @sec-appendix-a covers these topics with the level of detail needed for the rest of the book.
 
 With that, let's get into the technical details.
-We'll start by breaking down the inference pipeline in further detail and building a precise vocabulary for talking about its performance.
+We'll start by breaking down the decoder-only transformer architecture in further detail and building a precise understanding of the data and operations involved.
 

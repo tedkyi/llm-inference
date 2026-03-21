@@ -286,13 +286,13 @@ Color & Component \\
 :::
 
 
-## Reading a tensor diagram
+### Reading a data flow diagram
 
 To illustrate how these conventions combine, here is how a typical tensor rectangle should be read:
 
-- The **fill color** tells you what kind of tensor it is (query, key, weight, etc.).
-- The **top and bottom edge colors** tell you the dimension that runs horizontally.
-- The **left and right edge colors** tell you the dimension that runs vertically.
-- The **shape label** (e.g., $(S, D)$) confirms the dimensions explicitly.
+- The **top and bottom edge colors** tell you the dimension that runs horizontally, the number of columns.
+- The **left and right edge colors** tell you the dimension that runs vertically, the number of rows.
+- The **shape label** (e.g., **([S]{.dim-s}, [D]{.dim-d})**) confirms the dimensions explicitly.
+- The **fill color** helps disambiguate what kind of tensor it is (query, key, weight, etc.).
 
 When two tensors share an edge color on a connecting side, it means those dimensions are compatible for the operation that connects them --- a matrix multiply, a concatenation, or an elementwise operation.

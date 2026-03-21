@@ -309,6 +309,7 @@ The GPTQ [@frantar2022gptq] and AWQ [@lin2023awq] papers are essential reading i
 GPTQ's use of approximate second-order information to minimize quantization error is elegant, and AWQ's insight that activation-aware scaling protects the most important weights is a useful design pattern that shows up in other contexts.
 SmoothQuant [@xiao2023smoothquant] is the key reference for weight-activation quantization, particularly its technique of migrating quantization difficulty from activations to weights.
 For an earlier take on INT8 inference that pioneered mixed-precision decomposition, see @dettmers2022llmint8.
+The most popular quantization library is `bitsandbytes` [@dettmers2021bitsandbytes], also by Tim Dettmers.
 
 For a comprehensive survey of quantization methods applied to LLMs, @zhu2024quantization covers the full taxonomy -- from uniform to non-uniform quantization, weight-only to weight-activation, and post-training to quantization-aware training -- with empirical comparisons across model sizes.
 

@@ -66,7 +66,7 @@ We will mention that the input to the first layers is a vector of floating point
 ![Explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=500 .lightbox}
 
 The second architectural understanding needed is that the model is applied identically across every token position in the sequence, sharing all weights.
-When we process a sequence of **([S]{.dim-s})** tokens, the same weight matrices are applied to every token position.
+When we process a sequence of **[S]{.dim-s}** tokens, the same weight matrices are applied to every token position.
 @Fig-model-grid shows an intuition of the model being copied repeatedly for each token position.
 
 ![Intuition of the LLM model being copied for each token position](images/full_model_grid.svg){#fig-model-grid height=500 .lightbox}
@@ -137,6 +137,7 @@ Let's trace input token IDs from input to output logits, annotating every tensor
 We call the diagrams we will use **data flow diagrams**, and they focus on the shapes of the tensors passed into operations more than the math of the calculation being performed.
 This is so we can understand the size and shape of the data, which directly affects transfer speeds and computation costs.
 The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed.
+We still need to be familiar with the operands, especially to know how the inputs can be partitioned, and how much data must be exchanged between partitions.
 
 ::: {.callout-tip}
 Before diving into the data flow, here are a few conventions used in the data flow diagrams.
@@ -149,7 +150,7 @@ This first tensor on the bottom has shape **([S]{.dim-s}, [D]{.dim-d})**, where 
 Note that the left and right edges are colored red, and every tensor with a dimension that is length **[S]{.dim-s}** will have that dimension colored red.
 Similarly, the top and bottom edges are colored blue because the column dimension is **[D]{.dim-d}**, and all other dimensions length **[D]{.dim-d}** will be the same color.
 
-**Fill color**: The fill color of the tensor is gray. Tensors holding similar semantic information will have similar fill colors. 
+**Fill color**: The fill color of the tensor is gray. Tensors holding similar semantic information will have similar fill colors, for convenience. 
 Weights are fixed model tensors, and they always have the same purple fill color.
 
 **3D tensors**: The tensor at the top of the diagram is 3D with shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**. 
@@ -179,73 +180,6 @@ The complete forward pass stacks N decoder blocks layers between the embedding l
 
 ```{=html}
 <!-- FIGURE 11: Full Model Architecture — Token IDs to Logits
-
-    Input token IDs: (S)       integers in [0, V)
-         |
-         v
-    +-----------------------+
-    | Token Embedding       |     lookup table: (V, D)
-    | + Position info       |     V=128000 for Llama, D=8192
-    +-----------------------+
-         |
-         v
-    Embeddings: (S, D)         each token ID → D-dimensional vector
-         |
-    ╔═══════════════════════════════════════════════════════════╗
-    ║  LAYER 0                                                  ║
-    ║  ┌──────────┐     ┌────────────────┐     ┌──────────┐    ║
-    ║  │ LayerNorm│────→│ Self-Attention  │──+──│ LayerNorm│────→│FFN│──+  ║
-    ║  └──────────┘  ↑  └────────────────┘  │  └──────────┘  ↑ └───┘  │  ║
-    ║                └──────────────────────-┘                └────────┘  ║
-    ║                         ↕ KV Cache Layer 0                          ║
-    ╚═══════════════════════════════════════════════════════════╝
-         | (S, D)
-    ╔═══════════════════════════════════════════════════════════╗
-    ║  LAYER 1               ↕ KV Cache Layer 1                ║
-    ╚═══════════════════════════════════════════════════════════╝
-         | (S, D)
-         .
-         .    (N layers total)
-         .
-         | (S, D)
-    ╔═══════════════════════════════════════════════════════════╗
-    ║  LAYER N-1             ↕ KV Cache Layer N-1              ║
-    ╚═══════════════════════════════════════════════════════════╝
-         | (S, D)
-         v
-    +-----------------------+
-    | Final LayerNorm       |     normalizes before projection
-    +-----------------------+
-         | (S, D)
-         v
-    +-----------------------+
-    | LM Head (linear)      |     weight matrix: (D, V)
-    +-----------------------+     D=8192, V=128000
-         |
-         v
-    Logits: (S, V)             raw scores over vocabulary
-         |
-         | (take last position)   only position S-1 matters for next-token prediction
-         v
-    (V) → softmax → sample → next token ID
-
-
-    ═══════════════════════════════════════════════════════════
-    TENSOR SHAPE SUMMARY:
-    ═══════════════════════════════════════════════════════════
-
-    Stage                    Shape           Notes
-    ─────────────────────────────────────────────────────
-    Input token IDs          (S)          integers
-    After embedding          (S, D)       floats
-    Through each layer       (S, D)       shape preserved
-    After final LayerNorm    (S, D)
-    After LM head            (S, V)       logits
-    After sampling           (1)          next token
-
-    Prefill:  S = prompt length (e.g., 2048)
-    Decode:   S = 1 (single new token; KV cache provides context)
-
     ═══════════════════════════════════════════════════════════
     PARAMETER COUNT (Llama 3 70B, approximate):
     ═══════════════════════════════════════════════════════════
@@ -262,22 +196,6 @@ The complete forward pass stacks N decoder blocks layers between the embedding l
     ─────────────────────────────────────────────────────
     Total                    ~70B
 
-    ═══════════════════════════════════════════════════════════
-    WHERE THE KV CACHE IS READ/WRITTEN:
-    ═══════════════════════════════════════════════════════════
-
-    During PREFILL:
-    • KV cache is WRITTEN at every layer (storing K,V for all prompt tokens)
-    • No cache is READ (no previous tokens exist)
-
-    During DECODE:
-    • KV cache is READ at every layer (retrieving K,V for all previous tokens)
-    • KV cache is WRITTEN at every layer (appending K,V for the new token)
-
-    Figure should be the "hero diagram" of the appendix. Show every
-    tensor shape. Highlight S dimension in a special color. Show KV
-    cache read/write with bidirectional arrows at each layer. Use
-    3D "stack" effect for batch dimension B.
 -->
 ```
 ![Data flow of an entire decoder-only LLM](images/llm_flow.svg){#fig-llm-flow .lightbox}
@@ -339,63 +257,6 @@ The original transformer [@vaswani2017attention] used post-norm (LayerNorm *afte
 The residual connections are critical for training deep networks -- they allow gradients to flow through the network without vanishing.
 For inference, they're simple addition operations that don't add meaningful compute cost.
 
-```{=html}
-<!-- FIGURE 10: One Decoder Block (Pre-Norm Formulation)
-
-    Input x: (S, D)
-         |
-         |──────────────────────────┐
-         |                          |  residual connection
-         v                          |
-    +-----------+                   |
-    | LayerNorm |                   |
-    +-----------+                   |
-         |                          |
-         v                          |
-    +================+              |
-    ‖ Self-Attention ‖              |
-    ‖                ‖              |
-    ‖  Q,K,V proj    ‖──── KV cache read/write
-    ‖  Multi-head    ‖
-    ‖  Attn scores   ‖
-    ‖  Output proj   ‖
-    +================+              |
-         | (S, D)                |
-         |                          |
-         +←── ADD ──────────────────┘     residual add
-         |
-         | x̂: (S, D)
-         |
-         |──────────────────────────┐
-         |                          |  residual connection
-         v                          |
-    +-----------+                   |
-    | LayerNorm |                   |
-    +-----------+                   |
-         |                          |
-         v                          |
-    +================+              |
-    ‖ Feed-Forward   ‖              |
-    ‖                ‖              |
-    ‖  SwiGLU MLP    ‖              |
-    ‖  (gate, up,    ‖              |
-    ‖   down)        ‖              |
-    +================+              |
-         | (S, D)                |
-         |                          |
-         +←── ADD ──────────────────┘     residual add
-         |
-    Output y: (S, D)
-
-    Shape is preserved: (S, D) in → (S, D) out
-    This block is repeated N times (N=80 for Llama 70B),
-    each with its own weights.
-
-    Figure should clearly show the two residual "skip" paths.
-    Mark the KV cache read/write point with a special symbol.
-    Use consistent colors for LayerNorm, Attention, FFN.
--->
-```
 ![Data flow of one decoder layer](images/decoder_block.svg){#fig-decoder-flow height=500 .lightbox}
 
 
@@ -465,25 +326,6 @@ This is enforced by a **causal mask**: an upper-triangular matrix of $-\infty$ v
 ```{=html}
 <!-- FIGURE 5: Causal Mask Visualization
 
-   Attention scores BEFORE masking        Causal mask            AFTER masking
-   (H, S, S) - showing one head       (S, S)                 (H, S, S)
-
-        Key positions (j)              Key positions (j)         Key positions (j)
-        0   1   2   3   4             0   1   2   3   4         0   1   2   3   4
-      +---+---+---+---+---+         +---+---+---+---+---+     +---+---+---+---+---+
-  Q 0 |0.3|0.7|0.2|0.8|0.1|     0  | 0 |-∞ |-∞ |-∞ |-∞ |  0 |0.3| -∞| -∞| -∞| -∞|
-  u   +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-  e 1 |0.5|0.4|0.9|0.3|0.6|     1  | 0 | 0 |-∞ |-∞ |-∞ |  1 |0.5|0.4| -∞| -∞| -∞|
-  r   +---+---+---+---+---+   +    +---+---+---+---+---+  =  +---+---+---+---+---+
-  y 2 |0.2|0.1|0.5|0.7|0.3|     2  | 0 | 0 | 0 |-∞ |-∞ |  2 |0.2|0.1|0.5| -∞| -∞|
-      +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-  (i)3|0.8|0.3|0.4|0.6|0.2|     3  | 0 | 0 | 0 | 0 |-∞ |  3 |0.8|0.3|0.4|0.6| -∞|
-      +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-    4 |0.1|0.6|0.3|0.5|0.9|     4  | 0 | 0 | 0 | 0 | 0 |  4 |0.1|0.6|0.3|0.5|0.9|
-      +---+---+---+---+---+        +---+---+---+---+---+     +---+---+---+---+---+
-
-   After softmax, the -∞ entries become 0, so token i only attends to tokens 0..i.
-
    Row i: query from position i
    Col j: key from position j
    Token i can attend to token j only if j ≤ i (lower triangle + diagonal)
@@ -495,7 +337,7 @@ This is enforced by a **causal mask**: an upper-triangular matrix of $-\infty$ v
    for masked entries. Show the staircase pattern clearly.
 -->
 ```
-![How the causal mask is applied in self-attention](images/causal_mask.svg){#fig-causal-mask}
+![How the causal mask is applied in self-attention, shown for only one attention head for **[S]{.dim-s}** = 5](images/causal_mask.svg){#fig-causal-mask .lightbox}
 
 After adding the mask, we apply softmax along the key dimension (the last dimension).
 The $-\infty$ values become zero after softmax, ensuring each position's attention weights sum to 1 over only the allowed (past and current) positions.

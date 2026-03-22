@@ -1,12 +1,14 @@
 # Cover {.unnumbered .unlisted}
 
-```{=latex}
-\vspace{9cm}
-```
-<br>
-<br>
-<br>
-<br>
+::: {.content-visible when-format="html"}
+::: {.vh-75}
+![](chapters/images/cover.jpg)
+:::
+:::
+
+::: {.content-visible when-format="pdf"}
+![](chapters/images/cover.jpg){width=65%}
+:::
 
 **LLM Inference Illustrated**
 

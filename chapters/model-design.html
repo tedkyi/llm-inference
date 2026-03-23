@@ -491,15 +491,6 @@ Note
 <section id="reducing-kv-cache-size" class="level3">
 <h3 class="anchored" data-anchor-id="reducing-kv-cache-size">Reducing KV cache size</h3>
 <p>The KV cache is one of the largest consumers of GPU memory during inference – and unlike model weights, it scales with the number of active requests and the sequence length of each. Reducing the KV cache per request lets you serve more concurrent requests in the same memory budget. We’ll cover KV cache management techniques in <a href="request.html#sec-kv-cache" class="quarto-xref"><span>Section 6.3</span></a>; here we focus on the architectural choices that determine how large the cache is in the first place.</p>
-<!-- Figure: KV cache size comparison across attention variants
-ASCII art sketch:
-  Attention Type    KV heads    KV cache relative size
-  ─────────────     ────────    ──────────────────────
-  MHA (h=32)          32        [████████████████████████████████]  1.0x
-  GQA (G=8)            8        [████████]                         0.25x
-  MQA               1           [█]                                0.03x
-  MLA               (latent)    [███]                              ~0.1x (varies)
--->
 <div id="fig-kv-variants" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-kv-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -532,10 +523,10 @@ Figure&nbsp;4.2: Cross-layer attention with a factor of 2 KV sharing between lay
 <div id="fig-sliding-window-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-sliding-window-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;4.3: Sliding window attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/sliding_window.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;4.3: Full causal attention (left) vs.&nbsp;sliding window attention with window size w=4 (right). Each shaded cell indicates a query-key pair included in the attention computation."><img src="images/sliding_window.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sliding-window-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.3: Sliding window attention
+Figure&nbsp;4.3: Full causal attention (left) vs.&nbsp;sliding window attention with window size w=4 (right). Each shaded cell indicates a query-key pair included in the attention computation.
 </figcaption>
 </figure>
 </div>

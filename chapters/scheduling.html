@@ -129,7 +129,7 @@ window.Quarto = {
 <link rel="stylesheet" href="../_styles/dim-colors.css">
 <meta name="twitter:title" content="5&nbsp; Eliminating Scheduling Bottlenecks – LLM Inference Illustrated">
 <meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
-<meta name="twitter:image" content="images/under_construction.jpg">
+<meta name="twitter:image" content="images/static_batching.svg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -370,21 +370,10 @@ Attainable FLOP/s (log scale)
 <section id="static-batching" class="level3">
 <h3 class="anchored" data-anchor-id="static-batching">Static batching</h3>
 <p>The simplest batching strategy is <strong>static batching</strong>: collect a fixed number of requests, process them all together, and don’t start the next batch until every request in the current batch has finished generating.</p>
-<!-- Figure: Static batching timeline
-ASCII art sketch:
-Request 1: [====PREFILL====][==DECODE==][DONE]................
-Request 2: [====PREFILL====][========DECODE========][DONE]....
-Request 3: [====PREFILL====][==============DECODE==============][DONE]
-Request 4: ..........................................[waiting............]
-            |<------------ Batch 1 ------------ ->|<--- Batch 2 -- ->
-
-    "." = GPU idle / padding for that slot
-    Request 4 cannot start until Request 3 (the slowest) finishes
--->
 <div id="fig-static-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-static-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;5.1: Static batching"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/static_batching.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;5.1: Static batching"><img src="images/static_batching.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-static-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;5.1: Static batching
@@ -397,29 +386,30 @@ Figure&nbsp;5.1: Static batching
 <section id="dynamic-batching" class="level3">
 <h3 class="anchored" data-anchor-id="dynamic-batching">Dynamic batching</h3>
 <p><strong>Dynamic batching</strong> improves on static batching by allowing the batch size to vary. Instead of fixing the batch size up front, the scheduler collects requests from a queue and forms a batch based on what’s available, subject to a maximum batch size and a timeout. If only 5 requests are waiting, the batch has 5 requests rather than waiting for a full batch of 32.</p>
-<p>This reduces queuing delay and adapts to variable arrival rates. But it still has the same fundamental problem as static batching during decode: the batch doesn’t complete until the last request finishes generating. Short-output requests sit idle while they wait for long-output requests to wrap up. The GPU is still doing useless work for completed slots.</p>
+<p>This reduces queuing delay and adapts to variable arrival rates.</p>
+<div id="fig-dynamic-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-dynamic-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/dynamic_batching.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;5.2: Dynamic batching"><img src="images/dynamic_batching.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-dynamic-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.2: Dynamic batching
+</figcaption>
+</figure>
+</div>
+<p>But it still has the same fundamental problem as static batching during decode: the batch doesn’t complete until the last request finishes generating. Short-output requests sit idle while they wait for long-output requests to wrap up. The GPU is still doing useless work for completed slots.</p>
 </section>
 <section id="continuous-batching" class="level3">
 <h3 class="anchored" data-anchor-id="continuous-batching">Continuous batching</h3>
 <p>The breakthrough that modern serving systems are built on is <strong>continuous batching</strong>, also called <strong>in-flight batching</strong>, introduced by Orca <span class="citation" data-cites="yu2022orca">(<a href="references.html#ref-yu2022orca" role="doc-biblioref">Yu et al. 2022</a>)</span>. The key insight is to operate at the granularity of individual decode iterations rather than complete requests.</p>
 <p>In continuous batching, the scheduler makes a decision at every decode step: which requests should be in this step’s batch? When a request finishes generating (by hitting a stop token or a length limit), its slot is immediately freed and can be filled by a new request from the queue – without waiting for the rest of the batch to finish.</p>
-<!-- Figure: Continuous batching timeline
-ASCII art sketch:
-Slot 1: [Req A prefill][A decode][A decode][A done][Req D prefill][D decode]...
-Slot 2: [Req B prefill][B decode][B decode][B decode][B decode][B done][Req E]...
-Slot 3: [Req C prefill][C decode][C decode][C decode][C done][Req F prefill]...
-         step 1        step 2    step 3    step 4   step 5   step 6
-
-    - Request A finishes at step 4, Request D immediately takes its slot
-    - No slot ever sits idle waiting for other requests to finish
--->
 <div id="fig-continuous-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-continuous-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;5.2: Continuous batching"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/continuous_batching.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;5.3: Continuous batching"><img src="images/continuous_batching.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-continuous-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;5.2: Continuous batching
+Figure&nbsp;5.3: Continuous batching
 </figcaption>
 </figure>
 </div>
@@ -458,10 +448,10 @@ Padded batching:                    Ragged batching:
 <div id="fig-ragged-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;5.3: Ragged batching"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;5.4: Ragged batching"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;5.3: Ragged batching
+Figure&nbsp;5.4: Ragged batching
 </figcaption>
 </figure>
 </div>
@@ -499,10 +489,10 @@ With chunked prefill (512-token chunks):
 <div id="fig-chunked-prefill" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-chunked-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;5.4: Chunked prefill"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;5.5: Chunked prefill"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-chunked-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;5.4: Chunked prefill
+Figure&nbsp;5.5: Chunked prefill
 </figcaption>
 </figure>
 </div>
@@ -552,10 +542,10 @@ ASCII art sketch:
 <div id="fig-disaggregated-prefill" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-disaggregated-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;5.5: Disaggregated prefill"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;5.6: Disaggregated prefill"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-disaggregated-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;5.5: Disaggregated prefill
+Figure&nbsp;5.6: Disaggregated prefill
 </figcaption>
 </figure>
 </div>

@@ -420,7 +420,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>For efficiency reasons, almost all deep learning training and inference happens in batches. This is true as well for LLM inference, and we will discuss batching in <a href="scheduling.html#sec-batching" class="quarto-xref"><span>Section 5.1</span></a>. For the sake of brevity, especially in diagrams, we will discuss non-batched data flow and omit the explicit mention of the batch dimension. For LLMs, the full batched shape of the input to the first layer is <strong>(B, <span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, which we abbreviate to <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> for non-batched inputs. Wherever tensor shapes are mentioned without a leading batch dimension, it is appropriate to think about batched processing adding a single dimension to the beginning of the shape. We hope this convention of using non-batched shapes does not cause any confusion.</p>
+<p>For efficiency reasons, almost all deep learning training and inference happens in batches. This is true as well for LLM inference, and we will discuss batching in <a href="scheduling.html#sec-batching" class="quarto-xref"><span>Section 5.1</span></a>. For the sake of brevity, especially in diagrams, we will discuss non-batched data flow and omit the explicit mention of the batch dimension. For LLMs, the full batched shape of the input to the first layer is <strong>(B, <span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, which we abbreviate to <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> for non-batched inputs. Wherever data tensor shapes are mentioned without a leading batch dimension, it is appropriate to think about batched processing adding a single dimension to the beginning of the shape. Weight tensors do not grow when processing data in batches. Rather, they are broadcast in the batch dimension. We hope this convention of using non-batched shapes does not cause any confusion.</p>
 </div>
 </div>
 <p>TODO: explain that self-attention gets applied across token positions but FFNs don’t. Probably as we explain each block. The self-attention mechanism is what allows information to flow between positions – the weights themselves don’t distinguish between position 0 and position 99.</p>
@@ -745,10 +745,10 @@ Note
 <div id="fig-kv-cache" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-kv-cache-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/kv_cache.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-11" title="Figure&nbsp;2.9: KV cache. TODO: this diagram needs to be completely redesigned."><img src="images/kv_cache.svg" class="img-fluid figure-img"></a>
+<a href="images/kv_cache_concept.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-11" title="Figure&nbsp;2.9: The KV cache avoids wasted recomputation of keys and values over and over again"><img src="images/kv_cache_concept.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-kv-cache-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2.9: KV cache. TODO: this diagram needs to be completely redesigned.
+Figure&nbsp;2.9: The KV cache avoids wasted recomputation of keys and values over and over again
 </figcaption>
 </figure>
 </div>

@@ -6,6 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 
 <title>1&nbsp; Introduction – LLM Inference Illustrated</title>
 <style>
@@ -97,6 +98,10 @@ div.csl-indent {
 
 
 <link rel="stylesheet" href="../_styles/dim-colors.css">
+<meta name="twitter:title" content="1&nbsp; Introduction – LLM Inference Illustrated">
+<meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
+<meta name="twitter:image" content="images/inference_start.svg">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 
 <body class="nav-sidebar floating quarto-light">
@@ -273,24 +278,34 @@ div.csl-indent {
 <section id="a-simple-example" class="level3">
 <h3 class="anchored" data-anchor-id="a-simple-example">A simple example</h3>
 <p>Suppose we give an LLM the prompt <strong>“The quick brown fox jumps”</strong> — five input tokens. The model’s job is to predict what tokens come next.</p>
-<div id="fig-inference-example" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-inference-start" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-inference-example-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/inference_example.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;1.1: An example LLM response for the prompt “The quick brown fox jumps”"><img src="images/inference_example.svg" height="400" class="figure-img"></a>
+<div aria-describedby="fig-inference-start-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/inference_start.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;1.1: First token predicted for the prompt “The quick brown fox jumps”"><img src="images/inference_start.svg" class="img-fluid figure-img"></a>
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-inference-example-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1.1: An example LLM response for the prompt “The quick brown fox jumps”
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-inference-start-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1.1: First token predicted for the prompt “The quick brown fox jumps”
 </figcaption>
 </figure>
 </div>
-<p>The text generation happens in a series of steps, as shown in <a href="#fig-inference-example" class="quarto-xref">Figure&nbsp;<span>1.1</span></a>:</p>
-<ul>
-<li>First, the LLM runs a single <strong>forward pass</strong> of the neural network model using all of the input tokens. After processesing all of these tokens together, it produces its prediction for the next token, <strong>over</strong>.</li>
+<p>The text generation happens in a series of steps. The first thing that happens is the LLM runs a single <strong>forward pass</strong> of the neural network model using all of the input tokens. After processesing all of these tokens together, it produces its prediction for the next token, <strong>over</strong>. This initial step is shown in <a href="#fig-inference-start" class="quarto-xref">Figure&nbsp;<span>1.1</span></a>.</p>
+<div id="fig-inference-example" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-inference-example-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/inference_example.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;1.2: An example LLM response for the prompt “The quick brown fox jumps”"><img src="images/inference_example.svg" height="400" class="figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-inference-example-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1.2: An example LLM response for the prompt “The quick brown fox jumps”
+</figcaption>
+</figure>
+</div>
+<p>Text generation continues in a series of steps, one token at a time, with the entire process shown in <a href="#fig-inference-example" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>:</p>
+<ol type="1">
 <li>In the next step, the predicted token <strong>over</strong> is appended to the end of the input text, and the model is fed <strong>“The quick brown fox jumps over”</strong>. In this step it predicts <strong>the</strong>.</li>
 <li>Once again, the predicted token <strong>the</strong> is appended to the end, the model is fed <strong>“The quick brown fox jumps over the”</strong>, and it predicts <strong>lazy</strong>.</li>
 <li>Continuing this process, the input <strong>“The quick brown fox jumps over the lazy”</strong> predicts <strong>dog</strong>.</li>
 <li>Then, the input <strong>“The quick brown fox jumps over the lazy dog”</strong> outputs a special token <strong>&lt;EOS&gt;</strong>. The special token tells the LLM to stop the generation, and the completed response is returned to the user.</li>
-</ul>
+</ol>
 <p>In our very first step, the LLM is given all of our input tokens. In many cases, this input prompt can be quite long. Because we have so much new data to process, this initial step uses different computing resources than later steps. We will see in a moment that the first step is called the <strong>prefill</strong> step.</p>
 <p>The remaining steps each add only one new token to the inputs that the LLM has seen before. This has a different computing profile from the prefill. This portion is callled the <strong>decode</strong> phase, and when a lot of text is generated, it requires many decode steps to complete generation of the response.</p>
 <p>This is the process that LLMs such as ChatGPT and Claude use to respond to our requests. In this book, we will dig deeper to understand the internals of this inference process, then explore techniques for improving it.</p>

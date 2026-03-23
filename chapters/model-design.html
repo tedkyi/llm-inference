@@ -6,6 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 
 <title>4&nbsp; Model Design Choices – LLM Inference Illustrated</title>
 <style>
@@ -126,6 +127,10 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../_styles/dim-colors.css">
+<meta name="twitter:title" content="4&nbsp; Model Design Choices – LLM Inference Illustrated">
+<meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
+<meta name="twitter:image" content="images/kv_variants.svg">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 
 <body class="nav-sidebar floating quarto-light">
@@ -495,27 +500,27 @@ ASCII art sketch:
   MQA               1           [█]                                0.03x
   MLA               (latent)    [███]                              ~0.1x (varies)
 -->
-<div id="fig-attn-head-variants" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-kv-variants" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;4.1: Techniques for reducing the KV cache size of a given layer"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<div aria-describedby="fig-kv-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/kv_variants.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;4.1: Techniques for reducing the KV cache size of a given layer. GQA and MQA share keys and values with multiple query heads. MLA compresses key and value information together to reduce size."><img src="images/kv_variants.svg" class="img-fluid figure-img"></a>
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.1: Techniques for reducing the KV cache size of a given layer
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-kv-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.1: Techniques for reducing the KV cache size of a given layer. GQA and MQA share keys and values with multiple query heads. MLA compresses key and value information together to reduce size.
 </figcaption>
 </figure>
 </div>
-<p><strong>Multi-Head Attention (MHA)</strong> is the original design from the transformer paper <span class="citation" data-cites="vaswani2017attention">(<a href="references.html#ref-vaswani2017attention" role="doc-biblioref">Vaswani et al. 2017</a>)</span>. Each attention head has its own key and value projections, so the KV cache stores separate K and V vectors for every head, every layer, and every token in the sequence. For a model with 32 heads and a head dimension of 128, each token adds <span class="math inline">\(2 \times 32 \times 128 = 8{,}192\)</span> values to the KV cache per layer. This is the most expensive option.</p>
-<p><strong>Multi-Query Attention (MQA)</strong> <span class="citation" data-cites="shazeer2019mqa">(<a href="references.html#ref-shazeer2019mqa" role="doc-biblioref">Shazeer 2019</a>)</span> goes to the opposite extreme: all attention heads share a <em>single</em> set of key and value projections. Each head still has its own query projection, so the heads can attend to different aspects of the input, but the KV cache only stores one K and one V vector per layer per token. This reduces the KV cache by a factor equal to the number of heads – from 32 sets of K/V down to 1 in the example above. The quality impact is generally small for large models, and the inference speedup – especially for long sequences with many concurrent requests – can be substantial.</p>
-<p><strong>Grouped-Query Attention (GQA)</strong> <span class="citation" data-cites="ainslie2023gqa">(<a href="references.html#ref-ainslie2023gqa" role="doc-biblioref">Ainslie et al. 2023</a>)</span> is a middle ground between MHA and MQA. Instead of one shared KV set for all heads, GQA uses <span class="math inline">\(G\)</span> groups, where each group of heads shares one set of keys and values. With 32 heads and <span class="math inline">\(G = 8\)</span> groups, the KV cache is reduced by 4x compared to MHA. GQA has become the dominant choice in recent models – LLaMA 3, Mistral, and Gemma all use it. It offers most of MQA’s memory savings with less quality risk.</p>
-<p><strong>Multi-head Latent Attention (MLA)</strong> <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024</a>)</span> is DeepSeek’s approach to KV cache compression. Rather than storing full key and value vectors, MLA compresses them into a low-rank <strong>latent vector</strong> at each layer. At attention time, the full keys and values are reconstructed from the latent representation. The compression ratio depends on the latent dimension, but MLA can achieve significant cache reductions – comparable to or better than GQA – while preserving model quality. The tradeoff is additional compute to decompress the latent vectors during attention, but this compute is typically small relative to the bandwidth savings.</p>
+<p><strong>Multi-Head Attention (MHA)</strong> is the original design from the transformer paper <span class="citation" data-cites="vaswani2017attention">(<a href="references.html#ref-vaswani2017attention" role="doc-biblioref">Vaswani et al. 2017</a>)</span>. Each attention head has its own key and value projections, so the KV cache stores separate K and V vectors for every head, every layer, and every token in the sequence. For a model using FP16 with 64 heads and a head dimension of 128, each token adds <span class="math inline">\(2 \times 64 \times 128 \times 2 = 32{,}768\)</span> bytes to the KV cache per layer. This is the most expensive option. The top row of <a href="#fig-kv-variants" class="quarto-xref">Figure&nbsp;<span>4.1</span></a> shows a how queries align with keys and values in MHA.</p>
+<p><strong>Multi-Query Attention (MQA)</strong> <span class="citation" data-cites="shazeer2019mqa">(<a href="references.html#ref-shazeer2019mqa" role="doc-biblioref">Shazeer 2019</a>)</span> goes to the opposite extreme: all attention heads share a <em>single</em> set of key and value projections, as shown on the third row of <a href="#fig-kv-variants" class="quarto-xref">Figure&nbsp;<span>4.1</span></a>. Each head still has its own query projection, so the heads can attend to different aspects of the input, but the KV cache only stores one K and one V vector per layer per token. This reduces the KV cache by a factor equal to the number of heads – from 32 sets of K/V down to 1 in the example above. The quality impact is generally small for large models, and the inference speedup – especially for long sequences with many concurrent requests – can be substantial.</p>
+<p><strong>Grouped-Query Attention (GQA)</strong> <span class="citation" data-cites="ainslie2023gqa">(<a href="references.html#ref-ainslie2023gqa" role="doc-biblioref">Ainslie et al. 2023</a>)</span> is a middle ground between MHA and MQA. Instead of one shared KV set for all heads, GQA uses <span class="math inline">\(G\)</span> groups, where each group of heads shares one set of keys and values. With 32 heads and <span class="math inline">\(G = 8\)</span> groups, the KV cache is reduced by 4x compared to MHA. GQA has become the dominant choice in recent models – LLaMA 3, Mistral, and Gemma all use it. It offers most of MQA’s memory savings with less quality risk. A GQA example with 8 query heads and 4 groups is shown on the second row of <a href="#fig-kv-variants" class="quarto-xref">Figure&nbsp;<span>4.1</span></a>.</p>
+<p><strong>Multi-head Latent Attention (MLA)</strong> <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024</a>)</span> is DeepSeek’s approach to KV cache compression. Rather than storing full key and value vectors, MLA compresses them into a low-rank <strong>latent vector</strong> at each layer. At attention time, the full keys and values are reconstructed from the latent representation. The compression ratio depends on the latent dimension, but MLA can achieve significant cache reductions – comparable to or better than GQA – while preserving model quality. The tradeoff is additional compute to decompress the latent vectors during attention, but this compute is typically small relative to the bandwidth savings, and there are tricks to reduce the compute. MLA is depicted on the bottom row of <a href="#fig-kv-variants" class="quarto-xref">Figure&nbsp;<span>4.1</span></a>.</p>
 <div id="fig-cross-layer-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-cross-layer-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;4.2: Cross-layer attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/cross_layer_attn.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;4.2: Cross-layer attention with a factor of 2 KV sharing between layers"><img src="images/cross_layer_attn.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-cross-layer-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.2: Cross-layer attention
+Figure&nbsp;4.2: Cross-layer attention with a factor of 2 KV sharing between layers
 </figcaption>
 </figure>
 </div>

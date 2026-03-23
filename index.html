@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Ted Kyi">
+<meta name="description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 
 <title>LLM Inference Illustrated</title>
 <style>
@@ -45,6 +46,9 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="site_libs/bootstrap/bootstrap-9e3e5b9121e68b3f077afb32f2c64d95.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -75,6 +79,10 @@ ul.task-list li input[type="checkbox"] {
 
 
 <link rel="stylesheet" href="_styles/dim-colors.css">
+<meta name="twitter:title" content="LLM Inference Illustrated">
+<meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
+<meta name="twitter:image" content="chapters/images/cover.jpg">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 
 <body class="nav-sidebar floating fullcontent quarto-light">
@@ -217,6 +225,11 @@ ul.task-list li input[type="checkbox"] {
 <h1 class="title">LLM Inference Illustrated</h1>
 </div>
 
+<div>
+  <div class="description">
+    A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable
+  </div>
+</div>
 
 
 <div class="quarto-title-meta">
@@ -246,7 +259,7 @@ ul.task-list li input[type="checkbox"] {
 <section id="cover" class="level1 unnumbered unlisted">
 <h1 class="unnumbered unlisted">Cover</h1>
 <div class="vh-75">
-<p><img src="chapters/images/cover.jpg" class="img-fluid"></p>
+<p><a href="chapters/images/cover.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-1"><img src="chapters/images/cover.jpg" class="img-fluid"></a></p>
 </div>
 <p><strong>LLM Inference Illustrated</strong></p>
 <p>Copyright © 2026 Ted Kyi</p>
@@ -668,8 +681,40 @@ ul.task-list li input[type="checkbox"] {
   </div>
 </nav>
 </div> <!-- /content -->
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer><script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
 
 
 
 
-<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
+</body></html>

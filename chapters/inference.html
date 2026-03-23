@@ -6,6 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 
 <title>3&nbsp; Framing LLM Inference – LLM Inference Illustrated</title>
 <style>
@@ -126,6 +127,10 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../_styles/dim-colors.css">
+<meta name="twitter:title" content="3&nbsp; Framing LLM Inference – LLM Inference Illustrated">
+<meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
+<meta name="twitter:image" content="images/pipeline_stages.svg">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 
 <body class="nav-sidebar floating quarto-light">
@@ -349,18 +354,6 @@ Figure&nbsp;3.1: The stages of LLM inference for a single request. Ingestion and
 </figcaption>
 </figure>
 </div>
-<!-- Figure: Timeline of the five pipeline stages for a single request
-ASCII art sketch:
-  Time - - ->
-  |  Load  |  Ingest |    Prefill    | D | D | D | D | D | D | D | D | Done |
-  |        |         |               |   |   |   |   |   |   |   |   |      |
-  | (once) | (fast)  | (compute-     |<---- Decode loop (bandwidth-  | (fast)
-  |        |         |  bound)       |     bound per step)           |      |
-  |        |         |               |                               |      |
-  |        |  <----- This book focuses on these two phases ------ -> |      |
-
-  Legend: D = one decode step (forward pass + sample + KV cache append)
--->
 <p>We will assume the model is already loaded into GPU main memory. For a 70-billion-parameter model stored in FP16 (2 bytes per parameter), the weights alone are about 140 GB. Loading that volume of data from an NVMe SSD at 7 GB/s takes about 20 seconds, and from a network file system, it could take longer. Because this is so slow, on typical inference software, the weights are loaded into GPU memory at startup and they stay there for the lifetime of the serving session.</p>
 <p><strong>Ingestion</strong> is the entry point for each request. The system takes your prompt and forms a new request. Your prompt may be merged with other content, such as a system prompt. Next, this finalized raw text is tokenized — converted from characters into the integer token IDs that the model actually works with — and any additional validation or preprocessing is applied. This stage is fast compared to the resource-intensive work involving the neural network model that follows and is typically handled on the CPU. This stage may also involve queuing. In a production system, requests may wait in a queue until there are resources available to process them, and if the system has multiple priority levels, lower priority requests may wait longer. We are skipping many details about the steps within ingestion because what they have in common is that they usually happen once and are relatively fast. One area where ingestion has a dramatic impact on speed and user experience is in the timing and granularity of scheduling request work, and we will discuss scheduling in <a href="scheduling.html" class="quarto-xref"><span>Chapter 5</span></a>.</p>
 <p><strong>Prefill</strong> is where the heavy lifting begins. The model processes the entire set of input tokens in a single forward pass through the entire network — all layers, all attention heads, all MLP blocks. In particular, the attention layers calculate attention scores across all of the input tokens. Since the attention scores are a square whose sides are the number of tokens, this grows quadratically with respect to the sequence length, and becomes very expensive when there are many input tokens. Because all input tokens are known up front, the attention calculation can be done all at once using a large matrix-matrix multiplication between queries and keys. Despite how efficiently modern GPUs perform matrix multiplication, the size of the matrices involved means that prefill for all but the shortest prompts is <strong>compute-bound</strong> — the bottleneck is how fast the GPU can do the arithmetic, not how fast it can move data into the computational cores.</p>
@@ -439,14 +432,6 @@ Figure&nbsp;3.2: Request timeline showing TTFT and TPOT durations
 </figcaption>
 </figure>
 </div>
-<!-- Figure: Timeline showing TTFT and TPOT for a single request
-ASCII art sketch:
-  Request arrives          First token        Token 2   Token 3   Token N
-      |                        |                |         |         |
-      |<------- TTFT ------- ->|<---- TPOT --- ->|<- TPOT->|  ...    |
-      |                        |                |         |         |
-      |     [  Prefill  ]     [ D ]            [ D ]     [ D ]    [ D ]
--->
 <p>Together, TTFT and TPOT define the end-to-end latency of a request, as shown in <a href="#fig-ttft-tpot" class="quarto-xref">Figure&nbsp;<span>3.2</span></a>. The total time to generate a response of <span class="math inline">\(N\)</span> output tokens is approximately <span class="math inline">\(\text{TTFT} + (N - 1) \times \text{TPOT}\)</span>. For short outputs, TTFT dominates. For long outputs, TPOT dominates. This is why the workload shape — the ratio of input length to output length — matters so much for understanding metrics and performing optimizations, as we’ll see in <a href="#sec-workloads" class="quarto-xref"><span>Section 3.3</span></a>.</p>
 </section>
 <section id="throughput" class="level3">
@@ -550,10 +535,6 @@ Figure&nbsp;3.3: The four workload quadrants defined by input and output length
 <p>If requests arrive at a steady, predictable rate, the system can maintain a stable batch size and keep GPU utilization relatively consistent. But real-world traffic is rarely that well-behaved. User-facing services see spikes –- a sudden surge after a product launch, peak hours during the workday, or a viral moment that sends traffic through the roof. During a burst, the system has to either queue requests (increasing latency), drop them, or have enough spare capacity to absorb the spike.</p>
 <p>The arrival pattern also affects how well the scheduling system can batch requests together. Requests that arrive close together in time can potentially share a batch. Requests that arrive in isolation may run in small, inefficient batches, wasting GPU compute. The more variable the arrival pattern, the harder it is to maintain consistently high utilization. We’ll see in <a href="scheduling.html#sec-batching" class="quarto-xref"><span>Section 5.1</span></a> how modern schedulers use techniques like continuous batching to adapt dynamically to changing arrival patterns, rather than waiting for a fixed batch to fill up.</p>
 <p>In summary, understanding your workload –- the mix of input/output lengths, the latency requirements, and the arrival patterns –- is one step toward choosing the right optimizations. A system tuned for batch summarization of long documents looks very different from one tuned for low-latency chatbot responses, even though they might be serving the same model.</p>
-<!-- Approved.
-The above three sections "The Inference Lifecycle", "Performance Metrics", and "Workload patterns"
-have all been rewritten and can be used as good examples for the proper author's voice.
--->
 </section>
 </section>
 <section id="sec-bottleneck-framework" class="level2" data-number="3.4">
@@ -620,32 +601,6 @@ Table&nbsp;3.1: Compute throughput figures for the NVIDIA H100 SXM. Source: <spa
 <section id="the-memory-hierarchy" class="level3">
 <h3 class="anchored" data-anchor-id="the-memory-hierarchy">The memory hierarchy</h3>
 <p>Raw compute throughput only matters if you can feed data to the tensor cores fast enough. This is where the memory hierarchy comes in. A GPU has four levels of memory, shown in <a href="#fig-gpu-memory-hierarchy" class="quarto-xref">Figure&nbsp;<span>3.4</span></a>. As the closest levels are the fastest but also the smallest, and as the levels get larger, they get farhter and slower, trading off speed for capacity.</p>
-<!-- Figure: GPU memory hierarchy diagram showing registers, SRAM, and HBM with capacity and bandwidth at each level
-ASCII art sketch:
-+--------------------------------------------------+
-|  GPU Chip                                        |
-|  +--------------------------------------------+  |
-|  |  SM 0          SM 1     ...     SM 131     |  |
-|  |  +----------+  +----------+  +----------+  |  |
-|  |  | Registers|  | Registers|  | Registers|  |  |
-|  |  | 256 KB   |  | 256 KB   |  | 256 KB   |  |  |
-|  |  +----------+  +----------+  +----------+  |  |
-|  |  | SRAM     |  | SRAM     |  | SRAM     |  |  |
-|  |  | 256 KB   |  | 256 KB   |  | 256 KB   |  |  |
-|  |  +----------+  +----------+  +----------+  |  |
-|  +--------------------------------------------+  |
-|                       |  ~tens of TB/s            |
-|                       v                           |
-|  +--------------------------------------------+  |
-|  |  L2 Cache  ~50 MB                          |  |
-|  +--------------------------------------------+  |
-+--------------------------------------------------+
-                        |  3.35 TB/s
-                        v
-+--------------------------------------------------+
-|  HBM3: 80 GB                                    |
-+--------------------------------------------------+
--->
 <div id="fig-gpu-memory-hierarchy" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-gpu-memory-hierarchy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -725,31 +680,6 @@ Table&nbsp;3.2: Key hardware parameters for the NVIDIA H100 SXM.
 <p><a href="#tbl-h100-specs" class="quarto-xref">Table&nbsp;<span>3.2</span></a> summarizes the key hardware parameters for the H100 SXM that we need for the roofline model. For the H100 SXM at FP16, we calculate::</p>
 <p><span class="math display">\[\text{Ridge point} = \frac{\text{Peak FLOP/s}}{\text{Peak bandwidth}} = \frac{989.4 \times 10^{12}}{3.35 \times 10^{12}} \approx 295 \text{ FLOP/byte}\]</span></p>
 <p>This means that any kernel with an arithmetic intensity below about 295 FLOP/byte is memory-bandwidth-bound on the H100 at FP16 precision. Any kernel above that threshold is compute-bound. The regions we’ve discussed are shown on the roofline plot for the H100 SXM in <a href="#fig-roofline" class="quarto-xref">Figure&nbsp;<span>3.5</span></a>. On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is <span class="math inline">\(3.3 \times 10^{12}\)</span>. On the right, the attainable FLOPS is capped at the peak of <span class="math inline">\(989.4 \times 10^{12}\)</span>.</p>
-<!-- Figure: Roofline plot for the H100 SXM at FP16
-ASCII art sketch:
-Attainable FLOP/s (log scale)
-        |
-  990T  |                          ___________________________  <-- Compute ceiling (990 TFLOPS FP16)
-        |                        /
-        |                      /
-        |                    /
-        |                  /   <-- Bandwidth ceiling (slope = 3.35 TB/s)
-        |                /
-        |              /
-        |            /
-        |          /
-        |        /
-        |      /
-        |    /
-        |  /
-        |/______________|______________________________________
-                       295                    Arithmetic intensity (FLOP/byte)
-                    ridge point
-
-   Left of ridge:              Right of ridge:
-   memory-bandwidth-bound      compute-bound
-   (decode lives here)         (prefill lives here)
--->
 <div id="fig-roofline" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-roofline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -899,34 +829,6 @@ Figure&nbsp;3.6: Roofline plot showing decode operating points at different batc
 </figcaption>
 </figure>
 </div>
-<!-- Figure: Roofline plot showing decode operating points at different batch sizes
-ASCII art sketch:
-Attainable FLOP/s (log scale)
-      |
-990T  |                                    ___________________________
-      |                                  /
-      |                                /
-      |                              /  B=512 *
-      |                            /     B=295 * (ridge)
-      |                          /
-      |                        /  B=128 *
-      |                      /
-      |                    /  B=32 *
-      |                  /
-      |                /
-      |              /  B=8 *
-      |            /
-      |          /
-      |        /  B=1 *
-      |      /
-      |    /
-      |  /
-      |/______________|_____________________________________________
-                     295                   Arithmetic intensity (FLOP/byte)
-                  ridge point
-
-  Arrow from B=1 to B=512 labeled "batching moves you rightward"
--->
 <p>This is the fundamental reason batching helps decode throughput. With batch size 1, you’re reading 140 GB to do around 140 GFLOP of work. With batch size 128, you’re reading the same 140 GB but doing 18 TFLOP of work. You’re moving rightward on the roofline, getting more useful computation per byte read.</p>
 <p>The throughput gain is substantial. At batch size 1, the decode throughput is bounded by bandwidth at about 24 tokens/s. At batch size 128, you’re still bandwidth-bound but now generating 128 tokens per step, so the throughput is approximately <span class="math inline">\(128 \times 24 \approx 3{,}072\)</span> tokens/s across all requests. Each individual request still sees about 24 tokens/s (the step time is the same because we’re reading the same weight data), but the system throughput has increased 128x.</p>
 <div class="callout callout-style-default callout-note callout-titled">

@@ -219,14 +219,15 @@ ASCII art sketch:
   MLA               (latent)    [███]                              ~0.1x (varies)
 -->
 ```
-![Techniques for reducing the KV cache size of a given layer](images/under_construction.jpg){#fig-attn-head-variants .lightbox}
+![Techniques for reducing the KV cache size of a given layer. GQA and MQA share keys and values with multiple query heads. MLA compresses key and value information together to reduce size.](images/kv_variants.svg){#fig-kv-variants .lightbox}
 
 **Multi-Head Attention (MHA)** is the original design from the transformer paper [@vaswani2017attention].
 Each attention head has its own key and value projections, so the KV cache stores separate K and V vectors for every head, every layer, and every token in the sequence.
-For a model with 32 heads and a head dimension of 128, each token adds $2 \times 32 \times 128 = 8{,}192$ values to the KV cache per layer.
+For a model using FP16 with 64 heads and a head dimension of 128, each token adds $2 \times 64 \times 128 \times 2 = 32{,}768$ bytes to the KV cache per layer.
 This is the most expensive option.
+The top row of @fig-kv-variants shows a how queries align with keys and values in MHA.
 
-**Multi-Query Attention (MQA)** [@shazeer2019mqa] goes to the opposite extreme: all attention heads share a *single* set of key and value projections.
+**Multi-Query Attention (MQA)** [@shazeer2019mqa] goes to the opposite extreme: all attention heads share a *single* set of key and value projections, as shown on the third row of @fig-kv-variants.
 Each head still has its own query projection, so the heads can attend to different aspects of the input, but the KV cache only stores one K and one V vector per layer per token.
 This reduces the KV cache by a factor equal to the number of heads -- from 32 sets of K/V down to 1 in the example above.
 The quality impact is generally small for large models, and the inference speedup -- especially for long sequences with many concurrent requests -- can be substantial.
@@ -236,14 +237,16 @@ Instead of one shared KV set for all heads, GQA uses $G$ groups, where each grou
 With 32 heads and $G = 8$ groups, the KV cache is reduced by 4x compared to MHA.
 GQA has become the dominant choice in recent models -- LLaMA 3, Mistral, and Gemma all use it.
 It offers most of MQA's memory savings with less quality risk.
+A GQA example with 8 query heads and 4 groups is shown on the second row of @fig-kv-variants.
 
 **Multi-head Latent Attention (MLA)** [@liu2024deepseekv2] is DeepSeek's approach to KV cache compression.
 Rather than storing full key and value vectors, MLA compresses them into a low-rank **latent vector** at each layer.
 At attention time, the full keys and values are reconstructed from the latent representation.
 The compression ratio depends on the latent dimension, but MLA can achieve significant cache reductions -- comparable to or better than GQA -- while preserving model quality.
-The tradeoff is additional compute to decompress the latent vectors during attention, but this compute is typically small relative to the bandwidth savings.
+The tradeoff is additional compute to decompress the latent vectors during attention, but this compute is typically small relative to the bandwidth savings, and there are tricks to reduce the compute.
+MLA is depicted on the bottom row of @fig-kv-variants.
 
-![Cross-layer attention](images/under_construction.jpg){#fig-cross-layer-attn .lightbox}
+![Cross-layer attention with a factor of 2 KV sharing between layers](images/cross_layer_attn.svg){#fig-cross-layer-attn .lightbox}
 
 **Cross-Layer Attention (CLA)** [@brandon2024cla] takes a different angle: rather than sharing KV across heads within a layer, it shares KV across adjacent layers.
 If every pair of consecutive layers shares the same KV cache, the total cache size is halved.

@@ -4,7 +4,9 @@ project:
 
 book:
   title: "LLM Inference Illustrated"
+  description: "A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable"
   author: "Ted Kyi"
+  twitter-card: true
   repo-url: https://github.com/tedkyi/llm-inference/
   repo-actions: [issue]
   # downloads: [pdf]
@@ -32,6 +34,8 @@ link-citations: true
 
 filters:
   - _filters/dim-colors.lua
+
+lightbox: auto
 
 format:
   html:

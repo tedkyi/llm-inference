@@ -20,21 +20,6 @@ These stages are shown in @fig-pipeline-stages.
 
 ![The stages of LLM inference for a single request. Ingestion and response completion are fast. Prefill and decode dominate wall-clock time.](images/pipeline_stages.svg){#fig-pipeline-stages .lightbox}
 
-```{=html}
-<!-- Figure: Timeline of the five pipeline stages for a single request
-ASCII art sketch:
-  Time - - ->
-  |  Load  |  Ingest |    Prefill    | D | D | D | D | D | D | D | D | Done |
-  |        |         |               |   |   |   |   |   |   |   |   |      |
-  | (once) | (fast)  | (compute-     |<---- Decode loop (bandwidth-  | (fast)
-  |        |         |  bound)       |     bound per step)           |      |
-  |        |         |               |                               |      |
-  |        |  <----- This book focuses on these two phases ------ -> |      |
-
-  Legend: D = one decode step (forward pass + sample + KV cache append)
--->
-```
-
 We will assume the model is already loaded into GPU main memory.
 For a 70-billion-parameter model stored in FP16 (2 bytes per parameter), the weights alone are about 140 GB.
 Loading that volume of data from an NVMe SSD at 7 GB/s takes about 20 seconds, and from a network file system, it could take longer.
@@ -184,17 +169,6 @@ The KV cache grows with each token, so later decode steps read slightly more dat
 In practice, this variation is usually small relative to the total step time, but it can matter for very long sequences.
 
 ![Request timeline showing TTFT and TPOT durations](images/ttft_tpot_timeline.svg){#fig-ttft-tpot .lightbox}
-
-```{=html}
-<!-- Figure: Timeline showing TTFT and TPOT for a single request
-ASCII art sketch:
-  Request arrives          First token        Token 2   Token 3   Token N
-      |                        |                |         |         |
-      |<------- TTFT ------- ->|<---- TPOT --- ->|<- TPOT->|  ...    |
-      |                        |                |         |         |
-      |     [  Prefill  ]     [ D ]            [ D ]     [ D ]    [ D ]
--->
-```
 
 Together, TTFT and TPOT define the end-to-end latency of a request, as shown in @fig-ttft-tpot.
 The total time to generate a response of $N$ output tokens is approximately $\text{TTFT} + (N - 1) \times \text{TPOT}$.
@@ -428,13 +402,6 @@ We'll see in @sec-batching how modern schedulers use techniques like continuous 
 In summary, understanding your workload –- the mix of input/output lengths, the latency requirements, and the arrival patterns –- is one step toward choosing the right optimizations.
 A system tuned for batch summarization of long documents looks very different from one tuned for low-latency chatbot responses, even though they might be serving the same model.
 
-```{=html}
-<!-- Approved.
-The above three sections "The Inference Lifecycle", "Performance Metrics", and "Workload patterns"
-have all been rewritten and can be used as good examples for the proper author's voice.
--->
-```
-
 ## The Hardware Model and Bottleneck Framework {#sec-bottleneck-framework}
 
 In @sec-inference-pipeline, we explained that prefill is compute-bound and decode is memory-bandwidth-bound.
@@ -485,35 +452,6 @@ Raw compute throughput only matters if you can feed data to the tensor cores fas
 This is where the memory hierarchy comes in.
 A GPU has four levels of memory, shown in @fig-gpu-memory-hierarchy.
 As the closest levels are the fastest but also the smallest, and as the levels get larger, they get farhter and slower, trading off speed for capacity.
-
-```{=html}
-<!-- Figure: GPU memory hierarchy diagram showing registers, SRAM, and HBM with capacity and bandwidth at each level
-ASCII art sketch:
-+--------------------------------------------------+
-|  GPU Chip                                        |
-|  +--------------------------------------------+  |
-|  |  SM 0          SM 1     ...     SM 131     |  |
-|  |  +----------+  +----------+  +----------+  |  |
-|  |  | Registers|  | Registers|  | Registers|  |  |
-|  |  | 256 KB   |  | 256 KB   |  | 256 KB   |  |  |
-|  |  +----------+  +----------+  +----------+  |  |
-|  |  | SRAM     |  | SRAM     |  | SRAM     |  |  |
-|  |  | 256 KB   |  | 256 KB   |  | 256 KB   |  |  |
-|  |  +----------+  +----------+  +----------+  |  |
-|  +--------------------------------------------+  |
-|                       |  ~tens of TB/s            |
-|                       v                           |
-|  +--------------------------------------------+  |
-|  |  L2 Cache  ~50 MB                          |  |
-|  +--------------------------------------------+  |
-+--------------------------------------------------+
-                        |  3.35 TB/s
-                        v
-+--------------------------------------------------+
-|  HBM3: 80 GB                                    |
-+--------------------------------------------------+
--->
-```
 
 ![GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level](images/gpu_memory_hierarchy.svg){#fig-gpu-memory-hierarchy .lightbox}
 
@@ -605,34 +543,6 @@ Any kernel above that threshold is compute-bound.
 The regions we've discussed are shown on the roofline plot for the H100 SXM in @fig-roofline.
 On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is $3.3 \times 10^{12}$.
 On the right, the attainable FLOPS is capped at the peak of $989.4 \times 10^{12}$.
-
-```{=html}
-<!-- Figure: Roofline plot for the H100 SXM at FP16
-ASCII art sketch:
-Attainable FLOP/s (log scale)
-        |
-  990T  |                          ___________________________  <-- Compute ceiling (990 TFLOPS FP16)
-        |                        /
-        |                      /
-        |                    /
-        |                  /   <-- Bandwidth ceiling (slope = 3.35 TB/s)
-        |                /
-        |              /
-        |            /
-        |          /
-        |        /
-        |      /
-        |    /
-        |  /
-        |/______________|______________________________________
-                       295                    Arithmetic intensity (FLOP/byte)
-                    ridge point
-
-   Left of ridge:              Right of ridge:
-   memory-bandwidth-bound      compute-bound
-   (decode lives here)         (prefill lives here)
--->
-```
 
 ![Roofline plot for the H100 SXM at FP16](images/roofline.svg){#fig-roofline .lightbox}
 
@@ -806,37 +716,6 @@ For FP16 weights ($b_w = 2$), we end up with $\text{AI}_{\text{batch}} = B \text
 : Arithmetic intensity of decode steps as a function of batch size for FP16 weights on H100 SXM. The ridge point is \~295 FLOP/byte.
 
 ![Roofline plot showing decode operating points at different batch sizes. Each point sits on the roofline at arithmetic intensity equal to the batch size (for FP16 weights). Batching moves the operating point rightward, from deeply bandwidth-bound toward the compute ceiling.](images/roofline_batching.svg){#fig-roofline-batching .lightbox}
-
-```{=html}
-<!-- Figure: Roofline plot showing decode operating points at different batch sizes
-ASCII art sketch:
-Attainable FLOP/s (log scale)
-      |
-990T  |                                    ___________________________
-      |                                  /
-      |                                /
-      |                              /  B=512 *
-      |                            /     B=295 * (ridge)
-      |                          /
-      |                        /  B=128 *
-      |                      /
-      |                    /  B=32 *
-      |                  /
-      |                /
-      |              /  B=8 *
-      |            /
-      |          /
-      |        /  B=1 *
-      |      /
-      |    /
-      |  /
-      |/______________|_____________________________________________
-                     295                   Arithmetic intensity (FLOP/byte)
-                  ridge point
-
-  Arrow from B=1 to B=512 labeled "batching moves you rightward"
--->
-```
 
 This is the fundamental reason batching helps decode throughput.
 With batch size 1, you're reading 140 GB to do around 140 GFLOP of work.

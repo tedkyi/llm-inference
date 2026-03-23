@@ -17,15 +17,19 @@ Before we get into the technical details of how inference systems are built and 
 
 Suppose we give an LLM the prompt **"The quick brown fox jumps"** — five input tokens. The model's job is to predict what tokens come next.
 
+![First token predicted for the prompt "The quick brown fox jumps"](images/inference_start.svg){#fig-inference-start .lightbox}
+
+The text generation happens in a series of steps.
+The first thing that happens is the LLM runs a single **forward pass** of the neural network model using all of the input tokens. After processesing all of these tokens together, it produces its prediction for the next token, **over**. This initial step is shown in @fig-inference-start.
+
 ![An example LLM response for the prompt "The quick brown fox jumps"](images/inference_example.svg){#fig-inference-example height=400 .lightbox}
 
-The text generation happens in a series of steps, as shown in @fig-inference-example:
+Text generation continues in a series of steps, one token at a time, with the entire process shown in @fig-inference-example:
 
-- First, the LLM runs a single **forward pass** of the neural network model using all of the input tokens. After processesing all of these tokens together, it produces its prediction for the next token, **over**.
-- In the next step, the predicted token **over** is appended to the end of the input text, and the model is fed **"The quick brown fox jumps over"**. In this step it predicts **the**.
-- Once again, the predicted token **the** is appended to the end, the model is fed **"The quick brown fox jumps over the"**, and it predicts **lazy**.
-- Continuing this process, the input **"The quick brown fox jumps over the lazy"** predicts **dog**.
-- Then, the input **"The quick brown fox jumps over the lazy dog"** outputs a special token **\<EOS\>**. The special token tells the LLM to stop the generation, and the completed response is returned to the user.
+1.  In the next step, the predicted token **over** is appended to the end of the input text, and the model is fed **"The quick brown fox jumps over"**. In this step it predicts **the**.
+2.  Once again, the predicted token **the** is appended to the end, the model is fed **"The quick brown fox jumps over the"**, and it predicts **lazy**.
+3.  Continuing this process, the input **"The quick brown fox jumps over the lazy"** predicts **dog**.
+4.  Then, the input **"The quick brown fox jumps over the lazy dog"** outputs a special token **\<EOS\>**. The special token tells the LLM to stop the generation, and the completed response is returned to the user.
 
 In our very first step, the LLM is given all of our input tokens.
 In many cases, this input prompt can be quite long.

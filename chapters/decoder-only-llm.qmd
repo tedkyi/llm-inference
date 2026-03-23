@@ -80,7 +80,8 @@ For efficiency reasons, almost all deep learning training and inference happens 
 This is true as well for LLM inference, and we will discuss batching in @sec-batching.
 For the sake of brevity, especially in diagrams, we will discuss non-batched data flow and omit the explicit mention of the batch dimension.
 For LLMs, the full batched shape of the input to the first layer is **(B, [S]{.dim-s}, [D]{.dim-d})**, which we abbreviate to **([S]{.dim-s}, [D]{.dim-d})** for non-batched inputs.
-Wherever tensor shapes are mentioned without a leading batch dimension, it is appropriate to think about batched processing adding a single dimension to the beginning of the shape.
+Wherever data tensor shapes are mentioned without a leading batch dimension, it is appropriate to think about batched processing adding a single dimension to the beginning of the shape.
+Weight tensors do not grow when processing data in batches. Rather, they are broadcast in the batch dimension.
 We hope this convention of using non-batched shapes does not cause any confusion.
 :::
 
@@ -511,7 +512,7 @@ This reduces the per token computation to $O({t})$ and the total computation to 
     Include a small inset showing that this cache exists at EVERY layer.
 -->
 ```
-![KV cache. TODO: this diagram needs to be completely redesigned.](images/kv_cache.svg){#fig-kv-cache .lightbox}
+![The KV cache avoids wasted recomputation of keys and values over and over again](images/kv_cache_concept.svg){#fig-kv-cache .lightbox}
 
 When we do inference with a KV cache, the attention calculation becomes much less computationally expensive because our query tensor shrinks from **([S]{.dim-s}, [D]{.dim-d})** to **(1, [D]{.dim-d})**.
 You can see this effect by comparing the original data flow for attention in @fig-attn-flow to the KV cache attention data flow in @fig-attn-flow-kv.

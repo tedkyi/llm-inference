@@ -87,20 +87,7 @@ The memory management techniques in @sec-kv-cache and the preemption policies we
 
 The simplest batching strategy is **static batching**: collect a fixed number of requests, process them all together, and don't start the next batch until every request in the current batch has finished generating.
 
-```{=html}
-<!-- Figure: Static batching timeline
-ASCII art sketch:
-Request 1: [====PREFILL====][==DECODE==][DONE]................
-Request 2: [====PREFILL====][========DECODE========][DONE]....
-Request 3: [====PREFILL====][==============DECODE==============][DONE]
-Request 4: ..........................................[waiting............]
-            |<------------ Batch 1 ------------ ->|<--- Batch 2 -- ->
-
-    "." = GPU idle / padding for that slot
-    Request 4 cannot start until Request 3 (the slowest) finishes
--->
-```
-![Static batching](images/under_construction.jpg){#fig-static-batching .lightbox}
+![Static batching](images/static_batching.svg){#fig-static-batching .lightbox}
 
 The problems are obvious.
 Request 1 finishes early but its batch slot sits empty -- the GPU does no useful work for that slot while waiting for Request 3 to complete.
@@ -117,6 +104,9 @@ Instead of fixing the batch size up front, the scheduler collects requests from 
 If only 5 requests are waiting, the batch has 5 requests rather than waiting for a full batch of 32.
 
 This reduces queuing delay and adapts to variable arrival rates.
+
+![Dynamic batching](images/dynamic_batching.svg){#fig-dynamic-batching .lightbox}
+
 But it still has the same fundamental problem as static batching during decode: the batch doesn't complete until the last request finishes generating.
 Short-output requests sit idle while they wait for long-output requests to wrap up.
 The GPU is still doing useless work for completed slots.
@@ -129,19 +119,7 @@ The key insight is to operate at the granularity of individual decode iterations
 In continuous batching, the scheduler makes a decision at every decode step: which requests should be in this step's batch?
 When a request finishes generating (by hitting a stop token or a length limit), its slot is immediately freed and can be filled by a new request from the queue -- without waiting for the rest of the batch to finish.
 
-```{=html}
-<!-- Figure: Continuous batching timeline
-ASCII art sketch:
-Slot 1: [Req A prefill][A decode][A decode][A done][Req D prefill][D decode]...
-Slot 2: [Req B prefill][B decode][B decode][B decode][B decode][B done][Req E]...
-Slot 3: [Req C prefill][C decode][C decode][C decode][C done][Req F prefill]...
-         step 1        step 2    step 3    step 4   step 5   step 6
-
-    - Request A finishes at step 4, Request D immediately takes its slot
-    - No slot ever sits idle waiting for other requests to finish
--->
-```
-![Continuous batching](images/under_construction.jpg){#fig-continuous-batching .lightbox}
+![Continuous batching](images/continuous_batching.svg){#fig-continuous-batching .lightbox}
 
 This eliminates **head-of-line blocking** -- the problem where a single slow request holds up the entire batch.
 In the static batching example, Request 4 had to wait for the entire first batch to complete.

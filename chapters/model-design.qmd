@@ -208,17 +208,6 @@ The KV cache is one of the largest consumers of GPU memory during inference -- a
 Reducing the KV cache per request lets you serve more concurrent requests in the same memory budget.
 We'll cover KV cache management techniques in @sec-kv-cache; here we focus on the architectural choices that determine how large the cache is in the first place.
 
-```{=html}
-<!-- Figure: KV cache size comparison across attention variants
-ASCII art sketch:
-  Attention Type    KV heads    KV cache relative size
-  ─────────────     ────────    ──────────────────────
-  MHA (h=32)          32        [████████████████████████████████]  1.0x
-  GQA (G=8)            8        [████████]                         0.25x
-  MQA               1           [█]                                0.03x
-  MLA               (latent)    [███]                              ~0.1x (varies)
--->
-```
 ![Techniques for reducing the KV cache size of a given layer. GQA and MQA share keys and values with multiple query heads. MLA compresses key and value information together to reduce size.](images/kv_variants.svg){#fig-kv-variants .lightbox}
 
 **Multi-Head Attention (MHA)** is the original design from the transformer paper [@vaswani2017attention].
@@ -256,7 +245,7 @@ CLA can be combined with GQA or MQA for even greater reductions.
 
 Beyond the KV cache, the attention computation itself can be a bottleneck, particularly during prefill for long sequences where the cost is quadratic in sequence length.
 
-![Sliding window attention](images/under_construction.jpg){#fig-sliding-window-attn .lightbox}
+![Full causal attention (left) vs. sliding window attention with window size w=4 (right). Each shaded cell indicates a query-key pair included in the attention computation.](images/sliding_window.svg){#fig-sliding-window-attn .lightbox}
 
 **Sliding window attention** [@beltagy2020longformer] restricts each token to attend only to a fixed-size window of nearby tokens rather than the full sequence.
 This reduces the attention computation from $O(n^2)$ to $O(n \times w)$, where $w$ is the window size.

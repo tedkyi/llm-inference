@@ -560,7 +560,7 @@ Table&nbsp;8.2: Key production metrics and their diagnostic value.
 <section id="head-of-line-blocking" class="level3">
 <h3 class="anchored" data-anchor-id="head-of-line-blocking">Head-of-line blocking</h3>
 <p>A request with a very long prompt ties up GPU compute during its prefill phase. If the system uses naive scheduling, shorter requests queue behind it and experience inflated TTFT. This is particularly damaging in mixed-workload deployments where most requests are short but occasional long-context requests arrive.</p>
-<p><strong>Mitigation</strong>: Chunked prefill (<a href="scheduling.html#sec-prefill-strategies" class="quarto-xref"><span>Section 5.2</span></a>) breaks long prefills into smaller pieces that are interleaved with decode steps, preventing any single prefill from monopolizing the GPU. Priority scheduling (<a href="scheduling.html#sec-request-scheduling" class="quarto-xref"><span>Section 5.3</span></a>) can also help by ensuring short requests aren’t starved.</p>
+<p><strong>Mitigation</strong>: Chunked prefill (<a href="scheduling.html#sec-prefill-strategies" class="quarto-xref"><span>Section 5.2</span></a>) breaks long prefills into smaller pieces that are interleaved with decode steps, preventing any single prefill from monopolizing the GPU. Priority scheduling (<a href="scheduling.html#sec-request-scheduling" class="quarto-xref"><span>Section 5.4</span></a>) can also help by ensuring short requests aren’t starved.</p>
 </section>
 <section id="thundering-herd" class="level3">
 <h3 class="anchored" data-anchor-id="thundering-herd">Thundering herd</h3>

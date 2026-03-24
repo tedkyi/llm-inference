@@ -503,7 +503,7 @@ Figure&nbsp;6.2: Paged attention
 <li><strong>Near-zero fragmentation</strong>: the only wasted space is the partial last page of each request. With 16-token pages, average waste is 8 tokens per request – negligible compared to the old approach of reserving memory for the maximum sequence length.</li>
 <li><strong>Dynamic allocation</strong>: pages are allocated on demand as the sequence grows, so a short request doesn’t tie up memory it will never use.</li>
 <li><strong>Sharing</strong>: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. This is the foundation for prefix caching, which we’ll cover in <a href="#sec-prefix-caching" class="quarto-xref"><span>Section 6.4</span></a>.</li>
-<li><strong>Fine-grained preemption</strong>: if the scheduler needs to free memory (<a href="scheduling.html#sec-request-scheduling" class="quarto-xref"><span>Section 5.3</span></a>), it can evict individual pages rather than killing an entire request. Pages can be swapped to CPU memory and swapped back later.</li>
+<li><strong>Fine-grained preemption</strong>: if the scheduler needs to free memory (<a href="scheduling.html#sec-request-scheduling" class="quarto-xref"><span>Section 5.4</span></a>), it can evict individual pages rather than killing an entire request. Pages can be swapped to CPU memory and swapped back later.</li>
 </ul>
 <p>PagedAttention has become the standard approach for KV cache memory management. Nearly every major serving framework – vLLM, SGLang, TensorRT-LLM – uses some variant of it.</p>
 </section>

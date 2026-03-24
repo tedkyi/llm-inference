@@ -284,6 +284,7 @@ window.Quarto = {
   <li><a href="#sec-tensor-parallelism" id="toc-sec-tensor-parallelism" class="nav-link" data-scroll-target="#sec-tensor-parallelism"><span class="header-section-number">7.3</span> Tensor Parallelism (TP)</a>
   <ul class="collapse">
   <li><a href="#column-parallel-and-row-parallel-linear-layers" id="toc-column-parallel-and-row-parallel-linear-layers" class="nav-link" data-scroll-target="#column-parallel-and-row-parallel-linear-layers">Column-parallel and row-parallel linear layers</a></li>
+  <li><a href="#gated-mlp-under-tp" id="toc-gated-mlp-under-tp" class="nav-link" data-scroll-target="#gated-mlp-under-tp">Gated MLP under TP</a></li>
   <li><a href="#multi-head-attention-under-tp" id="toc-multi-head-attention-under-tp" class="nav-link" data-scroll-target="#multi-head-attention-under-tp">Multi-head attention under TP</a></li>
   <li><a href="#communication-cost" id="toc-communication-cost" class="nav-link" data-scroll-target="#communication-cost">Communication cost</a></li>
   </ul></li>
@@ -342,8 +343,8 @@ window.Quarto = {
 </header>
 
 
-<p>Everything we’ve covered so far in this book operates on a single GPU. That works fine for smaller models, but the largest LLMs today — with hundreds of billions of parameters — simply don’t fit in the memory of a single device. Even when a model does fit, you may want to spread the work across multiple GPUs spread the work over more resources. This chapter is about how to do that.</p>
-<p>The parallelism techniques used for inference are mostly the same ones developed for training. The good news is that they’re easier to implement for inference, because they only have to deal with the forward pass — no activations to store for backpropagation, no gradient calculations, and no optimizer state. The core challenge here is that every time we split work across devices, we introduce communication overhead between devices, and that communication can be much slower than communication within one device..</p>
+<p>Everything we’ve covered so far in this book operates on a single GPU. That works fine for smaller models, but the largest LLMs today — with hundreds of billions of parameters — simply don’t fit in the memory of a single device. Even when a model does fit, you may want to spread the work across multiple GPUs. This chapter is about how to do that.</p>
+<p>The parallelism techniques used for inference are mostly the same ones developed for training. The good news is that they’re easier to implement for inference, because they only have to deal with the forward pass — no activations to store for backpropagation, no gradient calculations, and no optimizer state. The core challenge here is that every time we split work across devices, we introduce communication overhead between devices, and that communication can be much slower than communication within one device.</p>
 <p>We’ll start by understanding the communication fabric, then work through each parallelism strategy, and finish by analyzing when communication becomes the bottleneck.</p>
 <section id="sec-interconnects" class="level2" data-number="7.1">
 <h2 data-number="7.1" class="anchored" data-anchor-id="sec-interconnects"><span class="header-section-number">7.1</span> Interconnects and Multi-GPU Topology</h2>
@@ -480,16 +481,6 @@ Table&nbsp;7.1: Interconnect bandwidth and latency comparison for common GPU inf
 <section id="sec-tensor-parallelism" class="level2" data-number="7.3">
 <h2 data-number="7.3" class="anchored" data-anchor-id="sec-tensor-parallelism"><span class="header-section-number">7.3</span> Tensor Parallelism (TP)</h2>
 <p><strong>Tensor parallelism</strong> splits individual weight matrices across devices, so each GPU computes a slice of every layer. This is the most communication-intensive parallelism strategy, but it directly reduces per-device memory and enables serving models that don’t fit on a single GPU.</p>
-<div id="fig-tp-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;7.2: Tensor parallel attention calculation"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.2: Tensor parallel attention calculation
-</figcaption>
-</figure>
-</div>
 <section id="column-parallel-and-row-parallel-linear-layers" class="level3">
 <h3 class="anchored" data-anchor-id="column-parallel-and-row-parallel-linear-layers">Column-parallel and row-parallel linear layers</h3>
 <p>The core idea is to partition each linear layer’s weight matrix along either its columns or its rows.</p>
@@ -503,9 +494,33 @@ Figure&nbsp;7.2: Tensor parallel attention calculation
 </ol>
 <p>This means each transformer layer requires <strong>two all-reduce operations</strong> – one after the attention block and one after the MLP block.</p>
 </section>
+<section id="gated-mlp-under-tp" class="level3">
+<h3 class="anchored" data-anchor-id="gated-mlp-under-tp">Gated MLP under TP</h3>
+<p>We start with the simple FFN block and show attention next. <a href="#fig-tp-mlp" class="quarto-xref">Figure&nbsp;<span>7.2</span></a> shows what 2-way tensor parallelism looks like for the gated MLP which is now more common.</p>
+<div id="fig-tp-mlp" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/tp_gated_mlp.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;7.2: Tensor parallel MLP calculation"><img src="images/tp_gated_mlp.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.2: Tensor parallel MLP calculation
+</figcaption>
+</figure>
+</div>
+</section>
 <section id="multi-head-attention-under-tp" class="level3">
 <h3 class="anchored" data-anchor-id="multi-head-attention-under-tp">Multi-head attention under TP</h3>
-<p>Attention is naturally suited to tensor parallelism because the heads are independent. With <span class="math inline">\(H\)</span> attention heads split across <span class="math inline">\(T\)</span> GPUs, each GPU handles <span class="math inline">\(H/T\)</span> heads. The Q, K, and V projection matrices are split column-parallel by head, each GPU computes attention for its local heads, and the output projection is row-parallel with an all-reduce to combine results.</p>
+<p>Attention is naturally suited to tensor parallelism because the heads are independent. With <span class="math inline">\(H\)</span> attention heads split across <span class="math inline">\(T\)</span> GPUs, each GPU handles <span class="math inline">\(H/T\)</span> heads. The Q, K, and V projection matrices are split column-parallel by head, each GPU computes attention for its local heads, and the output projection is row-parallel with an all-reduce to combine results. This effect is depicted in <a href="#fig-tp-attn" class="quarto-xref">Figure&nbsp;<span>7.3</span></a> with 2-way tensor parallelism for the attention layer.</p>
+<div id="fig-tp-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/tp_attn.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;7.3: Tensor parallel attention calculation"><img src="images/tp_attn.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.3: Tensor parallel attention calculation
+</figcaption>
+</figure>
+</div>
 <p><strong>KV cache</strong> is also sharded: each GPU only stores the K and V tensors for its local heads. With GQA or MQA (discussed in <a href="model-design.html#sec-efficient-attention" class="quarto-xref"><span>Section 4.4</span></a>), there are fewer KV heads than query heads, so the KV cache per device is even smaller. For example, with 8 KV head groups split across 8 GPUs with TP=8, each GPU holds just one KV head group – the minimum possible.</p>
 </section>
 <section id="communication-cost" class="level3">
@@ -515,16 +530,6 @@ Figure&nbsp;7.2: Tensor parallel attention calculation
 <p>where <span class="math inline">\(b\)</span> is the batch size (in tokens) and the factor of 2 accounts for the reduce-scatter and all-gather phases. With two all-reduces per transformer layer and <span class="math inline">\(L\)</span> layers, the total communication per forward pass is <span class="math inline">\(2L\)</span> all-reduce operations.</p>
 <p>For a 70B model with <span class="math inline">\(d_{\text{model}} = 8192\)</span> and TP=8 on H100 NVLink (900 GB/s), each all-reduce for a single-token decode step moves roughly 2 × 8192 × 2 bytes ≈ 32 KB. That completes in well under a microsecond – negligible. But for prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with <span class="math inline">\(b\)</span> and can start to matter.</p>
 <p>The key insight is that TP requires <strong>high-bandwidth, low-latency</strong> communication every layer, making it impractical across nodes where network bandwidth is 10-30x lower than NVLink.</p>
-<div id="fig-tp-mlp" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;7.3: Tensor parallel MLP calculation"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.3: Tensor parallel MLP calculation
-</figcaption>
-</figure>
-</div>
 </section>
 </section>
 <section id="sec-pipeline-parallelism" class="level2" data-number="7.4">

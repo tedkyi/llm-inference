@@ -273,10 +273,10 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#why-batching-matters" id="toc-why-batching-matters" class="nav-link" data-scroll-target="#why-batching-matters">Why batching matters</a></li>
   <li><a href="#the-memory-cost-of-batching" id="toc-the-memory-cost-of-batching" class="nav-link" data-scroll-target="#the-memory-cost-of-batching">The memory cost of batching</a></li>
+  <li><a href="#example-workload" id="toc-example-workload" class="nav-link" data-scroll-target="#example-workload">Example workload</a></li>
   <li><a href="#static-batching" id="toc-static-batching" class="nav-link" data-scroll-target="#static-batching">Static batching</a></li>
   <li><a href="#dynamic-batching" id="toc-dynamic-batching" class="nav-link" data-scroll-target="#dynamic-batching">Dynamic batching</a></li>
   <li><a href="#continuous-batching" id="toc-continuous-batching" class="nav-link" data-scroll-target="#continuous-batching">Continuous batching</a></li>
-  <li><a href="#ragged-batching" id="toc-ragged-batching" class="nav-link" data-scroll-target="#ragged-batching">Ragged batching</a></li>
   </ul></li>
   <li><a href="#sec-prefill-strategies" id="toc-sec-prefill-strategies" class="nav-link" data-scroll-target="#sec-prefill-strategies"><span class="header-section-number">5.2</span> Prefill Strategies</a>
   <ul class="collapse">
@@ -284,7 +284,8 @@ window.Quarto = {
   <li><a href="#chunked-prefill" id="toc-chunked-prefill" class="nav-link" data-scroll-target="#chunked-prefill">Chunked prefill</a></li>
   <li><a href="#disaggregated-prefill" id="toc-disaggregated-prefill" class="nav-link" data-scroll-target="#disaggregated-prefill">Disaggregated prefill</a></li>
   </ul></li>
-  <li><a href="#sec-request-scheduling" id="toc-sec-request-scheduling" class="nav-link" data-scroll-target="#sec-request-scheduling"><span class="header-section-number">5.3</span> Request Scheduling and Prioritization</a>
+  <li><a href="#ragged-batching" id="toc-ragged-batching" class="nav-link" data-scroll-target="#ragged-batching"><span class="header-section-number">5.3</span> Ragged batching</a></li>
+  <li><a href="#sec-request-scheduling" id="toc-sec-request-scheduling" class="nav-link" data-scroll-target="#sec-request-scheduling"><span class="header-section-number">5.4</span> Request Scheduling and Prioritization</a>
   <ul class="collapse">
   <li><a href="#granularity-of-scheduling" id="toc-granularity-of-scheduling" class="nav-link" data-scroll-target="#granularity-of-scheduling">Granularity of scheduling</a></li>
   <li><a href="#priority-based-scheduling" id="toc-priority-based-scheduling" class="nav-link" data-scroll-target="#priority-based-scheduling">Priority-based scheduling</a></li>
@@ -292,7 +293,7 @@ window.Quarto = {
   <li><a href="#oom-handling-and-graceful-degradation" id="toc-oom-handling-and-graceful-degradation" class="nav-link" data-scroll-target="#oom-handling-and-graceful-degradation">OOM handling and graceful degradation</a></li>
   <li><a href="#putting-scheduling-together" id="toc-putting-scheduling-together" class="nav-link" data-scroll-target="#putting-scheduling-together">Putting scheduling together</a></li>
   </ul></li>
-  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">5.4</span> Further Reading</a></li>
+  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">5.5</span> Further Reading</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -367,6 +368,56 @@ Attainable FLOP/s (log scale)
 <p>If your model weights occupy 30 GB on an 80 GB GPU, you have roughly 50 GB left for KV caches (minus activation memory and framework overhead). How many requests fit depends on the model architecture, the KV cache precision, and the sequence lengths involved. A batch of 64 requests, each with 2,048 tokens of context, might consume far more than 50 GB of KV cache – at which point you simply can’t fit that many requests.</p>
 <p>This is the central batching tradeoff: <strong>larger batches improve GPU utilization and throughput, but each additional request in the batch consumes KV cache memory</strong>. Push the batch size too high and you’ll run out of GPU memory. Keep it too low and you’re leaving performance on the table. The memory management techniques in <a href="request.html#sec-kv-cache" class="quarto-xref"><span>Section 6.3</span></a> and the preemption policies we’ll discuss at the end of this chapter exist to navigate this tradeoff.</p>
 </section>
+<section id="example-workload" class="level3">
+<h3 class="anchored" data-anchor-id="example-workload">Example workload</h3>
+<p>To compare the batching strategies that follow, we’ll use the same small workload throughout: five requests arriving at staggered times, each needing 2 prefill steps and a varying number of decode steps.</p>
+<div id="tbl-batching-workload" class="striped quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-batching-workload-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;5.1: Example workload used in the batching diagrams below.
+</figcaption>
+<div aria-describedby="tbl-batching-workload-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="table-striped caption-top table">
+<thead>
+<tr class="header">
+<th>Request</th>
+<th>Arrival time</th>
+<th>Decode steps</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td>0</td>
+<td>4</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td>1</td>
+<td>6</td>
+</tr>
+<tr class="odd">
+<td>C</td>
+<td>1</td>
+<td>3</td>
+</tr>
+<tr class="even">
+<td>D</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr class="odd">
+<td>E</td>
+<td>5</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>This is a toy example. In practice, prefill time depends on input length and can vary enormously across requests, queuing delays can stretch to seconds under heavy load, and decode runs for hundreds or thousands of steps. We’ve flattened all of that to keep the diagrams readable. The point is to show how each strategy handles staggered arrivals and variable-length outputs, not to depict realistic timescales.</p>
+</section>
 <section id="static-batching" class="level3">
 <h3 class="anchored" data-anchor-id="static-batching">Static batching</h3>
 <p>The simplest batching strategy is <strong>static batching</strong>: collect a fixed number of requests, process them all together, and don’t start the next batch until every request in the current batch has finished generating.</p>
@@ -380,13 +431,12 @@ Figure&nbsp;5.1: Static batching
 </figcaption>
 </figure>
 </div>
-<p>The problems are obvious. Request 1 finishes early but its batch slot sits empty – the GPU does no useful work for that slot while waiting for Request 3 to complete. Request 4 is stuck in the queue even though there’s a free slot. If requests have different input lengths, the shorter inputs need to be padded to match the longest one, wasting compute on dummy tokens during prefill.</p>
-<p>Static batching works fine for offline workloads where all inputs and outputs have uniform length – say, scoring a dataset of fixed-length classification examples. For anything with variable-length outputs, which is the common case in LLM generation, it wastes too many GPU cycles.</p>
+<p><a href="#fig-static-batching" class="quarto-xref">Figure&nbsp;<span>5.1</span></a> shows the results of our workload with a static batch size of 4 requests. Requests A through D start work at time step 4 and finish at time step 11. At time step 12, Request E is still waiting for three more requests to arrive, and could finish much later. There are obvious problems with these results. First, the GPU sits idle for the first four time steps even though we have requests in hand, because we don’t have a full batch yet. Next, Requests A, C, and D finish earlier but their batch slots sit empty. The GPU does no useful work for those slots while continuing to work just on Request B to complete. Request E is stuck in the queue even though there are free batch slots starting at time step 9. This problem where a single slow request holds up the entire batch is known as <strong>head-of-line blocking</strong>. Imagine how much worse this problem would be if B were a very long request generating thousands of tokens. There are also issues with prefill, which are not so obvious from our simplified diagram. If requests have different input lengths and prefill is done with all of them at the same time (as shown here with A, B, C, and D), then the shorter inputs need to be padded to match the longest one, wasting compute on dummy tokens during prefill.</p>
+<p>Static batching works fine for offline workloads where all inputs and outputs have uniform length – say, scoring a dataset of fixed-length classification examples. Having the entire dataset available at the beginning, instead of dealing with unknown arrival times, makes scheduling much easier. For anything with variable-length inputs, variable-length outputs, and stochastic arrival time, which is the common case in online LLM generation, it wastes too many GPU cycles.</p>
 </section>
 <section id="dynamic-batching" class="level3">
 <h3 class="anchored" data-anchor-id="dynamic-batching">Dynamic batching</h3>
-<p><strong>Dynamic batching</strong> improves on static batching by allowing the batch size to vary. Instead of fixing the batch size up front, the scheduler collects requests from a queue and forms a batch based on what’s available, subject to a maximum batch size and a timeout. If only 5 requests are waiting, the batch has 5 requests rather than waiting for a full batch of 32.</p>
-<p>This reduces queuing delay and adapts to variable arrival rates.</p>
+<p><strong>Dynamic batching</strong> improves on static batching by allowing the batch size to vary. Instead of fixing the batch size up front, the scheduler collects requests from a queue and forms a batch based on what’s available, subject to a maximum batch size and a timeout. If the batch size is 32 and only 5 requests are waiting, once the timeout elapses, a batch with 5 requests will start processing, rather than waiting for a full batch of 32. This reduces queuing delay and adapts to variable arrival rates.</p>
 <div id="fig-dynamic-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-dynamic-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -397,23 +447,23 @@ Figure&nbsp;5.2: Dynamic batching
 </figcaption>
 </figure>
 </div>
-<p>But it still has the same fundamental problem as static batching during decode: the batch doesn’t complete until the last request finishes generating. Short-output requests sit idle while they wait for long-output requests to wrap up. The GPU is still doing useless work for completed slots.</p>
+<p><a href="#fig-dynamic-batching" class="quarto-xref">Figure&nbsp;<span>5.2</span></a> shows the results of dynamic batching on the sample workload in <a href="#tbl-batching-workload" class="quarto-xref">Table&nbsp;<span>5.1</span></a> for a maximum batch size of 4 and a timeout of 2 time steps. Now, the first batch starts at time step 2 and finishes requests A, B, and C by time step 9. Requests D and E start immediately after Batch 1 finishes. These two requests start at time step 10 and finish at time step 15. Compared to static batching, we have reduced the amount of waiting before Batch 1 starts. But it still has the same fundamental problem as static batching during decode: the batch doesn’t complete until the last request finishes generating. Short-output requests leave batch slots that sit idle while they wait for long-output requests to wrap up, so a really long Request B still wastes a lot of GPU capacity. In our example, requests D and E stay queued until time step 10 even though the GPU has capacity starting at time step 7.</p>
 </section>
 <section id="continuous-batching" class="level3">
 <h3 class="anchored" data-anchor-id="continuous-batching">Continuous batching</h3>
 <p>The breakthrough that modern serving systems are built on is <strong>continuous batching</strong>, also called <strong>in-flight batching</strong>, introduced by Orca <span class="citation" data-cites="yu2022orca">(<a href="references.html#ref-yu2022orca" role="doc-biblioref">Yu et al. 2022</a>)</span>. The key insight is to operate at the granularity of individual decode iterations rather than complete requests.</p>
-<p>In continuous batching, the scheduler makes a decision at every decode step: which requests should be in this step’s batch? When a request finishes generating (by hitting a stop token or a length limit), its slot is immediately freed and can be filled by a new request from the queue – without waiting for the rest of the batch to finish.</p>
+<p>In continuous batching, the scheduler makes a decision at every decode step: which requests should be in this step’s batch? When a request finishes generating (by hitting a stop token or a length limit), its slot is immediately freed and can be filled by a new request from the queue, without waiting for the rest of the batch to finish. This eliminates head-of-line blocking.</p>
 <div id="fig-continuous-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-continuous-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/continuous_batching.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;5.3: Continuous batching"><img src="images/continuous_batching.svg" class="img-fluid figure-img"></a>
+<a href="images/continuous_batching_2.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;5.3: Continuous batching"><img src="images/continuous_batching_2.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-continuous-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;5.3: Continuous batching
 </figcaption>
 </figure>
 </div>
-<p>This eliminates <strong>head-of-line blocking</strong> – the problem where a single slow request holds up the entire batch. In the static batching example, Request 4 had to wait for the entire first batch to complete. With continuous batching, it gets scheduled into the first available slot as soon as any request finishes.</p>
+<p>On our workload from <a href="#tbl-batching-workload" class="quarto-xref">Table&nbsp;<span>5.1</span></a>, we see in <a href="#fig-continuous-batching" class="quarto-xref">Figure&nbsp;<span>5.3</span></a> that continuous batching completes all five requests by time step 10! Requests A, B, C, and D each start as soon as they arrive. Request E does have to wait, but it starts processing as soon as the first batch slot is available, at time step 6. Continuous batching has eliminated unnecessary GPU idle time waiting for batches to be full as well as waiting for every request in a batch to complete.</p>
 <p>The throughput improvement from continuous batching can be substantial. Under workloads with high variance in output length, continuous batching can improve throughput by 2-3x or more compared to static batching, simply by keeping batch slots occupied with useful work. This is why continuous batching is the foundational scheduling technique in serving frameworks like vLLM <span class="citation" data-cites="kwon2023vllm">(<a href="references.html#ref-kwon2023vllm" role="doc-biblioref">Kwon et al. 2023</a>)</span> and SGLang <span class="citation" data-cites="zheng2023sglang">(<a href="references.html#ref-zheng2023sglang" role="doc-biblioref"><span class="nocase">Zheng et al.</span> 2023</a>)</span>.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -428,34 +478,8 @@ Note
 <p>Continuous batching requires the serving system to manage per-request state (KV cache, position counters, stop conditions) independently for each slot, and to handle the bookkeeping of inserting and removing requests mid-generation. This is more complex than static batching but is well worth the implementation effort for any production system.</p>
 </div>
 </div>
-</section>
-<section id="ragged-batching" class="level3">
-<h3 class="anchored" data-anchor-id="ragged-batching">Ragged batching</h3>
-<p>Even with continuous batching, there’s still a source of waste: when requests in a batch have different sequence lengths, the shorter sequences need padding to match the longest one in the batch for the attention computation. <strong>Ragged batching</strong> eliminates this by concatenating all the tokens from different requests into a single flat sequence, with appropriate attention masks to prevent cross-request attention.</p>
-<p>Instead of a padded batch tensor of shape <span class="math inline">\([B, S_{\text{max}}]\)</span> where shorter sequences waste compute on pad tokens, ragged batching creates a packed tensor of shape <span class="math inline">\([T_{\text{total}}]\)</span> where <span class="math inline">\(T_{\text{total}}\)</span> is the sum of all actual token counts. An index array tracks where each request’s tokens begin and end, and the attention mask ensures that tokens from one request can’t attend to tokens from another.</p>
-<!-- Figure: Ragged batching vs. padded batching
-ASCII art sketch:
-Padded batching:                    Ragged batching:
-+---+---+---+---+---+---+          +---+---+---+---+---+---+---+---+---+
-| A | A | A | A |pad|pad|          | A | A | A | A | B | B | C | C | C |
-+---+---+---+---+---+---+          +---+---+---+---+---+---+---+---+---+
-| B | B |pad|pad|pad|pad|           No padding, tokens packed contiguously
-+---+---+---+---+---+---+          Index: A=[0:4], B=[4:6], C=[6:9]
-| C | C | C |pad|pad|pad|
-+---+---+---+---+---+---+
-  6 pad tokens wasted
--->
-<div id="fig-ragged-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;5.4: Ragged batching"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;5.4: Ragged batching
-</figcaption>
-</figure>
-</div>
-<p>This matters most during prefill, where the input lengths across requests can vary widely. A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching. With ragged batching, the compute is proportional to the actual number of tokens: <span class="math inline">\(2{,}048 + 3 \times 128 = 2{,}432\)</span> tokens instead of <span class="math inline">\(4 \times 2{,}048 = 8{,}192\)</span> tokens.</p>
+<p>Continuous batching has eliminated most of the GPU idle time, but it has created a new problem with long prefills causing requests that are doing decoding to wait. In a simple implementation where the prefill for each input is processed all at once, we don’t have the ability to insert multiple decode requests during the middle of a prefill. And it’s worthwhile to remember that the prefill of a long input can take many times longer than a decode step (not just double as we’ve depicted).</p>
+<p>This is less of a GPU utilization problem, which would show in MFU, than it is a problem with increasing TPOT and overall request completion latency. In the next section, we will unpack more of the issues with prefill and decode, and ultimately solve this issue with holes in decoding.</p>
 </section>
 </section>
 <section id="sec-prefill-strategies" class="level2" data-number="5.2">
@@ -471,33 +495,19 @@ Figure&nbsp;5.4: Ragged batching
 <h3 class="anchored" data-anchor-id="chunked-prefill">Chunked prefill</h3>
 <p><strong>Chunked prefill</strong>, introduced by Sarathi <span class="citation" data-cites="agrawal2023sarathi">(<a href="references.html#ref-agrawal2023sarathi" role="doc-biblioref">Agrawal et al. 2023</a>)</span>, resolves this tension by splitting a long prefill into smaller chunks and interleaving them with decode steps.</p>
 <p>Instead of processing all 4,096 input tokens in one large forward pass, the system might break the prefill into 8 chunks of 512 tokens each. At each iteration, the scheduler runs one prefill chunk alongside the batch of decode tokens. The decode requests make progress every iteration, and the new request’s prefill completes over 8 iterations instead of blocking everything for one long pass.</p>
-<!-- Figure: Chunked prefill interleaved with decode
-ASCII art sketch:
-Without chunked prefill:
-  Iteration 1: [======= 4096-token prefill =======]  (decode requests blocked)
-  Iteration 2:                                        [decode step for 30 requests]
-  Iteration 3:                                        [decode step for 30 requests]
-
-With chunked prefill (512-token chunks):
-  Iteration 1: [chunk 1 (512 tokens)] + [decode step for 30 requests]
-  Iteration 2: [chunk 2 (512 tokens)] + [decode step for 30 requests]
-  ...
-  Iteration 8: [chunk 8 (512 tokens)] + [decode step for 30 requests]
-
-  Decode requests make progress every iteration -- no long stalls
--->
+<p>The chunk size is a tuning parameter. Smaller chunks mean smoother decode progress but increase the number of iterations needed to complete the prefill, adding overhead from additional kernel launches and attention computations across chunk boundaries. Larger chunks reduce this overhead but create longer pauses in decode progress. In practice, chunk sizes of 256–2,048 tokens are common, depending on the model size, the capability of the GPU (or other hardware accelerator), and the latency sensitivity of the workload.</p>
 <div id="fig-chunked-prefill" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-chunked-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;5.5: Chunked prefill"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/chunked_prefill.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;5.4: Chunked prefill"><img src="images/chunked_prefill.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-chunked-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;5.5: Chunked prefill
+Figure&nbsp;5.4: Chunked prefill
 </figcaption>
 </figure>
 </div>
-<p>The chunk size is a tuning parameter. Smaller chunks mean smoother decode progress but increase the number of iterations needed to complete the prefill, adding overhead from additional kernel launches and attention computations across chunk boundaries. Larger chunks reduce this overhead but create longer pauses in decode progress. In practice, chunk sizes of 256–2,048 tokens are common, depending on the model size and the latency sensitivity of the workload.</p>
-<p>Chunked prefill has a nice bonus: it improves GPU utilization during decode iterations. The prefill chunk is compute-heavy and the decode tokens are bandwidth-heavy, so combining them in the same iteration gives the GPU a mix of both types of work. The prefill chunk tokens keep the compute units busy while the decode tokens make progress. This piggybacking effect can be as significant as the reduced stalling.</p>
+<p>For our sample workload from <a href="#tbl-batching-workload" class="quarto-xref">Table&nbsp;<span>5.1</span></a>, we can now improve upon continuous batching by breaking up our prefills (which we simplified to all be exactly twice as long as a decode step) into separate chunks. <a href="#fig-chunked-prefill" class="quarto-xref">Figure&nbsp;<span>5.4</span></a> shows Requests A, B, and D all complete one time step sooner than with vanilla continuous batching. (In reality, if prefill was dozens of times slower than decode, the savings would be even greater.)</p>
+<p>Chunked prefill has a nice bonus: it improves GPU utilization during decode iterations. The prefill chunk is compute-heavy and the decode tokens are bandwidth-heavy, so combining them in the same iteration gives the GPU a mix of both types of work. The prefill chunk tokens keep the compute units busy while the decode tokens are heavily utilizing GPU bandwidth to feed the compute units. It doesn’t take the GPU any longer to complete a prefill chunk with other decode steps than it would to do the prefill chunk alone. This piggybacking effect can be as significant as the reduced stalling.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -542,10 +552,10 @@ ASCII art sketch:
 <div id="fig-disaggregated-prefill" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-disaggregated-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;5.6: Disaggregated prefill"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/disaggregated_prefill.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;5.5: Disaggregated prefill"><img src="images/disaggregated_prefill.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-disaggregated-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;5.6: Disaggregated prefill
+Figure&nbsp;5.5: Disaggregated prefill
 </figcaption>
 </figure>
 </div>
@@ -554,11 +564,39 @@ Figure&nbsp;5.6: Disaggregated prefill
 <p>Disaggregated prefill is a more complex deployment architecture, and the KV cache transfer adds latency and requires fast networking. For many deployments, chunked prefill provides enough isolation between the phases. But at large scale, where the workload is diverse enough and the infrastructure supports fast interconnects, disaggregation can provide significant efficiency gains.</p>
 </section>
 </section>
-<section id="sec-request-scheduling" class="level2" data-number="5.3">
-<h2 data-number="5.3" class="anchored" data-anchor-id="sec-request-scheduling"><span class="header-section-number">5.3</span> Request Scheduling and Prioritization</h2>
+<section id="ragged-batching" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="ragged-batching"><span class="header-section-number">5.3</span> Ragged batching</h2>
+<p>Even with continuous batching, there’s still a source of waste: when requests in a batch have different sequence lengths, the shorter sequences need padding to match the longest one in the batch for the attention computation. <strong>Ragged batching</strong> eliminates this by concatenating all the tokens from different requests into a single flat sequence, with appropriate attention masks to prevent cross-request attention.</p>
+<p>Instead of a padded batch tensor of shape <span class="math inline">\([B, S_{\text{max}}]\)</span> where shorter sequences waste compute on pad tokens, ragged batching creates a packed tensor of shape <span class="math inline">\([T_{\text{total}}]\)</span> where <span class="math inline">\(T_{\text{total}}\)</span> is the sum of all actual token counts. An index array tracks where each request’s tokens begin and end, and the attention mask ensures that tokens from one request can’t attend to tokens from another.</p>
+<!-- Figure: Ragged batching vs. padded batching
+ASCII art sketch:
+Padded batching:                    Ragged batching:
++---+---+---+---+---+---+          +---+---+---+---+---+---+---+---+---+
+| A | A | A | A |pad|pad|          | A | A | A | A | B | B | C | C | C |
++---+---+---+---+---+---+          +---+---+---+---+---+---+---+---+---+
+| B | B |pad|pad|pad|pad|           No padding, tokens packed contiguously
++---+---+---+---+---+---+          Index: A=[0:4], B=[4:6], C=[6:9]
+| C | C | C |pad|pad|pad|
++---+---+---+---+---+---+
+  6 pad tokens wasted
+-->
+<div id="fig-ragged-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;5.6: Ragged batching"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.6: Ragged batching
+</figcaption>
+</figure>
+</div>
+<p>This matters most during prefill, where the input lengths across requests can vary widely. A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching. With ragged batching, the compute is proportional to the actual number of tokens: <span class="math inline">\(2{,}048 + 3 \times 128 = 2{,}432\)</span> tokens instead of <span class="math inline">\(4 \times 2{,}048 = 8{,}192\)</span> tokens.</p>
+</section>
+<section id="sec-request-scheduling" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="sec-request-scheduling"><span class="header-section-number">5.4</span> Request Scheduling and Prioritization</h2>
 <section id="granularity-of-scheduling" class="level3">
 <h3 class="anchored" data-anchor-id="granularity-of-scheduling">Granularity of scheduling</h3>
-<p>TODO: write about how scheduling at the step-level gives more control. Where does this go reletive to the other sections?</p>
+<p>TODO: write about how scheduling at the step-level gives more control. Where does this go relative to the other sections?</p>
 </section>
 <section id="priority-based-scheduling" class="level3">
 <h3 class="anchored" data-anchor-id="priority-based-scheduling">Priority-based scheduling</h3>
@@ -656,8 +694,8 @@ ASCII art sketch:
 <p>None of these techniques change the model or its weights. They don’t reduce the number of FLOPs needed to process a token or shrink the KV cache per token. What they do is ensure that the FLOPs the GPU performs are useful FLOPs – not wasted on padding, not blocked by long prefills, not sitting idle while a slow request holds up the batch. In the next chapter, we’ll turn to techniques that operate on individual requests: optimizing the attention computation, managing the KV cache efficiently, and breaking the one-token-at-a-time constraint of autoregressive decoding.</p>
 </section>
 </section>
-<section id="further-reading" class="level2" data-number="5.4">
-<h2 data-number="5.4" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">5.4</span> Further Reading</h2>
+<section id="further-reading" class="level2" data-number="5.5">
+<h2 data-number="5.5" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">5.5</span> Further Reading</h2>
 <p>The Orca paper <span class="citation" data-cites="yu2022orca">(<a href="references.html#ref-yu2022orca" role="doc-biblioref">Yu et al. 2022</a>)</span> is the foundational reference for continuous batching. It introduced <strong>iteration-level scheduling</strong> – the idea that the scheduler should make decisions at every decode step rather than waiting for an entire batch to complete. If you read one paper from this chapter, make it this one. The system design is clean, and the evaluation clearly shows the throughput gains over static batching.</p>
 <p>Sarathi <span class="citation" data-cites="agrawal2023sarathi">(<a href="references.html#ref-agrawal2023sarathi" role="doc-biblioref">Agrawal et al. 2023</a>)</span> introduced chunked prefill and the idea of piggybacking decode tokens onto prefill chunks to keep the GPU busy during long prefills. The paper includes a clear analysis of how unchunked prefills create latency bubbles for co-scheduled decode requests, and how chunk sizing trades off between prefill throughput and decode latency stability.</p>
 <p>DistServe <span class="citation" data-cites="zhong2024distserve">(<a href="references.html#ref-zhong2024distserve" role="doc-biblioref"><span class="nocase">Zhong et al.</span> 2024</a>)</span> takes the opposite approach to managing the prefill-decode tension: rather than interleaving them on the same GPU, it disaggregates them onto separate hardware. The paper’s key contribution is showing that the optimal hardware configuration for prefill (maximize compute) is fundamentally different from decode (maximize memory bandwidth), and that separating them improves goodput. Splitwise <span class="citation" data-cites="patel2024splitwise">(<a href="references.html#ref-patel2024splitwise" role="doc-biblioref">Patel et al. 2024</a>)</span> independently explored a similar disaggregation idea, with additional analysis of how to balance capacity between prefill and decode pools as workload mix changes.</p>

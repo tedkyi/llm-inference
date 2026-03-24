@@ -102,7 +102,7 @@ The forward pass involves billions of multiply-accumulate operations across all 
 It's not where the time goes.
 
 **Completion** wraps things up.
-The model has finished because it either generated a stop token, hit a maximum length limit, or been interrupted by the serving system.
+The model has finished because it either generated a stop token, hit a maximum length limit, or has been interrupted by the serving system.
 The accumulated response is detokenized back into text, the KV cache memory is freed, and the result is returned to the user.
 In most production deployments, the response is **streamed** back to the user as tokens are generated, rather than waiting for the full response to complete.
 Streaming doesn't change what's happening on the GPU -- each decode step produces the same token whether it's streamed immediately or batched for delivery later -- but it reduces how long users have to wait to see the beginning of the LLM response.
@@ -149,7 +149,7 @@ The metrics that matter most in interactive applications are the ones users actu
 **Time to First Token (TTFT)** is the wall-clock time from when a request is submitted to when the first output token is produced.
 In a chat application, this is how long the user stares at a blank screen before text starts appearing.
 TTFT is significantly impacted by the duration of the prefill phase because ingestion usually is fast, we don't need to decode many tokens to start returning text to the user, and completion is also fast.
-Since the system has to process the entire input before it can begin generating any output, longer prompts means longer prefill, which means higher TTFT.
+Since the system has to process the entire input before it can begin generating any output, longer prompts mean longer prefill, which means higher TTFT.
 
 Note that TTFT isn't as simple as the prefill duration plus fixed costs for the other phases.
 In systems under heavy load, the request may sit in a queue before being serviced.
@@ -442,7 +442,7 @@ For the H100 SXM, relative throughput for several data types is shown in @tbl-pr
 
 These numbers are theoretical peaks — the maximum the hardware can deliver if every tensor core is busy on every cycle.
 In practice, you never hit the peak, but it sets the ceiling.
-You get roughly double the throughput when you half the precision.
+You get roughly double the throughput when you halve the precision.
 This is one reason quantization (covered in @sec-quantization) is such a useful optimization lever.
 When you reduce the precision of model weights and activations, you're saving memory and also increasing compute throughput.
 
@@ -451,7 +451,7 @@ When you reduce the precision of model weights and activations, you're saving me
 Raw compute throughput only matters if you can feed data to the tensor cores fast enough.
 This is where the memory hierarchy comes in.
 A GPU has four levels of memory, shown in @fig-gpu-memory-hierarchy.
-As the closest levels are the fastest but also the smallest, and as the levels get larger, they get farhter and slower, trading off speed for capacity.
+As the closest levels are the fastest but also the smallest, and as the levels get larger, they get farther and slower, trading off speed for capacity.
 
 ![GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level](images/gpu_memory_hierarchy.svg){#fig-gpu-memory-hierarchy .lightbox}
 
@@ -481,7 +481,7 @@ We'll demonstrate how to compare these numbers in just a moment, when we discuss
 ### CPU-GPU interaction and kernel launch overhead
 
 There's one more piece of hardware context that matters for inference: the CPU-GPU relationship.
-The GPU is told what to dy by the CPU.
+The GPU is told what to do by the CPU.
 The CPU orchestrates inference by launching **kernels** -- GPU functions that execute on the SMs.
 Each kernel launch involves the CPU sending a command to the GPU, which has a small but non-zero overhead, typically on the order of 5-10 microseconds.
 
@@ -534,7 +534,7 @@ For a given GPU, the ridge point is simply the ratio of peak compute throughput 
 
 
 @Tbl-h100-specs summarizes the key hardware parameters for the H100 SXM that we need for the roofline model.
-For the H100 SXM at FP16, we calculate::
+For the H100 SXM at FP16, we calculate:
 
 $$\text{Ridge point} = \frac{\text{Peak FLOP/s}}{\text{Peak bandwidth}} = \frac{989.4 \times 10^{12}}{3.35 \times 10^{12}} \approx 295 \text{ FLOP/byte}$$
 
@@ -575,7 +575,7 @@ This approximation covers the linear layers and is reasonably accurate for large
 ::: callout-note
 This $2 \times P \times S$ approximation counts the FLOPs for the linear projections (QKV projections, output projection, and MLP layers).
 It omits the quadratic attention score computation ($O(S^2 \times d_{\text{head}} \times H \times L)$) and smaller operations like layer norms and activations.
-For very long sequences, the $S^2$ in the attention cost becomes significant, and adds even more to the arithmetic intensiry.
+For very long sequences, the $S^2$ in the attention cost becomes significant, and adds even more to the arithmetic intensity.
 :::
 
 For our 70B model with $S = 4{,}096$ input tokens:
@@ -610,7 +610,7 @@ With $S = 256$ tokens:
 $$\text{AI}_{\text{prefill}} = \frac{2 \times 70 \times 10^9 \times 256}{140 \times 10^9} = 256 \text{ FLOP/byte}$$
 
 That's just below the H100's ridge point of 295.
-Very short prompts could push prefill toward the memory-bandwidth-bound side, though in practice long system prompts tend to prevent requests from every being this short.
+Very short prompts could push prefill toward the memory-bandwidth-bound side, though in practice long system prompts tend to prevent requests from ever being this short.
 
 ### Decode is memory-bandwidth-bound {#sec-decode-stage}
 
@@ -789,7 +789,7 @@ An optimization that reduces compute won't help a memory-bandwidth-bound decode 
 A technique that reduces memory traffic won't help a compute-bound prefill.
 Keeping the roofline in mind as you read the rest of this book will help you understand not just *what* each technique does, but *why* it works and *when* it helps.
 
-The book concludes in @sec-production with a discusion of production LLM serving systems.
+The book concludes in @sec-production with a discussion of production LLM serving systems.
 
 ## Further Reading
 

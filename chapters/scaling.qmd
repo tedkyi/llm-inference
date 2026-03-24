@@ -2,12 +2,12 @@
 
 Everything we've covered so far in this book operates on a single GPU.
 That works fine for smaller models, but the largest LLMs today --- with hundreds of billions of parameters --- simply don't fit in the memory of a single device.
-Even when a model does fit, you may want to spread the work across multiple GPUs spread the work over more resources.
+Even when a model does fit, you may want to spread the work across multiple GPUs.
 This chapter is about how to do that.
 
 The parallelism techniques used for inference are mostly the same ones developed for training.
 The good news is that they're easier to implement for inference, because they only have to deal with the forward pass --- no activations to store for backpropagation, no gradient calculations, and no optimizer state.
-The core challenge here is that every time we split work across devices, we introduce communication overhead between devices, and that communication can be much slower than communication within one device..
+The core challenge here is that every time we split work across devices, we introduce communication overhead between devices, and that communication can be much slower than communication within one device.
 
 We'll start by understanding the communication fabric, then work through each parallelism strategy, and finish by analyzing when communication becomes the bottleneck.
 
@@ -123,8 +123,6 @@ When it doesn't, we need the techniques that follow.
 **Tensor parallelism** splits individual weight matrices across devices, so each GPU computes a slice of every layer.
 This is the most communication-intensive parallelism strategy, but it directly reduces per-device memory and enables serving models that don't fit on a single GPU.
 
-![Tensor parallel attention calculation](images/under_construction.jpg){#fig-tp-attn .lightbox}
-
 ### Column-parallel and row-parallel linear layers
 
 The core idea is to partition each linear layer's weight matrix along either its columns or its rows.
@@ -148,11 +146,21 @@ In a transformer block:
 
 This means each transformer layer requires **two all-reduce operations** -- one after the attention block and one after the MLP block.
 
+### Gated MLP under TP
+
+We start with the simple FFN block and show attention next.
+@Fig-tp-mlp shows what 2-way tensor parallelism looks like for the gated MLP which is now more common.
+
+![Tensor parallel MLP calculation](images/tp_gated_mlp.svg){#fig-tp-mlp .lightbox}
+
 ### Multi-head attention under TP
 
 Attention is naturally suited to tensor parallelism because the heads are independent.
 With $H$ attention heads split across $T$ GPUs, each GPU handles $H/T$ heads.
 The Q, K, and V projection matrices are split column-parallel by head, each GPU computes attention for its local heads, and the output projection is row-parallel with an all-reduce to combine results.
+This effect is depicted in @fig-tp-attn with 2-way tensor parallelism for the attention layer.
+
+![Tensor parallel attention calculation](images/tp_attn.svg){#fig-tp-attn .lightbox}
 
 **KV cache** is also sharded: each GPU only stores the K and V tensors for its local heads.
 With GQA or MQA (discussed in @sec-efficient-attention), there are fewer KV heads than query heads, so the KV cache per device is even smaller.
@@ -174,7 +182,6 @@ But for prefill with thousands of tokens, or with larger batch sizes, the commun
 
 The key insight is that TP requires **high-bandwidth, low-latency** communication every layer, making it impractical across nodes where network bandwidth is 10-30x lower than NVLink.
 
-![Tensor parallel MLP calculation](images/under_construction.jpg){#fig-tp-mlp .lightbox}
 
 ## Pipeline Parallelism (PP) {#sec-pipeline-parallelism}
 

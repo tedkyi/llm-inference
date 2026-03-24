@@ -20,7 +20,7 @@ Suppose we give an LLM the prompt **"The quick brown fox jumps"** — five input
 ![First token predicted for the prompt "The quick brown fox jumps"](images/inference_start.svg){#fig-inference-start .lightbox}
 
 The text generation happens in a series of steps.
-The first thing that happens is the LLM runs a single **forward pass** of the neural network model using all of the input tokens. After processesing all of these tokens together, it produces its prediction for the next token, **over**. This initial step is shown in @fig-inference-start.
+The first thing that happens is the LLM runs a single **forward pass** of the neural network model using all of the input tokens. After processing all of these tokens together, it produces its prediction for the next token, **over**. This initial step is shown in @fig-inference-start.
 
 ![An example LLM response for the prompt "The quick brown fox jumps"](images/inference_example.svg){#fig-inference-example height=400 .lightbox}
 
@@ -38,7 +38,7 @@ We will see in a moment that the first step is called the **prefill** step.
 
 The remaining steps each add only one new token to the inputs that the LLM has seen before.
 This has a different computing profile from the prefill.
-This portion is callled the **decode** phase, and when a lot of text is generated, it requires many decode steps to complete generation of the response.
+This portion is called the **decode** phase, and when a lot of text is generated, it requires many decode steps to complete generation of the response.
 
 This is the process that LLMs such as ChatGPT and Claude use to respond to our requests.
 In this book, we will dig deeper to understand the internals of this inference process, then explore techniques for improving it.
@@ -81,7 +81,7 @@ That simple loop — run the model, get a token, repeat — sounds straightforwa
 But the raw cost of running it naively is staggering.
 A 70-billion-parameter model stores its weights in about 140 GB of GPU memory (at 2 bytes per parameter).
 Every single decode step has to read through all of those weights just to produce one token.
-Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU, and frontier models like Gemini are belived to be ten time larger would be below 2 tokens per second.
+Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU, and frontier models like Gemini, believed to be ten times larger, would be below 2 tokens per second.
 Run that for one user at a time with no batching, and you've got an extremely expensive system that can barely output faster than one person can read, while also leaving most of the GPU's capability unused.
 
 The situation gets much better with the right techniques.

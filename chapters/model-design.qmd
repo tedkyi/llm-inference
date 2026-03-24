@@ -1,6 +1,6 @@
 # Model Design Choices {#sec-model}
 
-Now that we have an understanding the inference pipeline and where the bottlenecks live, starting with this chapter, we shift to doing something about them.
+Now that we have an understanding of the inference pipeline and where the bottlenecks live, starting with this chapter, we shift to doing something about them.
 
 The optimizations in this chapter are all about the model itself, separate from request handling.
 They change what the hardware has to do per token by reducing the model's compute and memory footprint at the architecture and weight level.
@@ -63,7 +63,7 @@ In weight-only quantization, the weights are stored in a smaller datatype, then 
 The benefit is purely about reducing how much data needs to be read from HBM.
 
 When quantizing below 16-bit precision, the storage space and memory read savings are usually slightly reduced because we also need to store conversion parameters.
-If we have both and offset and a scaling parameter, then when $x$ is the higher precision value and $\tilde{x}$ is the quantized value, the conversion is $x = (\tilde{x} - \text{offset}) * \text{scaling}$.
+If we have both an offset and a scaling parameter, then when $x$ is the higher precision value and $\tilde{x}$ is the quantized value, the conversion is $x = (\tilde{x} - \text{offset}) * \text{scaling}$.
 This dequantization step also adds a small amount of compute overhead to model inference.
 
 LLMs tolerate quantization well.
@@ -82,7 +82,7 @@ Weight-only quantization reduces memory bandwidth demand but doesn't speed up th
 For example, weight-activation quantization using INT8, known as **W8A8**, quantizes both weights and activations to INT8, allowing the use of INT8 tensor cores.
 On the H100, INT8 tensor cores deliver roughly 2x the throughput of FP16 tensor cores.
 This means W8A8 doesn't just reduce memory traffic -- it also increases the compute ceiling.
-As with weight-only quantization, there is some addition storage and compute overhead for the conversion parameters.
+As with weight-only quantization, there is some additional storage and compute overhead for the conversion parameters.
 
 ### Granularity
 
@@ -150,7 +150,7 @@ Keep this in mind when choosing quantization strategies for prefill-heavy worklo
 **Knowledge distillation** is a training technique where a smaller **student** model is trained to mimic the behavior of a larger **teacher** model.
 In the original distillation formulation [@hinton2015distilling], the student learns not just from the ground-truth labels, but from the teacher's full output distribution -- the probability the teacher assigns to every token in the vocabulary, not just the top-1 prediction.
 These soft targets carry richer information than hard labels, which is why a distilled student can often outperform a model of the same size trained from scratch.
-Newer techniques vary the approach by training on sample outputs from the larger model or using reinforcement learning to impart some of the larger models capability into the smaller model.
+Newer techniques vary the approach by training on sample outputs from the larger model or using reinforcement learning to impart some of the larger model's capability into the smaller model.
 
 From an inference perspective, the result is simple: you get a smaller model.
 Fewer parameters means less data to read from HBM per decode step, a smaller KV cache (if the model also has fewer layers or a smaller hidden dimension), and less memory consumed overall.
@@ -214,7 +214,7 @@ We'll cover KV cache management techniques in @sec-kv-cache; here we focus on th
 Each attention head has its own key and value projections, so the KV cache stores separate K and V vectors for every head, every layer, and every token in the sequence.
 For a model using FP16 with 64 heads and a head dimension of 128, each token adds $2 \times 64 \times 128 \times 2 = 32{,}768$ bytes to the KV cache per layer.
 This is the most expensive option.
-The top row of @fig-kv-variants shows a how queries align with keys and values in MHA.
+The top row of @fig-kv-variants shows how queries align with keys and values in MHA.
 
 **Multi-Query Attention (MQA)** [@shazeer2019mqa] goes to the opposite extreme: all attention heads share a *single* set of key and value projections, as shown on the third row of @fig-kv-variants.
 Each head still has its own query projection, so the heads can attend to different aspects of the input, but the KV cache only stores one K and one V vector per layer per token.

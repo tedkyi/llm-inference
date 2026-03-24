@@ -62,7 +62,7 @@ A 70B model with 80 layers has 80 distinct sets of attention and feed-forward we
 During inference, the model must read each layer's weights from memory --- there is no reuse across layers in the standard LLM.
 A diagram making the N copies explicit is shown in @fig-vert-stack.
 This is what a decoder-only LLM really looks like, and if you review the PyTorch code for one, you will see this exact structure.
-We will also mention here that the input to the first layer is a vector of floating point numbers of length $d_{model}$, which will will abbreviate **([D]{.dim-d})**.
+We will also mention here that the input to the first layer is a vector of floating point numbers of length $d_{model}$, which we will abbreviate **([D]{.dim-d})**.
 
 ![Explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=500 .lightbox}
 
@@ -148,7 +148,7 @@ Before diving into the data flow, here are a few conventions used in the data fl
 In this example data flow diagram, the tensors are represented by rectangles, and the operand a rounded rectangle.
 
 **Dimensions and edge color**: Each tensor's shape is shown next to it on the right side, unless there isn't room.
-This first tensor on the bottom has shape **([S]{.dim-s}, [D]{.dim-d})**, where **[S]{.dim-s}** is the the number of rows and **[D]{.dim-d}** is the number of columns.
+This first tensor on the bottom has shape **([S]{.dim-s}, [D]{.dim-d})**, where **[S]{.dim-s}** is the number of rows and **[D]{.dim-d}** is the number of columns.
 Notice that the left and right edges are colored red, and every tensor with a dimension that is length **[S]{.dim-s}** will have that dimension colored red.
 Similarly, the top and bottom edges are colored blue because the number of columns is **[D]{.dim-d}**, and all other dimensions length **[D]{.dim-d}** will be the same color.
 
@@ -157,7 +157,7 @@ Weights are fixed model tensors, and they always have the same purple fill color
 
 **3D tensors**: The tensor at the top of the diagram is 3D with shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**. 
 Because it is 3D, it is shown with a "stacked" rectangle shape.
-The leading dimension, **[H]{.dim-h}**, is the stacked dimension. The third dimsion's purple edge color corresponds to this dimension.
+The leading dimension, **[H]{.dim-h}**, is the stacked dimension. The third dimension's purple edge color corresponds to this dimension.
 
 **Views**: The middle tensor and the top tensor are connected by an arrow with a dotted line. 
 The dotted stroke indicates that there is a change of view, but no actual operation is performed.
@@ -168,7 +168,7 @@ The dotted stroke indicates that there is a change of view, but no actual operat
 ### The input
 
 The input to our LLM model is a list of integer token IDs.
-It's shape is **([S]{.dim-s})**, where **[S]{.dim-s}** is the sequence length (number of tokens).
+Its shape is **([S]{.dim-s})**, where **[S]{.dim-s}** is the sequence length (number of tokens).
 As a reminder, in this book we are using the simpler notation of non-batched processing.
 (For batched processing, the input shape would be **(B, [S]{.dim-s})**.)
 The value of **[S]{.dim-s}** varies.
@@ -210,7 +210,7 @@ This is fed to Layer 0, whose output is the same shape, **([S]{.dim-s}, [D]{.dim
 As the data flows through all **[L]{.dim-l}** layers, the shape never changes from **([S]{.dim-s}, [D]{.dim-d})** as the layer outputs continue to get added to the residual stream.
 After the last layer, the data passes through a final normalization layer, retaining its **([S]{.dim-s}, [D]{.dim-d})** shape.
 Finally, a Linear prediction head does a matrix multiply with an output weight matrix of shape **([D]{.dim-d}, [V]{.dim-v})** and it outputs the probability logits, which are shape **([S]{.dim-s}, [V]{.dim-v})**.
-These can be sharpened by passing through a SofMax and a sampling method used to finalize the next token prediction.
+These can be sharpened by passing through a SoftMax and a sampling method used to finalize the next token prediction.
 
 The most important observation to take away from @fig-llm-flow is that the data along the residual stream is always shape **([S]{.dim-s}, [D]{.dim-d})**.
 When we drill into the decoder layer and its attention and feed forward components, our inputs and outputs will always be **([S]{.dim-s}, [D]{.dim-d})**.
@@ -223,13 +223,13 @@ One detail we've glossed over: how does the model know the order of the input to
 The self-attention computation is permutation-equivariant, which means that if you shuffle the input tokens, the output gets shuffled the same way (ignoring the causal mask).
 For this reason, position information must be explicitly injected through a separate pathway.
 
-The technical details and pros and cons of different position embedding techniques are beyond scope of this section. Some approaches worth mentioning are:
+The technical details and pros and cons of different position embedding techniques are beyond the scope of this section. Some approaches worth mentioning are:
 
 **Sinusoidal position embeddings**: the position embeddings used in the original "Attention is All You Need" paper. 
-A special embedding table of shape **(max_seq_len, [D]{.dim-d})** is added to the token embeddings before they are input the the first decoder layer. 
+A special embedding table of shape **(max_seq_len, [D]{.dim-d})** is added to the token embeddings before they are input to the first decoder layer. 
 This is shown at the bottom of each of @fig-orig-transformer through @fig-vert-stack. 
 In the embedding table, position 0 gets one vector, position 1 gets another, and so on.
-These are called sinusoidal because the values in each length [D]{.dim-d} position vector are based on the trigonemetric functioins sine and cosine.
+These are called sinusoidal because the values in each length [D]{.dim-d} position vector are based on the trigonometric functions sine and cosine.
 
 **Learned absolute embeddings** (GPT-2): a variant of the embedding table of shape **(max_seq_len, [D]{.dim-d})** that is added to the token embeddings, except the values for each embedding vector are learned during training along with all the other model parameters.
 
@@ -321,7 +321,7 @@ After the linear projections, we reshape Q, K, and V from **([S]{.dim-s}, [D]{.d
 Mathematically, this is just reshaping the last dimension --- breaking **[D]{.dim-d}** into **[H]{.dim-h}** groups of $\dimdk{d_K}$ --- and transposing so that the head dimension comes before the sequence dimension.
 No additional computation is required.
 In @fig-attn-flow, dotted line arrows show the view operation that does the reshape.
-In addition, dashed lines on the weight matrics and Q, K, and V tensors show the conceptual division of those tensors into heads, even before the reshape.
+In addition, dashed lines on the weight matrices and Q, K, and V tensors show the conceptual division of those tensors into heads, even before the reshape.
 Note that these are divided into heads by groups of columns.
 
 Why multiple heads?
@@ -336,7 +336,7 @@ With Q and K reshaped to **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, we compu
 
 $$\text{scores} = \frac{Q K^T}{\sqrt{d_K}}$$
 
-The matrix multiplication $Q K^T$ produces a tensor of shape **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**. For each head, we get a matrix shape **([S]{.dim-s}, [S]{.dim-s})** where entry $(i, j)$ is the raw attention score between the query at token position $i$ and the key at token position position $j$.
+The matrix multiplication $Q K^T$ produces a tensor of shape **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**. For each head, we get a matrix shape **([S]{.dim-s}, [S]{.dim-s})** where entry $(i, j)$ is the raw attention score between the query at token position $i$ and the key at token position $j$.
 The division by $\sqrt{d_K}$ prevents the dot products from growing too large as the dimension **$\dimdk{d_K}$** increases, which would push SoftMax into regions with vanishing gradients.
 
 This **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** attention matrix is the computational signature of standard self-attention.
@@ -383,7 +383,7 @@ We then reshape this back from **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** to 
 
 $$\text{Output}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_{\dimh{H}}) \cdot W_O$$
 
-The full self-attention block transformed and input of shape **([S]{.dim-s}, [D]{.dim-d})** to an output of the same shape **([S]{.dim-s}, [D]{.dim-d})**.
+The full self-attention block transformed an input of shape **([S]{.dim-s}, [D]{.dim-d})** to an output of the same shape **([S]{.dim-s}, [D]{.dim-d})**.
 The shape is preserved.
 
 ```{=html}
@@ -621,7 +621,7 @@ Why go from two weight matrices to three?
 The gating mechanism has been shown empirically to improve model quality for a given parameter budget [@shazeer2020glu].
 The intermediate dimension **[F]{.dim-f}** is adjusted downward (from $4\dimd{D}$ to roughly $\frac{8}{3}\dimd{D}$) to keep the total parameter count approximately equal: $3 \times \dimd{D} \times \frac{8}{3}\dimd{D} = 8\dimd{D}^2$, the same as the standard FFN's $2 \times \dimd{D} \times 4\dimd{D} = 8\dimd{D}^2$ parameters. 
 With **[D]{.dim-d}** = 8192, the parameter count is $8\dimd{D}^2 \approx$ 537M parameters per FFN layer.
-The FFN layers have double the number of parameters as the attention layers, so the FFNs comprise about two-thirds of the parameters, and the attention layers have about one-third of the paramters in a vanilla, traditional LLM.
+The FFN layers have double the number of parameters as the attention layers, so the FFNs comprise about two-thirds of the parameters, and the attention layers have about one-third of the parameters in a vanilla, traditional LLM.
 
 ### Mixture of Experts (MoE)
 
@@ -726,7 +726,7 @@ Even though the decoder-only variant drops half the architecture, the core ideas
 
 For intuitive explanations of the transformer architecture:
 
-- Jay Alammar's "The Illustrated Transformer" [@alammar2018illustrated] is considered a classic for explaining the original transformer architecture, with many beatiful diagrams.
+- Jay Alammar's "The Illustrated Transformer" [@alammar2018illustrated] is considered a classic for explaining the original transformer architecture, with many beautiful diagrams.
 - "The Annotated Transformer" [@rush2018annotated] walks you through Python code to understand the original transformer architecture, and is incredibly well written.
 - Peter Bloem's "Transformers from Scratch" [@bloem2019transformers] builds the architecture from first principles with clear diagrams.
 - Lilian Weng's "The Transformer Family Version 2.0" [@weng2023transformer] offers a more technical treatment, surveying transformer variants including the attention alternatives mentioned in @sec-self-attention.

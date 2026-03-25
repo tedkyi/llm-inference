@@ -232,13 +232,13 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/scheduling.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Scheduling Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/request.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Request Compute, Memory, and Latency Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -851,47 +851,9 @@ Figure&nbsp;2.12: Data flow of weights and activations in a gated MLP layer
 <section id="mixture-of-experts-moe" class="level3">
 <h3 class="anchored" data-anchor-id="mixture-of-experts-moe">Mixture of Experts (MoE)</h3>
 <p>Standard dense models apply the same MLP to every token. <strong>Mixture of Experts (MoE)</strong> architectures replace the single MLP with <span class="math inline">\(E\)</span> MLPs called <strong>experts</strong> and a lightweight <strong>router</strong> that selects which experts to use for each token.</p>
-<p>The router is a simple learned linear layer of shape <strong>(<span class="dim-d">D</span>, E)</strong> that produces a score for each expert. For each token, the router selects the top-<span class="math inline">\(k\)</span> experts, and only those experts process the token. These top-<span class="math inline">\(k\)</span> experts are said to be <strong>active</strong>. The science of MoE layers is outside the scope of this book, but we will highlight a recent trend. Early MoE LLMs such as <strong>Mixtral</strong> <span class="citation" data-cites="jiang2024mixtral">(<a href="references.html#ref-jiang2024mixtral" role="doc-biblioref"><span class="nocase">Jiang et al.</span> 2024</a>)</span> had only a few experts, such as 8, and set <span class="math inline">\(k\)</span> to a very small value, such as 2. More recent LLMs such as <strong>Qwen 3</strong> <span class="citation" data-cites="yang2025qwen3">(<a href="references.html#ref-yang2025qwen3" role="doc-biblioref"><span class="nocase">Yang et al.</span> 2025</a>)</span> have hundreds of experts and set <span class="math inline">\(k\)</span> to a higher number, such as 8. They also have the concepts of always-on experts called <strong>shared experts</strong>.</p>
+<p>The router is a simple learned linear layer of shape <strong>(<span class="dim-d">D</span>, E)</strong> that produces a score for each expert. For each token, the router selects the top-<span class="math inline">\(k\)</span> experts, and only those experts process the token. These top-<span class="math inline">\(k\)</span> experts are said to be <strong>active</strong>. Note that there is a router in every layer, so the choice of experts differs each layer — this is not at all like having <strong>E</strong> separate full models which are chosen at the beginning on a per token basis. The science of MoE layers is outside the scope of this book, but we will highlight a recent trend. Early MoE LLMs such as <strong>Mixtral</strong> <span class="citation" data-cites="jiang2024mixtral">(<a href="references.html#ref-jiang2024mixtral" role="doc-biblioref"><span class="nocase">Jiang et al.</span> 2024</a>)</span> had only a few experts, such as 8, and set <span class="math inline">\(k\)</span> to a very small value, such as 2. More recent LLMs such as <strong>Qwen 3</strong> <span class="citation" data-cites="yang2025qwen3">(<a href="references.html#ref-yang2025qwen3" role="doc-biblioref"><span class="nocase">Yang et al.</span> 2025</a>)</span> have hundreds of experts and set <span class="math inline">\(k\)</span> to a higher number, such as 8. They also have the concepts of always-on experts called <strong>shared experts</strong>. <a href="#fig-moe-flow" class="quarto-xref">Figure&nbsp;<span>2.13</span></a> shows what the vanilla data flow looks like with an MoE configuration with 6 total experts, 2 of which are active.</p>
 <p>The outputs of the selected experts are combined using the router’s SoftMax weights.</p>
 <!-- FIGURE 9: MoE Router and Expert Selection
-
-    Input x: (S, D)
-         |
-         v
-    +------------------+
-    |  Router           |   Linear: (D, N_experts) → SoftMax
-    |  (D, N_experts)   |
-    +------------------+
-         |
-         v
-    Router scores: (S, N_experts)
-         |
-         | top-k selection (e.g., k=2)
-         v
-    ┌─────────────────────────────────────────────────────┐
-    │  Token 0: selects Expert 2, Expert 5               │
-    │  Token 1: selects Expert 0, Expert 7               │
-    │  Token 2: selects Expert 2, Expert 3               │
-    │  Token 3: selects Expert 5, Expert 7               │
-    │  ...                                                │
-    └─────────────────────────────────────────────────────┘
-         |
-         v
-    ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐
-    │ E_0 │ │ E_1 │ │ E_2 │ │ E_3 │ │ E_4 │ │ E_5 │ │ E_6 │ │ E_7 │
-    │     │ │     │ │ ██  │ │ █   │ │     │ │ ██  │ │     │ │ ██  │
-    │ █   │ │     │ │ ██  │ │ █   │ │     │ │ ██  │ │     │ │ ██  │
-    └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘
-    1 token  idle   2 tokens 1 token  idle   2 tokens idle   2 tokens
-         |                                    |
-         v                                    v
-    Only ACTIVE experts execute.          SPARSE activation.
-    Outputs are weighted-summed using router scores.
-         |
-         v
-    Output: (S, D)
-
-
     EXAMPLE: Mixtral 8×7B
     ─────────────────────────────────
     N_experts = 8, top-k = 2
@@ -914,10 +876,10 @@ Figure&nbsp;2.12: Data flow of weights and activations in a gated MLP layer
 <div id="fig-moe-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-moe-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/moe_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-15" title="Figure&nbsp;2.13: Data flow of weights and activations in an MOE MLP layer. TODO: this figure needs more work."><img src="images/moe_flow.svg" class="img-fluid figure-img"></a>
+<a href="images/moe_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-15" title="Figure&nbsp;2.13: Data flow of weights and activations in an MoE MLP layer. This figure depicts a model with 6 experts, 2 of which are active."><img src="images/moe_flow.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-moe-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2.13: Data flow of weights and activations in an MOE MLP layer. TODO: this figure needs more work.
+Figure&nbsp;2.13: Data flow of weights and activations in an MoE MLP layer. This figure depicts a model with 6 experts, 2 of which are active.
 </figcaption>
 </figure>
 </div>

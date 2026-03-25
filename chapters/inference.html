@@ -232,13 +232,13 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/scheduling.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Scheduling Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/request.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Request Compute, Memory, and Latency Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -443,22 +443,17 @@ Figure&nbsp;3.2: Request timeline showing TTFT and TPOT durations
 <p>Latency and throughput are in fundamental tension, and this tradeoff is at the heart of inference system configuration.</p>
 <p>One key mechanism impacting latency and throughput is <strong>batching</strong>. If you process requests one at a time, each request gets the lowest possible latency while being serviced –- there’s no waiting to fill a batch, and the hardware is entirely dedicated to that single request. But the GPU is badly underutilized, especially during decode, where a single request doesn’t generate enough arithmetic to keep the compute units busy.</p>
 <p>If instead you batch multiple requests together, the GPU can do more useful work per memory read. Reading the model weights once and applying them to 32 requests in a batch is far more efficient than reading them 32 separate times. With larger batches, throughput goes up, but now each individual request might have to wait before processing begins, because the system is pausing to accumulate enough requests for a full batch. Also, each decode step takes slightly longer because there’s more work per step, so with larger batches, latency goes up a little.</p>
-<!-- Figure: Latency vs. throughput curve
-ASCII art sketch:
-  Latency
-    |  *
-    |   *
-    |    *
-    |      *
-    |         *
-    |              *
-    |                     *
-    |                               *
-    +------------------------------------- -> Throughput
-
-  Annotation: "sweet spot" region marked, with "latency SLA" horizontal line
--->
-<p>This tradeoff is not just theoretical. In production serving, batch configuration significantly impacts scheduler performance. A scheduler that waits longer to fill batches achieves higher throughput but increases TTFT for waiting requests. A scheduler that dispatches immediately may keep TTFT lower but hurts throughput. Finding the right operating point depends on the application’s requirements, which is where the next metric comes in.</p>
+<div id="fig-throughput-latency" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-throughput-latency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/latency_throughput.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;3.3: Throughput-latency curve showing how throughput gains diminish as latency increases. Data from @spheron2025benchmarks, benchmarking Llama 3.3 70B (FP8) on a single H100 with vLLM."><img src="images/latency_throughput.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-throughput-latency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3.3: Throughput-latency curve showing how throughput gains diminish as latency increases. Data from <span class="citation" data-cites="spheron2025benchmarks">Spheron (<a href="references.html#ref-spheron2025benchmarks" role="doc-biblioref">2025</a>)</span>, benchmarking Llama 3.3 70B (FP8) on a single H100 with vLLM.
+</figcaption>
+</figure>
+</div>
+<p>This tradeoff is not just theoretical. In production serving, batch configuration significantly impacts scheduler performance, as shown in <a href="#fig-throughput-latency" class="quarto-xref">Figure&nbsp;<span>3.3</span></a>. A scheduler that waits longer to fill batches achieves higher throughput but increases TTFT for waiting requests. A scheduler that dispatches immediately may keep TTFT lower but hurts throughput. Finding the right operating point depends on the application’s requirements, which is where the next metric comes in.</p>
 </section>
 <section id="goodput" class="level3">
 <h3 class="anchored" data-anchor-id="goodput">Goodput</h3>
@@ -505,10 +500,10 @@ ASCII art sketch:
 <div id="fig-io-quadrants" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-io-quadrants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/io_quadrants.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;3.3: The four workload quadrants defined by input and output length"><img src="images/io_quadrants.svg" class="img-fluid figure-img"></a>
+<a href="images/io_quadrants.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;3.4: The four workload quadrants defined by input and output length"><img src="images/io_quadrants.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-io-quadrants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;3.3: The four workload quadrants defined by input and output length
+Figure&nbsp;3.4: The four workload quadrants defined by input and output length
 </figcaption>
 </figure>
 </div>
@@ -600,14 +595,14 @@ Table&nbsp;3.1: Compute throughput figures for the NVIDIA H100 SXM. Source: <spa
 </section>
 <section id="the-memory-hierarchy" class="level3">
 <h3 class="anchored" data-anchor-id="the-memory-hierarchy">The memory hierarchy</h3>
-<p>Raw compute throughput only matters if you can feed data to the tensor cores fast enough. This is where the memory hierarchy comes in. A GPU has four levels of memory, shown in <a href="#fig-gpu-memory-hierarchy" class="quarto-xref">Figure&nbsp;<span>3.4</span></a>. As the closest levels are the fastest but also the smallest, and as the levels get larger, they get farther and slower, trading off speed for capacity.</p>
+<p>Raw compute throughput only matters if you can feed data to the tensor cores fast enough. This is where the memory hierarchy comes in. A GPU has four levels of memory, shown in <a href="#fig-gpu-memory-hierarchy" class="quarto-xref">Figure&nbsp;<span>3.5</span></a>. As the closest levels are the fastest but also the smallest, and as the levels get larger, they get farther and slower, trading off speed for capacity.</p>
 <div id="fig-gpu-memory-hierarchy" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-gpu-memory-hierarchy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/gpu_memory_hierarchy.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;3.4: GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level"><img src="images/gpu_memory_hierarchy.svg" class="img-fluid figure-img"></a>
+<a href="images/gpu_memory_hierarchy.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;3.5: GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level"><img src="images/gpu_memory_hierarchy.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gpu-memory-hierarchy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;3.4: GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level
+Figure&nbsp;3.5: GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level
 </figcaption>
 </figure>
 </div>
@@ -679,14 +674,14 @@ Table&nbsp;3.2: Key hardware parameters for the NVIDIA H100 SXM.
 </div>
 <p><a href="#tbl-h100-specs" class="quarto-xref">Table&nbsp;<span>3.2</span></a> summarizes the key hardware parameters for the H100 SXM that we need for the roofline model. For the H100 SXM at FP16, we calculate:</p>
 <p><span class="math display">\[\text{Ridge point} = \frac{\text{Peak FLOP/s}}{\text{Peak bandwidth}} = \frac{989.4 \times 10^{12}}{3.35 \times 10^{12}} \approx 295 \text{ FLOP/byte}\]</span></p>
-<p>This means that any kernel with an arithmetic intensity below about 295 FLOP/byte is memory-bandwidth-bound on the H100 at FP16 precision. Any kernel above that threshold is compute-bound. The regions we’ve discussed are shown on the roofline plot for the H100 SXM in <a href="#fig-roofline" class="quarto-xref">Figure&nbsp;<span>3.5</span></a>. On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is <span class="math inline">\(3.3 \times 10^{12}\)</span>. On the right, the attainable FLOPS is capped at the peak of <span class="math inline">\(989.4 \times 10^{12}\)</span>.</p>
+<p>This means that any kernel with an arithmetic intensity below about 295 FLOP/byte is memory-bandwidth-bound on the H100 at FP16 precision. Any kernel above that threshold is compute-bound. The regions we’ve discussed are shown on the roofline plot for the H100 SXM in <a href="#fig-roofline" class="quarto-xref">Figure&nbsp;<span>3.6</span></a>. On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is <span class="math inline">\(3.3 \times 10^{12}\)</span>. On the right, the attainable FLOPS is capped at the peak of <span class="math inline">\(989.4 \times 10^{12}\)</span>.</p>
 <div id="fig-roofline" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-roofline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/roofline.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;3.5: Roofline plot for the H100 SXM at FP16"><img src="images/roofline.svg" class="img-fluid figure-img"></a>
+<a href="images/roofline.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;3.6: Roofline plot for the H100 SXM at FP16"><img src="images/roofline.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-roofline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;3.5: Roofline plot for the H100 SXM at FP16
+Figure&nbsp;3.6: Roofline plot for the H100 SXM at FP16
 </figcaption>
 </figure>
 </div>
@@ -822,10 +817,10 @@ Note
 <div id="fig-roofline-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-roofline-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/roofline_batching.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;3.6: Roofline plot showing decode operating points at different batch sizes. Each point sits on the roofline at arithmetic intensity equal to the batch size (for FP16 weights). Batching moves the operating point rightward, from deeply bandwidth-bound toward the compute ceiling."><img src="images/roofline_batching.svg" class="img-fluid figure-img"></a>
+<a href="images/roofline_batching.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-7" title="Figure&nbsp;3.7: Roofline plot showing decode operating points at different batch sizes. Each point sits on the roofline at arithmetic intensity equal to the batch size (for FP16 weights). Batching moves the operating point rightward, from deeply bandwidth-bound toward the compute ceiling."><img src="images/roofline_batching.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-roofline-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;3.6: Roofline plot showing decode operating points at different batch sizes. Each point sits on the roofline at arithmetic intensity equal to the batch size (for FP16 weights). Batching moves the operating point rightward, from deeply bandwidth-bound toward the compute ceiling.
+Figure&nbsp;3.7: Roofline plot showing decode operating points at different batch sizes. Each point sits on the roofline at arithmetic intensity equal to the batch size (for FP16 weights). Batching moves the operating point rightward, from deeply bandwidth-bound toward the compute ceiling.
 </figcaption>
 </figure>
 </div>
@@ -1011,6 +1006,9 @@ NVIDIA. 2024. <span>“<span>CUDA</span> Programming Guide.”</span> <a href="h
 </div>
 <div id="ref-pope2022scaling" class="csl-entry" role="listitem">
 Pope, Reiner, Sholto Douglas, Aakanksha Chowdhery, et al. 2022. <span>“Efficiently Scaling Transformer Inference.”</span> <em>arXiv Preprint arXiv:2211.05102</em>. <a href="https://arxiv.org/abs/2211.05102">https://arxiv.org/abs/2211.05102</a>.
+</div>
+<div id="ref-spheron2025benchmarks" class="csl-entry" role="listitem">
+Spheron. 2025. <span>“<span class="nocase">vLLM</span> Vs <span>TensorRT-LLM</span> Vs <span>SGLang</span>: Benchmarks on <span>H100</span>.”</span> <a href="https://www.spheron.network/blog/vllm-vs-tensorrt-llm-vs-sglang-benchmarks/">https://www.spheron.network/blog/vllm-vs-tensorrt-llm-vs-sglang-benchmarks/</a>.
 </div>
 <div id="ref-williams2009roofline" class="csl-entry" role="listitem">
 Williams, Samuel, Andrew Waterman, and David Patterson. 2009. <span>“Roofline: An Insightful Visual Performance Model for Multicore Architectures.”</span> <em>Communications of the ACM</em> 52 (4): 65–76. <a href="https://dl.acm.org/doi/pdf/10.1145/1498765.1498785">https://dl.acm.org/doi/pdf/10.1145/1498765.1498785</a>.

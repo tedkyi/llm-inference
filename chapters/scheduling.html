@@ -8,7 +8,7 @@
 
 <meta name="description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 
-<title>5&nbsp; Eliminating Scheduling Bottlenecks – LLM Inference Illustrated</title>
+<title>5&nbsp; Scheduling Bottlenecks – LLM Inference Illustrated</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -127,7 +127,7 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../_styles/dim-colors.css">
-<meta name="twitter:title" content="5&nbsp; Eliminating Scheduling Bottlenecks – LLM Inference Illustrated">
+<meta name="twitter:title" content="5&nbsp; Scheduling Bottlenecks – LLM Inference Illustrated">
 <meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 <meta name="twitter:image" content="images/static_batching.svg">
 <meta name="twitter:card" content="summary_large_image">
@@ -142,7 +142,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/scheduling.html"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/scheduling.html"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Scheduling Bottlenecks</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -232,13 +232,13 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/scheduling.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Scheduling Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/request.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span></a>
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Request Compute, Memory, and Latency Bottlenecks</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -302,7 +302,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title"><span id="sec-scheduling" class="quarto-section-identifier"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Eliminating Scheduling Bottlenecks</span></span></h1>
+<h1 class="title"><span id="sec-scheduling" class="quarto-section-identifier"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Scheduling Bottlenecks</span></span></h1>
 </div>
 
 
@@ -333,7 +333,7 @@ window.Quarto = {
 <li><strong>Compute</strong>: <span class="math inline">\(2B\textcolor{#1E40AF}{D}^2\)</span> FLOPs (<span class="math inline">\(B\)</span> matrix-vector multiplications)</li>
 <li><strong>Arithmetic intensity</strong>: <span class="math inline">\(2B\textcolor{#1E40AF}{D}^2 / 2\textcolor{#1E40AF}{D}^2 = B\)</span> FLOP/byte</li>
 </ul>
-<p>Recall <a href="inference.html#fig-roofline-batching" class="quarto-xref">Figure&nbsp;<span>3.6</span></a>.</p>
+<p>Recall <a href="inference.html#fig-roofline-batching" class="quarto-xref">Figure&nbsp;<span>3.7</span></a>.</p>
 <p>With batch size 1, the arithmetic intensity is about 1 FLOP/byte – far below the H100’s FP16 ridge point of ~295 FLOP/byte. The GPU’s tensor cores are almost entirely idle, waiting for data to arrive from HBM. With batch size 64, the intensity rises to 64 FLOP/byte. Still below the ridge point, but now the GPU is doing 64x more useful work per byte read. With batch size 256, we’re approaching the ridge point and the GPU’s compute units are finally getting busy.</p>
 <!-- Figure: Roofline diagram showing decode at different batch sizes
 ASCII art sketch:
@@ -533,22 +533,6 @@ Note
 <li>The KV cache is transferred over a fast interconnect (such as NVLink or InfiniBand) to a <strong>decode instance</strong></li>
 <li>The decode instance generates tokens autoregressively using the transferred KV cache</li>
 </ol>
-<!-- Figure: Disaggregated prefill architecture
-ASCII art sketch:
-                    +------------------+
-  New requests -- ->| Prefill Instance |----+
-                    | (compute-optimized)  |
-                    +------------------+   |  KV cache transfer
-                                           |  (fast interconnect)
-                    +------------------+   |
-  Responses <-------| Decode Instance  |<---+
-                    | (bandwidth-optimized) |
-                    +------------------+
-
-  - Prefill and decode scaled independently
-  - No interference between phases
-  - Communication cost: KV cache transfer
--->
 <div id="fig-disaggregated-prefill" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-disaggregated-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -1132,8 +1116,8 @@ Yu, Gyeong-In, Joo Seong Jeong, Geon-Woo Kim, Soojeong Kim, and Byung-Gon Chun. 
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../chapters/request.html" class="pagination-link" aria-label="Eliminating Request Compute, Memory, and Latency Bottlenecks">
-        <span class="nav-page-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Eliminating Request Compute, Memory, and Latency Bottlenecks</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../chapters/request.html" class="pagination-link" aria-label="Request Compute, Memory, and Latency Bottlenecks">
+        <span class="nav-page-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Request Compute, Memory, and Latency Bottlenecks</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

@@ -631,53 +631,16 @@ Standard dense models apply the same MLP to every token.
 The router is a simple learned linear layer of shape **([D]{.dim-d}, E)** that produces a score for each expert.
 For each token, the router selects the top-$k$ experts, and only those experts process the token.
 These top-$k$ experts are said to be **active**.
+Note that there is a router in every layer, so the choice of experts differs each layer --- this is not at all like having **E** separate full models which are chosen at the beginning on a per token basis.
 The science of MoE layers is outside the scope of this book, but we will highlight a recent trend.
 Early MoE LLMs such as **Mixtral** [@jiang2024mixtral] had only a few experts, such as 8, and set $k$ to a very small value, such as 2.
 More recent LLMs such as **Qwen 3** [@yang2025qwen3] have hundreds of experts and set $k$ to a higher number, such as 8.
-They also have the concepts of always-on experts called **shared experts**.
+They also have the concepts of always-on experts called **shared experts**. @Fig-moe-flow shows what the vanilla data flow looks like with an MoE configuration with 6 total experts, 2 of which are active.
 
 The outputs of the selected experts are combined using the router's SoftMax weights.
 
 ```{=html}
 <!-- FIGURE 9: MoE Router and Expert Selection
-
-    Input x: (S, D)
-         |
-         v
-    +------------------+
-    |  Router           |   Linear: (D, N_experts) → SoftMax
-    |  (D, N_experts)   |
-    +------------------+
-         |
-         v
-    Router scores: (S, N_experts)
-         |
-         | top-k selection (e.g., k=2)
-         v
-    ┌─────────────────────────────────────────────────────┐
-    │  Token 0: selects Expert 2, Expert 5               │
-    │  Token 1: selects Expert 0, Expert 7               │
-    │  Token 2: selects Expert 2, Expert 3               │
-    │  Token 3: selects Expert 5, Expert 7               │
-    │  ...                                                │
-    └─────────────────────────────────────────────────────┘
-         |
-         v
-    ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐
-    │ E_0 │ │ E_1 │ │ E_2 │ │ E_3 │ │ E_4 │ │ E_5 │ │ E_6 │ │ E_7 │
-    │     │ │     │ │ ██  │ │ █   │ │     │ │ ██  │ │     │ │ ██  │
-    │ █   │ │     │ │ ██  │ │ █   │ │     │ │ ██  │ │     │ │ ██  │
-    └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘
-    1 token  idle   2 tokens 1 token  idle   2 tokens idle   2 tokens
-         |                                    |
-         v                                    v
-    Only ACTIVE experts execute.          SPARSE activation.
-    Outputs are weighted-summed using router scores.
-         |
-         v
-    Output: (S, D)
-
-
     EXAMPLE: Mixtral 8×7B
     ─────────────────────────────────
     N_experts = 8, top-k = 2
@@ -698,7 +661,7 @@ The outputs of the selected experts are combined using the router's SoftMax weig
     Annotate total vs. active parameter counts.
 -->
 ```
-![Data flow of weights and activations in an MOE MLP layer. TODO: this figure needs more work.](images/moe_flow.svg){#fig-moe-flow .lightbox}
+![Data flow of weights and activations in an MoE MLP layer. This figure depicts a model with 6 experts, 2 of which are active.](images/moe_flow.svg){#fig-moe-flow .lightbox}
 
 The key trade-off of MoE for inference is clear: **memory footprint is large** (all expert weights must reside in memory) but **per-token compute is modest** (only $k$ of $E$ experts are active).
 Mixtral 8×7B [@jiang2024mixtral] has roughly 47B total parameters but only ~13B active per token.

@@ -4,7 +4,7 @@
 it fast, efficient, and scalable.*
 
 ### Who this book is for {.unnumbered}
-This book is for ML engineers (and people with similar background) who are already familiar with neural networks, the transformer architecture, self-attention, and autoregressive decoder-only LLMs.
+This book is an intermediate guide for ML engineers (and people with similar background) who are already familiar with neural networks, the transformer architecture, self-attention, and autoregressive decoder-only LLMs.
 This book evolved from research into efficient ways to do LLM inference for special cases such as RAG, Writing in the Margins, and beam search.
 After spending time learning about attention kernels, prefix caching, and systems such as vLLM and SGLang, I decided to share the knowledge I had gathered in one convenient place.
 

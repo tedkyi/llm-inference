@@ -136,6 +136,7 @@ You should be comfortable with how self-attention computes queries, keys, and va
 The rest of this book assumes you have this background.
 :::
 
+
 ## Performance Metrics {#sec-metrics}
 
 Now that we have a mental model of what happens during inference, the natural next question is: how do we know if our system is doing it *well*?
@@ -197,26 +198,10 @@ Reading the model weights once and applying them to 32 requests in a batch is fa
 With larger batches, throughput goes up, but now each individual request might have to wait before processing begins, because the system is pausing to accumulate enough requests for a full batch.
 Also, each decode step takes slightly longer because there's more work per step, so with larger batches, latency goes up a little.
 
-```{=html}
-<!-- Figure: Latency vs. throughput curve
-ASCII art sketch:
-  Latency
-    |  *
-    |   *
-    |    *
-    |      *
-    |         *
-    |              *
-    |                     *
-    |                               *
-    +------------------------------------- -> Throughput
-
-  Annotation: "sweet spot" region marked, with "latency SLA" horizontal line
--->
-```
+![Throughput-latency curve showing how throughput gains diminish as latency increases. Data from @spheron2025benchmarks, benchmarking Llama 3.3 70B (FP8) on a single H100 with vLLM.](images/latency_throughput.svg){#fig-throughput-latency}
 
 This tradeoff is not just theoretical.
-In production serving, batch configuration significantly impacts scheduler performance.
+In production serving, batch configuration significantly impacts scheduler performance, as shown in @fig-throughput-latency.
 A scheduler that waits longer to fill batches achieves higher throughput but increases TTFT for waiting requests.
 A scheduler that dispatches immediately may keep TTFT lower but hurts throughput.
 Finding the right operating point depends on the application's requirements, which is where the next metric comes in.

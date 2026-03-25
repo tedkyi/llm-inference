@@ -1,4 +1,4 @@
-# Eliminating Scheduling Bottlenecks {#sec-scheduling}
+# Scheduling Bottlenecks {#sec-scheduling}
 
 The previous chapter focused on making the model itself smaller and faster -- fewer parameters, lower precision, more efficient attention mechanisms.
 Those techniques change what gets computed.
@@ -243,24 +243,6 @@ The workflow looks like this:
 3. The KV cache is transferred over a fast interconnect (such as NVLink or InfiniBand) to a **decode instance**
 4. The decode instance generates tokens autoregressively using the transferred KV cache
 
-```{=html}
-<!-- Figure: Disaggregated prefill architecture
-ASCII art sketch:
-                    +------------------+
-  New requests -- ->| Prefill Instance |----+
-                    | (compute-optimized)  |
-                    +------------------+   |  KV cache transfer
-                                           |  (fast interconnect)
-                    +------------------+   |
-  Responses <-------| Decode Instance  |<---+
-                    | (bandwidth-optimized) |
-                    +------------------+
-
-  - Prefill and decode scaled independently
-  - No interference between phases
-  - Communication cost: KV cache transfer
--->
-```
 ![Disaggregated prefill](images/disaggregated_prefill.svg){#fig-disaggregated-prefill .lightbox}
 
 The main cost is the KV cache transfer.

@@ -1,4 +1,4 @@
-# Eliminating Request Compute, Memory, and Latency Bottlenecks {#sec-request}
+# Request Compute, Memory, and Latency Bottlenecks {#sec-request}
 
 The previous chapter tackled scheduling --- how to keep the GPU busy by managing how requests are handled.
 This chapter examines the efficiency with which individual requests are handled.

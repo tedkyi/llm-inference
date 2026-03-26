@@ -549,7 +549,7 @@ Table&nbsp;1: Standard dimension symbols used in figures and text.
 <li>The <strong>shape label</strong> (e.g., <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>) confirms the dimensions explicitly.</li>
 <li>The <strong>fill color</strong> helps disambiguate what kind of tensor it is (query, key, weight, etc.).</li>
 </ul>
-<p>When two tensors share an edge color on a connecting side, it means those dimensions are compatible for the operation that connects them — a matrix multiply, a concatenation, or an elementwise operation.</p>
+<p>When two tensors share an edge color on a matching side, it means those dimensions are compatible for the operation that connects them — a matrix multiply, a concatenation, or an elementwise operation. For matrix multiplcation, the number of columns on the lefthand tensor must match the number of rows on the righthand tensor. For elementwise operations, usually all dimensions must match, unless one of the dimensions is 1, and it is broadcast to match the other tensor.</p>
 
 
 </section>

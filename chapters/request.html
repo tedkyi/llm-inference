@@ -129,7 +129,7 @@ window.Quarto = {
 <link rel="stylesheet" href="../_styles/dim-colors.css">
 <meta name="twitter:title" content="6&nbsp; Request Compute, Memory, and Latency Bottlenecks – LLM Inference Illustrated">
 <meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
-<meta name="twitter:image" content="images/under_construction.jpg">
+<meta name="twitter:image" content="images/std_attn_hbm.svg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -343,49 +343,39 @@ window.Quarto = {
 <h2 data-number="6.1" class="anchored" data-anchor-id="sec-attention-kernels"><span class="header-section-number">6.1</span> Memory-Aware Attention Kernels</h2>
 <section id="why-standard-attention-wastes-bandwidth" class="level3">
 <h3 class="anchored" data-anchor-id="why-standard-attention-wastes-bandwidth">Why standard attention wastes bandwidth</h3>
-<p>To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a> that the GPU has a small, fast on-chip SRAM and a large, slow off-chip HBM. The standard implementation of self-attention works roughly like this:</p>
-<ol type="1">
-<li>Compute the score matrix <span class="math inline">\(S = QK^T\)</span> – a matrix multiplication producing a tensor of shape <span class="math inline">\((B, H, S, S)\)</span> where <span class="math inline">\(B\)</span> is the batch size, <span class="math inline">\(H\)</span> is the number of heads, and <span class="math inline">\(S\)</span> is the sequence length.</li>
-<li>Write <span class="math inline">\(S\)</span> to HBM.</li>
-<li>Read <span class="math inline">\(S\)</span> back from HBM, apply softmax to get the attention weights <span class="math inline">\(P\)</span>.</li>
-<li>Write <span class="math inline">\(P\)</span> to HBM.</li>
-<li>Read <span class="math inline">\(P\)</span> back from HBM, compute the output <span class="math inline">\(O = PV\)</span>.</li>
-</ol>
-<!-- Figure: Standard attention HBM traffic
-ASCII art sketch:
-  Step 1:  Q, K  ──read──>  [Compute S=QK^T]  ──write──>  S in HBM
-                                                            (B,H,S,S)
-  Step 2:  S     ──read──>  [Softmax]          ──write──>  P in HBM
-                                                            (B,H,S,S)
-  Step 3:  P, V  ──read──>  [Compute O=PV]     ──write──>  O in HBM
-                                                            (B,H,S,d)
-
-  Total HBM traffic for S and P:  O(S²) reads + O(S²) writes
--->
-<div id="fig-flash-attention" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<p>To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a> that the GPU has a small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. The standard implementation of self-attention is depicted in <a href="#fig-std-attn-hbm" class="quarto-xref">Figure&nbsp;<span>6.1</span></a> and works roughly like this:</p>
+<div id="fig-std-attn-hbm" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-flash-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;6.1: Flash attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<div aria-describedby="fig-std-attn-hbm-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/std_attn_hbm.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;6.1: Memory access pattern for a standard implementation of self-attention"><img src="images/std_attn_hbm.svg" class="img-fluid figure-img"></a>
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-flash-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.1: Flash attention
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-std-attn-hbm-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.1: Memory access pattern for a standard implementation of self-attention
 </figcaption>
 </figure>
 </div>
-<p>The problem is the intermediate matrices <span class="math inline">\(S\)</span> and <span class="math inline">\(P\)</span>. They each have <span class="math inline">\(S^2\)</span> elements per head, and they are materialized in HBM just to be read back in the next step. For a sequence of length 4,096, the score matrix alone is <span class="math inline">\(4096 \times 4096 = 16.7\)</span> million entries per head. The actual computation – the matrix multiplications and softmax – is fast. What’s slow is the round-trip to HBM for these intermediate results.</p>
-<p>This is a textbook example of a memory-bandwidth-bound operation. The GPU spends most of its time waiting for data to move between SRAM and HBM, not doing arithmetic. And the problem scales quadratically with sequence length – double the sequence length and you quadruple the intermediate memory traffic.</p>
+<ol type="1">
+<li>Read the <span class="math inline">\(Q\)</span> and <span class="math inline">\(K\)</span> tensors, each shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> — reminder, this would be <strong>(B, <span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> with batched processing but we’re avoiding the clutter of repeatedly list the batch dimension.</li>
+<li>Compute the score matrix <span class="math inline">\(\text{Scores} = QK^T\)</span> and write <span class="math inline">\(\text{Scores}\)</span>, shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>, to HBM.</li>
+<li>Read <span class="math inline">\(\text{Scores}\)</span> shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> back from HBM.</li>
+<li>Apply SoftMax to get the attention weights and write <span class="math inline">\(\text{Attn}\)</span>, also shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>, to HBM.</li>
+<li>Read <span class="math inline">\(\text{Attn}\)</span> shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> back from HBM, compute the weighted values <span class="math inline">\(\text{Weighted Values} = \text{Attn}V\)</span>.</li>
+<li>Write the weighted values, shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>, back to HBM</li>
+</ol>
+<p>The read of <span class="math inline">\(Q\)</span> and <span class="math inline">\(K\)</span> at the beginning needs to happen in some form, and the writing of the weighted values also needs to happen at the end. But the writing and reading back of the <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> <span class="math inline">\(\text{Scores}\)</span> and <span class="math inline">\(\text{Attn}\)</span> tensors in the middle wastes bandwidth, especially as <strong><span class="dim-s">S</span></strong> gets large. For a sequence of length 4,096, the score matrix alone is <span class="math inline">\(4096 \times 4096 = 16.7\)</span> million entries per head. The actual computations of the matrix multiplications and softmax are fast. What’s slow is the round-trip to HBM for these intermediate results.</p>
+<p>This is a textbook example of a memory-bandwidth-bound operation. The GPU spends most of its time waiting for data to move to and from HBM, not doing arithmetic. And the problem scales quadratically with sequence length — double the sequence length and you quadruple the intermediate memory traffic.</p>
 </section>
 <section id="flashattention" class="level3">
 <h3 class="anchored" data-anchor-id="flashattention">FlashAttention</h3>
-<p><strong>FlashAttention</strong> <span class="citation" data-cites="dao2022flashattention">(<a href="references.html#ref-dao2022flashattention" role="doc-biblioref">Dao et al. 2022</a>)</span> solves this by never materializing the full attention matrix in HBM. The core idea is <strong>tiling</strong>: break the <span class="math inline">\(Q\)</span>, <span class="math inline">\(K\)</span>, and <span class="math inline">\(V\)</span> matrices into small blocks that fit in SRAM, then compute the attention output block by block, keeping all intermediate results on-chip.</p>
+<p><strong>FlashAttention</strong> <span class="citation" data-cites="dao2022flashattention">(<a href="references.html#ref-dao2022flashattention" role="doc-biblioref">Dao et al. 2022</a>)</span> solves this by never materializing the full attention matrix in HBM. If we had enough SRAM, we could store these attention matrices there, and we would avoid the round trip to HBM, but we don’t. The core idea with FlashAttention is <strong>tiling</strong>: break the <span class="math inline">\(Q\)</span>, <span class="math inline">\(K\)</span>, and <span class="math inline">\(V\)</span> matrices into small blocks that fit in SRAM, then compute the attention output block by block, keeping all intermediate results on-chip.</p>
 <p>The algorithm works in two nested loops. The outer loop iterates over blocks of <span class="math inline">\(K\)</span> and <span class="math inline">\(V\)</span>. The inner loop iterates over blocks of <span class="math inline">\(Q\)</span>. For each pair of blocks, the kernel computes the local attention scores, applies a local softmax, and accumulates the weighted sum – all in SRAM. The tricky part is that softmax requires the maximum and sum over the full row of scores, not just the current block. FlashAttention handles this with an <strong>online softmax</strong> technique that maintains running statistics and corrects the accumulated output as new blocks are processed.</p>
 <!-- Figure: FlashAttention tiling
 ASCII art sketch:
 
   Q (S x d)          K^T (d x S)          V (S x d)
   +--------+         +--------+           +--------+
-  | Block  | ------> |        |           |        |
-  | Q_i    |    x    | K_j^T  |  -------&gt; | V_j    |
+  | Block  | ---- -> |        |           |        |
+  | Q_i    |    x    | K_j^T  |  ----- -> | V_j    |
   +--------+         +--------+           +--------+
        |                  |                    |
        +------ all in SRAM, no HBM write -----+
@@ -396,7 +386,17 @@ ASCII art sketch:
   HBM reads:  Q, K, V  (each read once)     = O(S·d) per head
   HBM writes: O         (written once)       = O(S·d) per head
   Never materialized: S, P                   = saves O(S²) HBM traffic
---&gt;
+-->
+<div id="fig-flash-attention" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-flash-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;6.2: Flash attention avoids writing to and reading from HBM repeatedly"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-flash-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.2: Flash attention avoids writing to and reading from HBM repeatedly
+</figcaption>
+</figure>
+</div>
 <p>The result: HBM traffic drops from <span class="math inline">\(O(S^2)\)</span> to <span class="math inline">\(O(S \cdot d)\)</span> for the attention matrix, where <span class="math inline">\(d\)</span> is the head dimension (typically 64 or 128). For a 4K sequence with <span class="math inline">\(d=128\)</span>, that’s a reduction from 16.7 million elements to about 524K elements – roughly a 32x reduction in memory traffic for the attention intermediates.</p>
 <p>Here’s the counterintuitive part: FlashAttention actually performs <em>more</em> FLOPs than standard attention. The online softmax rescaling adds extra multiply-accumulate operations. But wall-clock time drops substantially because the bottleneck was never the arithmetic – it was the HBM traffic. By trading a small increase in compute for a large decrease in memory movement, FlashAttention lands in a much better spot on the roofline.</p>
 <p>FlashAttention applies to both prefill and decode. During prefill, the sequence length <span class="math inline">\(S\)</span> is large (the full prompt), so the <span class="math inline">\(O(S^2)\)</span> savings are dramatic. During decode, <span class="math inline">\(S\)</span> is just 1 for the query (the new token), but the key and value sequences span the entire context, so the tiled approach still avoids unnecessary intermediate writes.</p>
@@ -491,10 +491,10 @@ ASCII art sketch:
 <div id="fig-paged-attention" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-paged-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;6.2: Paged attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;6.3: Paged attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-paged-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.2: Paged attention
+Figure&nbsp;6.3: Paged attention
 </figcaption>
 </figure>
 </div>
@@ -557,10 +557,10 @@ ASCII art sketch:
 <div id="fig-radix-attention" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-radix-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;6.3: Radix attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;6.4: Radix attention"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-radix-attention-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.3: Radix attention
+Figure&nbsp;6.4: Radix attention
 </figcaption>
 </figure>
 </div>
@@ -587,10 +587,10 @@ Figure&nbsp;6.3: Radix attention
 <div id="fig-multi-token-prediction" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-multi-token-prediction-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;6.4: Multi-token prediction"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;6.5: Multi-token prediction"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-multi-token-prediction-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.4: Multi-token prediction
+Figure&nbsp;6.5: Multi-token prediction
 </figcaption>
 </figure>
 </div>
@@ -604,10 +604,10 @@ Figure&nbsp;6.4: Multi-token prediction
 <div id="fig-speculative-decoding" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;6.5: Speculative decoding"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;6.6: Speculative decoding"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.5: Speculative decoding
+Figure&nbsp;6.6: Speculative decoding
 </figcaption>
 </figure>
 </div>
@@ -662,10 +662,10 @@ ASCII art sketch:
 <div id="fig-speculative-speculative-decoding" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-speculative-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;6.6: Speculative speculative decoding"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
+<a href="images/under_construction.jpg" class="lightbox" data-gallery="quarto-lightbox-gallery-7" title="Figure&nbsp;6.7: Speculative speculative decoding"><img src="images/under_construction.jpg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-speculative-speculative-decoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.6: Speculative speculative decoding
+Figure&nbsp;6.7: Speculative speculative decoding
 </figcaption>
 </figure>
 </div>

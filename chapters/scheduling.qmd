@@ -283,11 +283,18 @@ Padded batching:                    Ragged batching:
   6 pad tokens wasted
 -->
 ```
-![Ragged batching](images/under_construction.jpg){#fig-ragged-batching .lightbox}
+![Ragged batching compared to simple batching with padding](images/ragged_batching.svg){#fig-ragged-batching .lightbox}
+
+![Causl mask for ragged batching. The dashed squres show the portions applicable to each of the requests.](images/ragged_mask.svg){#fig-ragged-mask .lightbox}
 
 This matters most during prefill, where the input lengths across requests can vary widely.
 A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching.
 With ragged batching, the compute is proportional to the actual number of tokens: $2{,}048 + 3 \times 128 = 2{,}432$ tokens instead of $4 \times 2{,}048 = 8{,}192$ tokens.
+
+![Ragged batching example with a shared prefix](images/ragged_shared_prefix.svg){#fig-ragged-batching .lightbox}
+
+The benefits of ragged batching combine really well with prefix caching, which we will discuss in @sec-prefix-caching.
+Here is a quick diagram showing how sharing the prefix in ragged batching can save huge amounts of compute with long shared prefixes, such as a long system prompt.
 
 
 ## Request Scheduling and Prioritization {#sec-request-scheduling}

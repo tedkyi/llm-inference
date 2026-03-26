@@ -9,43 +9,33 @@ The remaining sections target the sequential decoding constraint, exploring tech
 
 ### Why standard attention wastes bandwidth
 
-To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from @sec-bottleneck-framework that the GPU has a small, fast on-chip SRAM and a large, slow off-chip HBM. The standard implementation of self-attention works roughly like this:
+To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from @sec-bottleneck-framework that the GPU has a small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. 
+The standard implementation of self-attention is depicted in @fig-std-attn-hbm and works roughly like this:
 
-1. Compute the score matrix $S = QK^T$ -- a matrix multiplication producing a tensor of shape $(B, H, S, S)$ where $B$ is the batch size, $H$ is the number of heads, and $S$ is the sequence length.
-2. Write $S$ to HBM.
-3. Read $S$ back from HBM, apply softmax to get the attention weights $P$.
-4. Write $P$ to HBM.
-5. Read $P$ back from HBM, compute the output $O = PV$.
+![Memory access pattern for a standard implementation of self-attention](images/std_attn_hbm.svg){#fig-std-attn-hbm .lightbox}
 
-```{=html}
-<!-- Figure: Standard attention HBM traffic
-ASCII art sketch:
-  Step 1:  Q, K  ──read──>  [Compute S=QK^T]  ──write──>  S in HBM
-                                                            (B,H,S,S)
-  Step 2:  S     ──read──>  [Softmax]          ──write──>  P in HBM
-                                                            (B,H,S,S)
-  Step 3:  P, V  ──read──>  [Compute O=PV]     ──write──>  O in HBM
-                                                            (B,H,S,d)
+1. Read the $Q$ and $K$ tensors, each shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** --- reminder, this would be **(B, [H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** with batched processing but we're avoiding the clutter of repeatedly list the batch dimension.
+2. Compute the score matrix $\text{Scores} = QK^T$ and write $\text{Scores}$, shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**, to HBM.
+3. Read $\text{Scores}$ shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** back from HBM.
+4. Apply SoftMax to get the attention weights and write $\text{Attn}$, also shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**, to HBM.
+5. Read $\text{Attn}$ shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** back from HBM, compute the weighted values $\text{Weighted Values} = \text{Attn}V$.
+6. Write the weighted values, shaped **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, back to HBM
 
-  Total HBM traffic for S and P:  O(S²) reads + O(S²) writes
--->
-```
-![Flash attention](images/under_construction.jpg){#fig-flash-attention .lightbox}
-
-The problem is the intermediate matrices $S$ and $P$.
-They each have $S^2$ elements per head, and they are materialized in HBM just to be read back in the next step.
+The read of $Q$ and $K$ at the beginning needs to happen in some form, and the writing of the weighted values also needs to happen at the end.
+But the writing and reading back of the **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** $\text{Scores}$ and $\text{Attn}$ tensors in the middle wastes bandwidth, especially as **[S]{.dim-s}** gets large.
 For a sequence of length 4,096, the score matrix alone is $4096 \times 4096 = 16.7$ million entries per head.
-The actual computation -- the matrix multiplications and softmax -- is fast.
+The actual computations of the matrix multiplications and softmax are fast.
 What's slow is the round-trip to HBM for these intermediate results.
 
 This is a textbook example of a memory-bandwidth-bound operation.
-The GPU spends most of its time waiting for data to move between SRAM and HBM, not doing arithmetic.
-And the problem scales quadratically with sequence length -- double the sequence length and you quadruple the intermediate memory traffic.
+The GPU spends most of its time waiting for data to move to and from HBM, not doing arithmetic.
+And the problem scales quadratically with sequence length --- double the sequence length and you quadruple the intermediate memory traffic.
 
 ### FlashAttention
 
 **FlashAttention** [@dao2022flashattention] solves this by never materializing the full attention matrix in HBM.
-The core idea is **tiling**: break the $Q$, $K$, and $V$ matrices into small blocks that fit in SRAM, then compute the attention output block by block, keeping all intermediate results on-chip.
+If we had enough SRAM, we could store these attention matrices there, and we would avoid the round trip to HBM, but we don't.
+The core idea with FlashAttention is **tiling**: break the $Q$, $K$, and $V$ matrices into small blocks that fit in SRAM, then compute the attention output block by block, keeping all intermediate results on-chip.
 
 The algorithm works in two nested loops.
 The outer loop iterates over blocks of $K$ and $V$.
@@ -60,8 +50,8 @@ ASCII art sketch:
 
   Q (S x d)          K^T (d x S)          V (S x d)
   +--------+         +--------+           +--------+
-  | Block  | ------> |        |           |        |
-  | Q_i    |    x    | K_j^T  |  -------> | V_j    |
+  | Block  | ---- -> |        |           |        |
+  | Q_i    |    x    | K_j^T  |  ----- -> | V_j    |
   +--------+         +--------+           +--------+
        |                  |                    |
        +------ all in SRAM, no HBM write -----+
@@ -74,6 +64,8 @@ ASCII art sketch:
   Never materialized: S, P                   = saves O(S²) HBM traffic
 -->
 ```
+
+![Flash attention avoids writing to and reading from HBM repeatedly](images/under_construction.jpg){#fig-flash-attention .lightbox}
 
 The result: HBM traffic drops from $O(S^2)$ to $O(S \cdot d)$ for the attention matrix, where $d$ is the head dimension (typically 64 or 128).
 For a 4K sequence with $d=128$, that's a reduction from 16.7 million elements to about 524K elements -- roughly a 32x reduction in memory traffic for the attention intermediates.

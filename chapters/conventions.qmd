@@ -295,4 +295,6 @@ To illustrate how these conventions combine, here is how a typical tensor rectan
 - The **shape label** (e.g., **([S]{.dim-s}, [D]{.dim-d})**) confirms the dimensions explicitly.
 - The **fill color** helps disambiguate what kind of tensor it is (query, key, weight, etc.).
 
-When two tensors share an edge color on a connecting side, it means those dimensions are compatible for the operation that connects them --- a matrix multiply, a concatenation, or an elementwise operation.
+When two tensors share an edge color on a matching side, it means those dimensions are compatible for the operation that connects them --- a matrix multiply, a concatenation, or an elementwise operation. 
+For matrix multiplcation, the number of columns on the lefthand tensor must match the number of rows on the righthand tensor.
+For elementwise operations, usually all dimensions must match, unless one of the dimensions is 1, and it is broadcast to match the other tensor.

@@ -31,6 +31,17 @@ This is a textbook example of a memory-bandwidth-bound operation.
 The GPU spends most of its time waiting for data to move to and from HBM, not doing arithmetic.
 And the problem scales quadratically with sequence length --- double the sequence length and you quadruple the intermediate memory traffic.
 
+It's worth noting that even a single matmul like $\text{Scores} = QK^T$ doesn't happen as one monolithic operation.
+The $Q$ and $K$ matrices are far too large to fit in SRAM, so the GPU kernel **tiles** the computation.
+Consider $Q$ with shape **([S]{.dim-s}, $\dimdk{d_K}$)** and $K^T$ with shape **($\dimdk{d_K}$, [S]{.dim-s})**.
+A standard tiled matmul loops over row-blocks of $Q$ (groups of query positions) and column-blocks of $K^T$ (groups of key positions).
+For each pair, the kernel loads a block of $Q$ rows and a block of $K^T$ columns into SRAM, computes their partial product, and writes the result into the corresponding tile of $\text{Scores}$ in HBM.
+Since $d_K$ is small (typically 64 or 128), the inner dimension often fits in a single pass.
+But the outer dimensions don't: each block of $Q$ rows is re-read from HBM once for every column-block of $K^T$, and each column-block of $K^T$ is re-read for every row-block of $Q$.
+This means the total HBM reads exceed the theoretical minimum of reading each matrix exactly once --- the GPU re-reads portions of $Q$ and $K$ multiple times to tile through the computation.
+But that extra read traffic is modest and scales with **[S]{.dim-s}**, not $\dims{S}^2$.
+The real waste in standard attention isn't within any single matmul --- it's the round-trips *between* operations: writing the **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** $\text{Scores}$ matrix to HBM just so softmax can read it back, then writing the attention weights just so the next matmul can read them.
+
 ### FlashAttention
 
 **FlashAttention** [@dao2022flashattention] solves this by never materializing the full attention matrix in HBM.
@@ -65,7 +76,7 @@ ASCII art sketch:
 -->
 ```
 
-![Flash attention avoids writing to and reading from HBM repeatedly](images/under_construction.jpg){#fig-flash-attention .lightbox}
+![FlashAttention keeps all intermediate results on-chip --- only two HBM transfers instead of six](images/flash_attn_hbm.svg){#fig-flash-attention .lightbox}
 
 The result: HBM traffic drops from $O(S^2)$ to $O(S \cdot d)$ for the attention matrix, where $d$ is the head dimension (typically 64 or 128).
 For a 4K sequence with $d=128$, that's a reduction from 16.7 million elements to about 524K elements -- roughly a 32x reduction in memory traffic for the attention intermediates.

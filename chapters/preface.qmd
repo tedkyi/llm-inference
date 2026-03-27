@@ -8,6 +8,8 @@ This book is an intermediate guide for ML engineers (and people with similar bac
 This book evolved from research into efficient ways to do LLM inference for special cases such as RAG, Writing in the Margins, and beam search.
 After spending time learning about attention kernels, prefix caching, and systems such as vLLM and SGLang, I decided to share the knowledge I had gathered in one convenient place.
 
+This book contains many detailed diagrams and is best viewed on a high resolution screen.
+
 ### What this book covers {.unnumbered}
 This book discusses how LLM inference works, then reviews the techniques for optimizing and scaling LLM inference.
 This book should not be the first resource for learning about the transformer, nor will it teach how to code LLMs.

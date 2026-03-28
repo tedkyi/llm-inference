@@ -590,14 +590,6 @@ Figure&nbsp;2.9: How the causal mask is applied in self-attention, shown for onl
 <p>The attention weights have shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> and V has shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>, so the result has shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>. We then reshape this back from <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> to <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> by concatenating the <strong><span class="dim-h">H</span></strong> heads, and apply a final output projection <span class="math inline">\(W_O\)</span> of shape <strong>(<span class="dim-d">D</span>, <span class="dim-d">D</span>)</strong>:</p>
 <p><span class="math display">\[\text{Output}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_{\textcolor{#A855F7}{H}}) \cdot W_O\]</span></p>
 <p>The full self-attention block transformed an input of shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> to an output of the same shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>. The shape is preserved.</p>
-<!-- FIGURE 4: Complete Self-Attention Data Flow with Tensor Shapes
-    PARAMETER COUNT for one attention layer:
-    W_Q: D × D  =  67M
-    W_K: D × D  =  67M   (with MHA; fewer with GQA)
-    W_V: D × D  =  67M   (with MHA; fewer with GQA)
-    W_O: D × D  =  67M
-    Total: 4 × D² = 4 × 8192² ≈ 268M parameters
--->
 </section>
 <section id="parameter-count" class="level3">
 <h3 class="anchored" data-anchor-id="parameter-count">Parameter count</h3>
@@ -720,14 +712,6 @@ Figure&nbsp;2.13: Data flow of weights and activations in a gated MLP layer
 </figure>
 </div>
 <p>The flow for the gated MLP is shown in <a href="#fig-gated-mlp-flow" class="quarto-xref">Figure&nbsp;<span>2.13</span></a>. The up and gate projections run in parallel, both mapping from <strong><span class="dim-d">D</span></strong> to a higher intermediate dimension <strong><span class="dim-f">F</span></strong>. Their outputs are combined by element-wise multiplication. The intuition is that the gate values select which features from the up-projection pass through. When an element of the gate is 0, the corresponding up projection element is zeroed out. When an element of the gate is 1, the corresponding up projection element is passed through as is. The gated up projection result is then projected down back to <strong><span class="dim-d">D</span></strong>.</p>
-<!-- FIGURE 8: SwiGLU Gated MLP Data Flow
-
-    For Llama 70B: D = 8192, F = 28672 ≈ (8/3) × D
-    Total: 3 × 8192 × 28672 ≈ 704M parameters per layer
-
-    Note: F ≈ (8/3)D is chosen so that 3DF ≈ 8D²,
-    keeping total parameters roughly equal to the standard 2×4D² = 8D² MLP.
--->
 <p>Why go from two weight matrices to three? The gating mechanism has been shown empirically to improve model quality for a given parameter budget <span class="citation" data-cites="shazeer2020glu">(<a href="references.html#ref-shazeer2020glu" role="doc-biblioref">Shazeer 2020</a>)</span>. The intermediate dimension <strong><span class="dim-f">F</span></strong> is adjusted downward (from <span class="math inline">\(4\textcolor{#1E40AF}{\text{D}}\)</span> to roughly <span class="math inline">\(\frac{8}{3}\textcolor{#1E40AF}{\text{D}}\)</span>) to keep the total parameter count approximately equal: <span class="math inline">\(3 \times \textcolor{#1E40AF}{\text{D}} \times \frac{8}{3}\textcolor{#1E40AF}{\text{D}} = 8\textcolor{#1E40AF}{\text{D}}^2\)</span>, the same as the standard FFN’s <span class="math inline">\(2 \times \textcolor{#1E40AF}{\text{D}} \times 4\textcolor{#1E40AF}{\text{D}} = 8\textcolor{#1E40AF}{\text{D}}^2\)</span> parameters. With <strong><span class="dim-d">D</span></strong> = 8192, the parameter count is <span class="math inline">\(8\textcolor{#1E40AF}{\text{D}}^2 \approx\)</span> 537M parameters per FFN layer. The FFN layers have double the number of parameters as the attention layers, so the FFNs comprise about two-thirds of the parameters, and the attention layers have about one-third of the parameters in a vanilla, traditional LLM.</p>
 </section>
 <section id="mixture-of-experts-moe" class="level3">
@@ -735,26 +719,6 @@ Figure&nbsp;2.13: Data flow of weights and activations in a gated MLP layer
 <p>Standard LLM models have one MLP per layer, and they have no choice but to apply the same MLP to every token. <strong>Mixture of Experts (MoE)</strong> architectures replace the single MLP with multiple MLPs called <strong>experts</strong> and a lightweight <strong>router</strong> that selects which experts to use for each token. Because not all of the MLP weights are used for each token, this is often referred to as a <strong>sparse MLP</strong>. In contrast, the original MLP architecture is referred to as a <strong>dense MLP</strong> architecture.</p>
 <p>The router in MoE is usually a simple learned linear layer that produces a score for each expert. If there are <strong>E</strong> experts, the router has a weight matrix of shape <strong>(<span class="dim-d">D</span>, E)</strong>. There are different designs for how the experts are chosen, and one of the simplest methods is for the router to select the top <span class="math inline">\(k\)</span> experts with the highest scores. These top-<span class="math inline">\(k\)</span> experts are said to be <strong>active</strong>. Note that there is a router in every layer, so the choice of experts differs each layer — this is not at all like having <strong>E</strong> separate full models which are chosen at the beginning based on the input token. The science of MoE layers is outside the scope of this book, but we will highlight a recent trend. Early MoE LLMs such as <strong>Mixtral</strong> <span class="citation" data-cites="jiang2024mixtral">(<a href="references.html#ref-jiang2024mixtral" role="doc-biblioref"><span class="nocase">Jiang et al.</span> 2024</a>)</span> had only a few experts, such as 8, and set <span class="math inline">\(k\)</span> to a very small value, such as 2. More recent LLMs such as <strong>Qwen 3</strong> <span class="citation" data-cites="yang2025qwen3">(<a href="references.html#ref-yang2025qwen3" role="doc-biblioref"><span class="nocase">Yang et al.</span> 2025</a>)</span> have hundreds of experts and set <span class="math inline">\(k\)</span> to a higher number, such as 8. They also have the concepts of always-on experts called <strong>shared experts</strong>. <a href="#fig-moe-flow" class="quarto-xref">Figure&nbsp;<span>2.14</span></a> shows what the vanilla data flow looks like with an MoE configuration with 6 total experts, 2 of which are active.</p>
 <p>The outputs of the selected experts are combined using the router’s SoftMax weights.</p>
-<!-- FIGURE 9: MoE Router and Expert Selection
-    EXAMPLE: Mixtral 8×7B
-    ─────────────────────────────────
-    N_experts = 8, top-k = 2
-    Each expert ≈ 7B params (an MLP)
-    Total MLP params: 8 × 7B = 56B  (but only 2 experts active per token)
-    Active params per token: 2 × 7B = 14B
-    Total model params: ~47B (including attention, embeddings)
-    Active params per token: ~13B
-
-    INFERENCE IMPLICATIONS:
-    • Memory footprint: ALL expert weights must be in memory → large
-    • Per-token compute: only k experts run → modest
-    • Expert parallelism: different experts on different GPUs → all-to-all communication
-    • Load balancing: if tokens cluster on few experts → uneven GPU utilization
-
-    Figure should show inactive experts grayed out.
-    Show the sparse activation pattern with filled/empty blocks.
-    Annotate total vs. active parameter counts.
--->
 <div id="fig-moe-flow" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-moe-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">

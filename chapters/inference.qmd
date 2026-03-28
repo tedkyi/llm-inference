@@ -14,7 +14,7 @@ The principles will be the same if it is running on CPU, TPU, or other hardware.
 
 ### The stages of inference {#sec-pipeline-stages}
 
-Let's walk through the stages needed to load an LLM and process a user request.
+Let's walk through the stages needed to process a user request.
 We will break this down into four stages that have distinct properties in terms of when they happen, where they happen, and what kinds of resources they consume.
 These stages are shown in @fig-pipeline-stages.
 
@@ -36,37 +36,36 @@ We are skipping many details about the steps within ingestion because what they 
 One area where ingestion has a dramatic impact on speed and user experience is in the timing and granularity of scheduling request work, and we will discuss scheduling in @sec-scheduling.
 
 **Prefill** is where the heavy lifting begins.
-The model processes the entire set of input tokens in a single forward pass through the entire network — all layers, all attention heads, all MLP blocks.
+The model processes the entire set of input tokens in a single forward pass through the entire network — all layers, all attention heads, all FFN blocks.
 In particular, the attention layers calculate attention scores across all of the input tokens.
-Since the attention scores are a square whose sides are the number of tokens, this grows quadratically with respect to the sequence length, and becomes very expensive when there are many input tokens.
+Since the attention scores are a square whose sides are the number of tokens, this grows quadratically with respect to the sequence length, and it becomes very expensive when there are many input tokens.
 Because all input tokens are known up front, the attention calculation can be done all at once using a large matrix-matrix multiplication between queries and keys.
 Despite how efficiently modern GPUs perform matrix multiplication, the size of the matrices involved means that prefill for all but the shortest prompts is **compute-bound** — the bottleneck is how fast the GPU can do the arithmetic, not how fast it can move data into the computational cores.
 
 During prefill, each attention layer computes query, key, and value tensors for all of the input tokens.
 The keys and values will be needed again in the upcoming decoding stage.
-Rather than throwing these away and recomputing them during decoding, the system stores them in a structure called the **KV cache**, and initializing the KV cache is the primary function of the prefill stage in modern LLM serving systems.
+Rather than throwing these away and recomputing them during decoding, the system stores them in the **KV cache**, which we introduced in @sec-kv-cache-intro.
+Initializing the KV cache is the primary function of the prefill stage in modern LLM serving systems.
 The KV cache holds the key and value tensors for every attention head at every layer, for all tokens processed so far.
 The KV cache trades memory for compute: it uses GPU memory to store these tensors, but it eliminates the need to recompute them.
 The size of the KV cache created during prefill is:
 
-$$\text{KV cache size} = 2 \times L \times H_{\text{kv}} \times d_{\text{head}} \times b_{\text{kv}} \times S$$
+$$\text{KV cache memory} = 2 \times \diml{L} \times \dimhkv{H_{\text{KV}}} \times \dims{S} \times \dimdk{d_K} \times b$$
 
-where the factor of 2 accounts for storing both keys and values, $L$ is the number of layers, $H_{\text{kv}}$ is the number of key-value heads (which may be less than the number of query heads, as discussed in @sec-efficient-attention), $d_{\text{head}}$ is the dimension of each head, $b_{\text{kv}}$ is the number of bytes per element, and **[S]{.dim-s}** is the sequence length. For a concrete example, consider a Llama-style 70B model with 80 layers, 8 KV heads per layer, head dimension of 128, and FP16 KV cache entries (2 bytes each). For a 4,096-token prompt:
+where the factor of 2 accounts for storing both keys and values, **[L]{.dim-l}** is the number of layers, $\dimhkv{H_{\text{KV}}}$ is the number of key-value heads (which may be less than the number of query heads, as will be discussed in @sec-efficient-attention), **[S]{.dim-s}** is the current sequence length, $\dimdk{d_K}$ is the dimension of each head, and $b$ is the number of bytes per element (2 for FP16/BF16).
 
-$$\text{KV cache} = 2 \times 80 \times 8 \times 128 \times 2 \text{ bytes} \times 4{,}096 \approx 1.34 \text{ GB}$$
+For a concrete example, consider a Llama-style 70B model with 80 layers, 8 KV heads per layer, head dimension of 128, and FP16 KV cache entries (2 bytes each). For a 4,096-token prompt:
+
+$$\text{KV cache} = 2 \times 80 \times 8 \times 4096 \times 128 \times 2 \approx 1.34 \text{ GB}$$
 
 That's 1.34 GB of GPU memory consumed by a single request's KV cache, just from the input tokens.
-This memory usage is one of the primary constraints on how many requests can be served concurrently, which we'll explore in @sec-kv-cache and @sec-memory-preemption.
+This memory usage is one of the primary constraints on how many requests can be served concurrently, which we'll explore in @sec-efficient-attention, @sec-kv-cache, and other sections.
 
-TODO: update forward references for KV cache memory and concurrency.
-
-After prefill completes, the system has two things: the KV cache populated with entries for all input tokens and the logits for the last input position's next token prediction, which are used to sample the first output token.
+After prefill completes, the system has two things: the KV cache populated with entries for all input tokens and the logits for the last input position's next token prediction, which are used to generate the first output token.
 
 ::: callout-note
-For a detailed look at exactly how the key, value, and query projections are computed during the transformer's forward pass and how they relate to the KV cache, see Appendix sections [-@sec-self-attention] and [-@sec-kv-cache-intro].
+For a detailed look at exactly how the key, value, and query projections are computed during the transformer's forward pass and how they relate to the KV cache, see sections [-@sec-self-attention] and [-@sec-kv-cache-intro].
 :::
-
-TODO: Without the KV cache, every decode step would need to recompute keys and values for all previous tokens -- an enormous amount of redundant work that would make decoding quadratic in sequence length instead of linear.
 
 **Decode** is the phase where the LLM's response is generated (except for the first token).
 The model typically produces output tokens one at a time, where each new token depends on all previously generated tokens.
@@ -77,7 +76,13 @@ $$p(y \mid x) = \prod_{t=1}^{T} p(y_t \mid y_{<t}, x)$$
 
 The model estimates each conditional probability $p(y_t \mid y_{<t}, x)$ with a forward pass.
 Because each token's probability depends on all previously generated tokens, the model doesn't generate token $y_t$ until it has committed to tokens $y_1$ through $y_{t-1}$.
-This gives us the familiar autoregressive loop: run a forward pass for one new token, reading all weights and the full KV cache; obtain the logit distribution over the vocabulary; sample a token; append new key-value entries to the KV cache; and repeat until the model generates a stop token or hits a length limit.
+This gives us the familiar autoregressive loop: 
+
+* Run a forward pass for one new token, reading all active weights and the full KV cache
+* Obtain the logit distribution over the vocabulary
+* Sample a token
+* Append new key-value entries to the KV cache, and 
+* Repeat until the model generates a stop token or hits a length limit
 
 Each iteration of this basic loop is called a **decode step**.
 The forward pass in a decode step processes just one token (or one token per batch entry, in a batch), so the query-key operations are **matrix-vector multiplications** rather than the matrix-matrix multiplications of prefill.
@@ -90,22 +95,28 @@ Here, the bottleneck is how fast the GPU can read data from GPU memory, not how 
 A large portion of this book is about techniques to make this phase less painful.
 
 It's worth noting that the left-to-right, one-token-at-a-time autoregressive factorization is not the *only* mathematically valid way to express the joint probability of a sequence.
-There are other approaches that express the same joint distribution differently.
+There are other approaches that calculate the same joint distribution differently.
 The left-to-right decomposition is a convenient modeling choice, but it imposes a strict sequential dependency at inference time.
-Several techniques in @sec-speculative -- speculative decoding, multi-token prediction, and Medusa heads -- work by finding ways to break or shortcut this sequential dependency while preserving the same output distribution.
+Several techniques in @sec-speculative --- speculative decoding, multi-token prediction, and Medusa heads --- work by finding ways to break or shortcut this sequential dependency while preserving the same output distribution.
 
 At the end of each decode step, **sampling** selects the next token.
 After the forward pass has produced a logit vector over the vocabulary, one token ID is selected.
-Common strategies include greedy decoding (always pick the highest-probability token), temperature sampling (scale logits before sampling randomly), top-k sampling (restrict to the $k$ most probable tokens), and top-p / nucleus sampling (restrict sampling to the smallest set of tokens whose cumulative probability exceeds $p$).
+Common strategies include:
+
+* greedy decoding (always pick the highest-probability token), 
+* temperature sampling (scale logits before sampling randomly), 
+* top-k sampling (restrict to the $k$ most probable tokens), and 
+* top-p / nucleus sampling (restrict sampling to the smallest set of tokens whose cumulative probability exceeds $p$)
+
 Sampling adds negligible overhead relative to the preceding forward pass.
 The forward pass involves billions of multiply-accumulate operations across all the model's layers; sampling involves a softmax over the vocabulary (typically 30K-200K entries) and a random draw.
-It's not where the time goes.
+Sampling is not where the time goes.
 
 **Completion** wraps things up.
 The model has finished because it either generated a stop token, hit a maximum length limit, or has been interrupted by the serving system.
 The accumulated response is detokenized back into text, the KV cache memory is freed, and the result is returned to the user.
 In most production deployments, the response is **streamed** back to the user as tokens are generated, rather than waiting for the full response to complete.
-Streaming doesn't change what's happening on the GPU -- each decode step produces the same token whether it's streamed immediately or batched for delivery later -- but it reduces how long users have to wait to see the beginning of the LLM response.
+Streaming doesn't change what's happening on the GPU --- each decode step produces the same token whether it's streamed immediately or batched for delivery later --- but it reduces how long users have to wait to see the beginning of the LLM response.
 Whether batch or streaming, completion steps are like ingestion in that they are usually fast one-time operations that happen on the CPU.
 
 ### Where the time goes
@@ -113,7 +124,8 @@ Whether batch or streaming, completion steps are like ingestion in that they are
 Of the five stages above, the vast majority of compute and memory bandwidth is consumed by prefill and decode.
 Model loading is a one-time cost.
 Ingestion and completion are fast operations on CPU that together account for a tiny fraction of request latency.
-(TODO: We are excluding queueing time from ingestion for now, treating that as a fixed cost associated with workload.) The rest of this chapter, and indeed the rest of this book, focuses almost exclusively on prefill and decode.
+Note that we are excluding queueing time from ingestion for now, treating that as a fixed cost associated with workload.
+Queueing time can be long for a system under heavy load, and various techniques associated with scheduling are discussed in @sec-scheduling.
 
 ### Two fundamentally different regimes
 
@@ -129,12 +141,6 @@ As we'll see in @sec-bottleneck-framework, the roofline model gives us a precise
 
 Many of the optimizations covered in this book target just prefill or just decode, and some of the techniques span between the two of them.
 Understanding the fundamental difference in resource needs between prefill and decode will provide a good foundation for everything that follows.
-
-::: callout-note
-If you're not familiar with how the transformer's forward pass works in a decoder-only LLM like ChatGPT, you can read @sec-appendix-a before continuing.
-You should be comfortable with how self-attention computes queries, keys, and values, and how the KV cache avoids recomputation.
-The rest of this book assumes you have this background.
-:::
 
 
 ## Performance Metrics {#sec-metrics}
@@ -175,12 +181,12 @@ Together, TTFT and TPOT define the end-to-end latency of a request, as shown in 
 The total time to generate a response of $N$ output tokens is approximately $\text{TTFT} + (N - 1) \times \text{TPOT}$.
 For short outputs, TTFT dominates.
 For long outputs, TPOT dominates.
-This is why the workload shape — the ratio of input length to output length — matters so much for understanding metrics and performing optimizations, as we'll see in @sec-workloads.
+This is why the workload shape — the ratio of input length to output length — matters so much for understanding metrics and performing optimizations, as we'll discuss in @sec-workloads.
 
 ### Throughput
 
 While latency metrics describe the experience of a single request, **throughput** measures how much total work the system gets done.
-The most common unit is **tokens per second (TPS)** –- specifically, output tokens per second combined across all requests currently being served.
+The most common unit is **tokens per second (TPS)** --- specifically, output tokens per second combined across all requests currently being served.
 You'll also see **requests per second (RPS)** and **requests per minute (RPM)**, which measure how many complete requests the system finishes in a given time window.
 Note that a system processing one request that generates 100 tokens per second has 100 TPS, and a system processing 100 requests that each generate 1 token per second also has 100 TPS.
 RPS is highly dependent on the workload.
@@ -190,7 +196,7 @@ RPS is highly dependent on the workload.
 Latency and throughput are in fundamental tension, and this tradeoff is at the heart of inference system configuration.
 
 One key mechanism impacting latency and throughput is **batching**.
-If you process requests one at a time, each request gets the lowest possible latency while being serviced –- there's no waiting to fill a batch, and the hardware is entirely dedicated to that single request.
+If you process requests one at a time, each request gets the lowest possible latency while being serviced --- there's no waiting to fill a batch, and the hardware is entirely dedicated to that single request.
 But the GPU is badly underutilized, especially during decode, where a single request doesn't generate enough arithmetic to keep the compute units busy.
 
 If instead you batch multiple requests together, the GPU can do more useful work per memory read.
@@ -198,7 +204,7 @@ Reading the model weights once and applying them to 32 requests in a batch is fa
 With larger batches, throughput goes up, but now each individual request might have to wait before processing begins, because the system is pausing to accumulate enough requests for a full batch.
 Also, each decode step takes slightly longer because there's more work per step, so with larger batches, latency goes up a little.
 
-![Throughput-latency curve showing how throughput gains diminish as latency increases. Data from @spheron2025benchmarks, benchmarking Llama 3.3 70B (FP8) on a single H100 with vLLM.](images/latency_throughput.svg){#fig-throughput-latency}
+![Throughput-latency curve showing how throughput gains diminish as latency increases. Data from @spheron2025benchmarks, benchmarking Llama 3.3 70B (FP8) on a single H100 system running vLLM.](images/latency_throughput.svg){#fig-throughput-latency}
 
 This tradeoff is not just theoretical.
 In production serving, batch configuration significantly impacts scheduler performance, as shown in @fig-throughput-latency.
@@ -209,7 +215,7 @@ Finding the right operating point depends on the application's requirements, whi
 ### Goodput
 
 Raw throughput doesn't tell the whole story.
-**Goodput** is throughput counting only responses that actually meet the application's requirements –- its service-level agreement (SLA).
+**Goodput** is throughput counting only responses that actually meet the application's requirements --- its service-level agreement (SLA).
 The SLA for a chat application might specify a maximum TTFT, a maximum TPOT, a maximum end-to-end latency, or some combination of these.
 
 A system can have impressive throughput numbers but poor goodput.
@@ -221,7 +227,7 @@ Goodput is the metric that connects basic system performance to whether users ar
 
 At scale, inference cost is often a key optimization target.
 **Cost per token** measures how much it costs in dollars (or GPU-hours) to generate one output token.
-It's roughly inversely proportional to throughput –- if you double your throughput on the same hardware, you halve your cost per token.
+It's roughly inversely proportional to throughput --- if you double your throughput on the same hardware, you halve your cost per token.
 This means that most of the techniques covered in this book that improve throughput will reduce cost.
 
 The picture gets more nuanced when you factor in different hardware devices (each with different cost and performance profiles), different precision formats, and the amortized cost of hardware across many workloads.
@@ -238,7 +244,7 @@ This metric was introduced in the PaLM paper [@chowdhery2022palm] and has become
 If your GPU can do 990 TFLOP/s at FP16, and your model computation actually achieves 300 TFLOP/s, your MFU is about 30%.
 
 MFU is most useful for characterizing compute-bound workloads like prefill.
-A low MFU during prefill suggests that something is preventing the GPU from doing math at full speed –- perhaps memory transfers, kernel launch overhead, or poorly shaped matrix multiplications.
+A low MFU during prefill suggests that something is preventing the GPU from doing math at full speed --- perhaps memory transfers, kernel launch overhead, or poorly shaped matrix multiplications.
 We'll see how to use the roofline model to reason about this precisely in @sec-bottleneck-framework.
 
 **Model Bandwidth Utilization (MBU)** is the analogous metric for memory bandwidth.
@@ -247,17 +253,17 @@ During decode, the bottleneck is typically how fast you can stream model weights
 If your GPU has 3.35 TB/s of HBM bandwidth and your decode step actually achieves 2.5 TB/s, your MBU is about 75%.
 
 MBU is a good diagnostic for decode activity.
-A low MBU during decode means the memory system is not being fully utilized –- perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management.
+A low MBU during decode means the memory system is not being fully utilized --- perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management.
 Together, MFU and MBU give you a quick read on whether your system is limited by compute efficiency, memory bandwidth efficiency, or something else entirely.
 Note that manufacturers often report peak compute and bandwidth numbers on very specific workloads that yield the highest numbers.
-You should not expect to get close to 100% MFU or MBU for any real world use case.
+You should not expect to get close to 100% MFU or MBU for real world use cases.
 
 ### Capacity metrics
 
 These metrics describe the system's resource utilization.
 
 **Concurrency** is the average number of in-flight requests the system is serving simultaneously.
-This is primarily bounded by GPU memory: each active request needs space for its KV cache, and the KV cache grows with sequence length.
+This is primarily constrained by GPU memory: each active request needs space for its KV cache, and the KV cache grows with sequence length.
 If your GPU has 80 GB of HBM and your model weights consume 30 GB, you have roughly 50 GB left for KV caches (minus some overhead).
 How many requests fit in that budget depends on the model architecture, the precision of the KV cache, and how long the sequences are.
 The scheduler policy dictates whether to reserve memory conservatively or to pack it more aggressively and risk running out of memory.
@@ -267,21 +273,20 @@ Usage is comprised of four components: model weights, KV cache, activations temp
 The weights are fixed once the model is loaded.
 Activations are transient and relatively small.
 The KV cache is the variable that dominates, and it scales with both concurrency and sequence length.
-We'll revisit this decomposition in detail in @sec-inference-pipeline.
 
 **Maximum sequence length supported** is the longest sequence (counting both input and output tokens) that the system can handle.
 Note that even if the model was trained to support 128K tokens, your deployment might be limited to 32K if that's all the KV cache memory you can afford while maintaining your target concurrency.
-This is usually a hard constraint that is set up front.
+This is usually a hard constraint that is set up front in the serving framework at the time the model is loaded.
 
 ### Preemption metrics
 
-When the system runs out of KV cache memory to serve all active requests, something has to give.
+When the system runs out of GPU memory to serve all active requests and their KV caches, something has to give.
 The scheduler may **preempt** a request, forcing it back to the waiting queue and freeing its KV cache entries to make more memory available.
-When the preempted request resumes, the system either recomputes its KV cache from scratch or stores it and swaps it back in later.
+When the preempted request resumes, the system either recomputes its KV cache from scratch or swaps back in the entries it saved in CPU main memory at the time of preemption.
 
 Three metrics diagnose preemption behavior: the **preemption rate** (how often preemption happens), **recomputation overhead** (the extra prefill work to rebuild evicted KV caches), and **swap latency** (the time to move KV cache data between GPU and CPU memory).
-These are important in high-load scenarios -- a system that preempts too aggressively can waste significant resources on preemption.
-We will cover preemption policies and their tradeoffs in detail when we discuss scheduling and memory management in @sec-production.
+These are important in high-load scenarios, because a system that preempts too aggressively can waste significant resources on preemption activity.
+We will cover preemption policies and their tradeoffs in more detail when we discuss scheduling and memory management in @sec-request-scheduling.
 
 ### Putting it all together
 
@@ -289,8 +294,6 @@ These metrics are not independent.
 Increasing batch size improves throughput and MBU but can hurt TTFT and TPOT.
 High concurrency improves throughput but can increase preemption rate.
 The art of inference optimization navigates these tradeoffs, trying to maximize user experience while minimizing cost.
-
-For a thorough treatment of how to measure these metrics reproducibly and avoid common benchmarking pitfalls, see @anyscale2024metrics.
 
 ## Workload Patterns {#sec-workloads}
 
@@ -317,7 +320,7 @@ For these requests serving systems will achieve the highest requests per minute,
 **Short input, long output** is what you get with creative writing, open-ended code generation, or detailed explanations.
 Prefill is still quick, but decode dominates the request's lifetime because the model has to generate hundreds or thousands of tokens sequentially.
 The KV cache grows with each decode step, so memory pressure increases over the life of the request.
-For the user, what matters here is the sustained token generation rate --- the TPOT we defined in @sec-metrics.
+For the user, what matters here is the sustained token generation rate --- the TPOT we defined in the last section.
 A slow decode loop means a long wait for the full response.
 
 **Long input, short output** is the pattern you see in summarization, information extraction, and retrieval-augmented generation (RAG).
@@ -353,18 +356,18 @@ This distinction changes which metrics you care about and how aggressively you c
 
 In **batch inference**, you have a known set of requests to process and no one is waiting on the other end for an immediate response.
 Maybe the user is scoring a dataset, generating synthetic training data, or running evaluations.
-The metric that matters most is **throughput** –- tokens per second across all requests –- and its close relative, **cost per token**.
+The metric that matters most is **throughput** --- tokens per second across all requests --- and its close relative, **cost per token**.
 Because there's no latency constraint, the goal is to take the time to plan the best way to minimize the total cost of processing these requests.
 You can fill batches to capacity, use cheaper or slower hardware, and let individual requests wait while the system finds the most efficient packing.
 Larger batches mean better GPU utilization, which means lower cost.
 
 In **real-time inference**, a user (or another system) is waiting for a response, and how fast that response arrives directly affects the experience.
-Here, the metrics from @sec-metrics that matter most are **TTFT** and **TPOT**.
+Here, the metrics that matter most are **TTFT** and **TPOT**.
 A chatbot that takes five seconds to start responding feels broken, even if its overall throughput is excellent.
 This means the serving system has to balance resource utilization against latency.
 You can't hold requests in a queue too long to form larger batches, because that increases TTFT for every waiting request.
 
-Some systems serve both kinds of traffic, and some offer different priority tiers -- high-priority real-time requests that get scheduled immediately, and lower-priority requests that can wait to fill in the gaps.
+Some systems serve both kinds of traffic, and some offer different priority tiers --- high-priority real-time requests that get scheduled immediately, and lower-priority requests that can wait to fill in the gaps.
 Batch inference is the easier workload to optimize for, so many of the optimizations in this book will focus on real-time latency issues.
 The concept of goodput really helps interpret system performance in a way that measures user experience.
 
@@ -375,7 +378,7 @@ Even in a real-time serving scenario, the demands on the system vary dramaticall
 
 If requests arrive at a steady, predictable rate, the system can maintain a stable batch size and keep GPU utilization relatively consistent.
 But real-world traffic is rarely that well-behaved.
-User-facing services see spikes –- a sudden surge after a product launch, peak hours during the workday, or a viral moment that sends traffic through the roof.
+User-facing services see spikes --- a sudden surge after a product launch, peak hours during the workday, or a viral moment that sends traffic through the roof.
 During a burst, the system has to either queue requests (increasing latency), drop them, or have enough spare capacity to absorb the spike.
 
 The arrival pattern also affects how well the scheduling system can batch requests together.
@@ -384,7 +387,7 @@ Requests that arrive in isolation may run in small, inefficient batches, wasting
 The more variable the arrival pattern, the harder it is to maintain consistently high utilization.
 We'll see in @sec-batching how modern schedulers use techniques like continuous batching to adapt dynamically to changing arrival patterns, rather than waiting for a fixed batch to fill up.
 
-In summary, understanding your workload –- the mix of input/output lengths, the latency requirements, and the arrival patterns –- is one step toward choosing the right optimizations.
+In summary, understanding your workload --- the mix of input/output lengths, the latency requirements, and the arrival patterns --- is one step toward choosing the right optimizations.
 A system tuned for batch summarization of long documents looks very different from one tuned for low-latency chatbot responses, even though they might be serving the same model.
 
 ## The Hardware Model and Bottleneck Framework {#sec-bottleneck-framework}
@@ -394,13 +397,12 @@ That's a good start, but to really be able to reason about optimizations more pr
 This section covers just enough GPU architecture to build that picture, then introduces the roofline model as a framework for categorizing compute and memory bandwidth bottlenecks.
 This won't be a GPU deep dive or programming tutorial.
 We'll cover just enough to understand inference performance quantitatively.
-In the next section, we'll close this chapter with a map of how the rest of the book addresses different classes of bottlenecks.
 
 ::: callout-note
 This book focuses on NVIDIA GPUs because they dominate the LLM inference landscape today.
 However, the bottleneck framework we're about to introduce applies equally to other hardware.
 For example, AMD's MI300X, Google's TPUs, and other accelerators all have different compute throughput ceilings and memory bandwidth limits, but the same approach to analyzing bottlenecks will work for those devices as well.
-We'll briefly survey alternative hardware in @sec-scaling when we discuss multi-device deployment.
+We will briefly address alternative hardware in @sec-scaling when we discuss multi-device deployment.
 :::
 
 ### GPU compute throughput
@@ -435,8 +437,8 @@ When you reduce the precision of model weights and activations, you're saving me
 
 Raw compute throughput only matters if you can feed data to the tensor cores fast enough.
 This is where the memory hierarchy comes in.
-A GPU has four levels of memory, shown in @fig-gpu-memory-hierarchy.
-As the closest levels are the fastest but also the smallest, and as the levels get larger, they get farther and slower, trading off speed for capacity.
+An NVIDIA GPU has four levels of memory, shown in @fig-gpu-memory-hierarchy.
+The closest levels are the fastest but also the smallest, and as the levels get larger, they get farther and slower, trading off speed for capacity.
 
 ![GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM with capacity and bandwidth at each level](images/gpu_memory_hierarchy.svg){#fig-gpu-memory-hierarchy .lightbox}
 
@@ -756,7 +758,7 @@ When we discuss batching strategies in @sec-batching, we'll see how continuous b
 When we discuss KV cache optimizations in @sec-kv-cache, we'll see how reducing KV cache memory enables larger batches.
 And when we discuss speculative decoding in @sec-speculative, we'll see how generating multiple tokens per decode step changes the numerator.
 
-### Map of the book
+## Map of the optimizations
 
 The next four chapters in this book each focus on a specific class of bottleneck and the techniques that address it:
 
@@ -778,7 +780,7 @@ The book concludes in @sec-production with a discussion of production LLM servin
 
 ## Further Reading
 
-The Anyscale blog post on reproducible performance metrics [@anyscale2024metrics] is a practical guide to measuring the metrics introduced in this chapter -- TTFT, TPOT, throughput, and goodput -- without falling into common benchmarking traps.
+The Anyscale blog post on reproducible performance metrics [@anyscale2024metrics] is a practical guide to LLM inference metrics, including many of the ones introduced in this chapter, such as TTFT, TPOT, throughput, and goodput.
 
 The NVIDIA Hopper architecture blog post [@nvidia2024hopper] provides detailed block diagrams of the H100's SM and full-chip layout, including the memory hierarchy, tensor core organization, and the Tensor Memory Accelerator.
 @gu2024gpusbrrr from Hazy Research gives a practitioner-oriented walkthrough of GPU memory levels with concrete bandwidth numbers at each tier, which is useful context for understanding why kernel design choices matter so much for inference performance.

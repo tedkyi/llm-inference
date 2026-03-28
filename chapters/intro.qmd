@@ -27,62 +27,30 @@ The first thing that happens is the LLM runs a single **forward pass** of the ne
 Text generation continues in a series of steps, one token at a time, with the entire process shown in @fig-inference-example:
 
 1.  In the next step, the predicted token **over** is appended to the end of the input text, and the model is fed **"The quick brown fox jumps over"**. In this step it predicts **the**.
-2.  Once again, the predicted token **the** is appended to the end, the model is fed **"The quick brown fox jumps over the"**, and it predicts **lazy**.
+2.  Once again, the predicted token, which is now **the**, is appended to the end, the model is fed **"The quick brown fox jumps over the"**, and it predicts **lazy**.
 3.  Continuing this process, the input **"The quick brown fox jumps over the lazy"** predicts **dog**.
 4.  Then, the input **"The quick brown fox jumps over the lazy dog"** outputs a special token **\<EOS\>**. The special token tells the LLM to stop the generation, and the completed response is returned to the user.
 
 In our very first step, the LLM is given all of our input tokens.
 In many cases, this input prompt can be quite long.
 Because we have so much new data to process, this initial step uses different computing resources than later steps.
-We will see in a moment that the first step is called the **prefill** step.
+This first step is called the **prefill**, and it has a high ratio of computation performed to volume of data used.
 
 The remaining steps each add only one new token to the inputs that the LLM has seen before.
-This has a different computing profile from the prefill.
+This has a different computing profile from the prefill, with a much lower ratio of computation performed to volume of data used.
 This portion is called the **decode** phase, and when a lot of text is generated, it requires many decode steps to complete generation of the response.
 
-This is the process that LLMs such as ChatGPT and Claude use to respond to our requests.
+This iterative token loop is the core process that LLMs such as ChatGPT and Claude use to respond to requests.
 In this book, we will dig deeper to understand the internals of this inference process, then explore techniques for improving it.
-
-```{=html}
-<!-- Figure: Show the prefill and decode steps for "The quick brown fox jumps"
-ASCII art sketch:
-  Input tokens:     [The] [quick] [brown] [fox] [jumps]
-                         |
-                    Prefill (one forward pass)
-                         |
-                         v
-                      [over]          ← first output token
-                         |
-                    Decode step 1
-                         |
-                         v
-                      [the]
-                         |
-                    Decode step 2
-                         |
-                         v
-                      [lazy]
-                         |
-                    Decode step 3
-                         |
-                         v
-                      [dog]
-                         |
-                    Decode step 4
-                         |
-                         v
-                      [EOS]           ← stop
--->
-```
 
 ### Why inference optimization matters
 
 That simple loop — run the model, get a token, repeat — sounds straightforward.
 But the raw cost of running it naively is staggering.
 A 70-billion-parameter model stores its weights in about 140 GB of GPU memory (at 2 bytes per parameter).
-Every single decode step has to read through all of those weights just to produce one token.
-Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU, and frontier models like Gemini, believed to be ten times larger, would be below 2 tokens per second.
-Run that for one user at a time with no batching, and you've got an extremely expensive system that can barely output faster than one person can read, while also leaving most of the GPU's capability unused.
+Every single decode step has to, at a minimum, read through all of those weights just to produce one token.
+Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU, and frontier models like Gemini, which are believed to be ten times larger, would be below 2 tokens per second.
+Run that for one user at a time with no batching, and you've got an extremely expensive system that can barely output faster than one person can read, while also leaving most of the GPU's computational capability unused.
 
 The situation gets much better with the right techniques.
 Modern serving frameworks like vLLM and SGLang apply a combination of the optimizations covered in this book — smarter batching, memory management, kernel optimization, and more — and the results are dramatic.

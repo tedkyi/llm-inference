@@ -67,6 +67,7 @@ format:
         \definecolor{dim-v}{HTML}{D97706}
         \definecolor{dim-l}{HTML}{8B4513}
         \definecolor{dim-hkv}{HTML}{C084FC}
+        \definecolor{dim-one}{HTML}{F9A8D4}
         \definecolor{edge-dk}{HTML}{93C5FD}
         \definecolor{edge-default}{HTML}{1E3A5F}
         \definecolor{fill-neutral}{HTML}{F3F4F6}
@@ -93,6 +94,7 @@ format:
         \newcommand{\dimb}[1]{\textcolor{black}{#1}}
         \newcommand{\diml}[1]{\textcolor{dim-l}{#1}}
         \newcommand{\dimhkv}[1]{\textcolor{dim-hkv}{#1}}
+        \newcommand{\dimone}[1]{\textcolor{dim-one}{#1}}
         \let\realmainmatter\mainmatter
         \renewcommand{\mainmatter}{}
     filters:

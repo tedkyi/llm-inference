@@ -18,6 +18,7 @@ local span_colors = {
   ["dim-v"]  = "dim-v",
   ["dim-l"]  = "dim-l",
   ["dim-hkv"] = "dim-hkv",
+  ["dim-one"] = "dim-one",
 }
 
 -- Macro name → hex color (for math expansion in HTML)
@@ -31,6 +32,7 @@ local math_macros = {
   dimb  = "#000000",
   diml  = "#8B4513",
   dimhkv = "#C084FC",
+  dimone = "#F9A8D4",
 }
 
 -- Prose spans: [S]{.dim-s} → \textcolor for PDF

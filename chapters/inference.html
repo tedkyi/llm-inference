@@ -337,7 +337,7 @@ window.Quarto = {
 </header>
 
 
-<p>Now that we are familiar with the decoder-only LLM and how data flows through it, let’s go deeper into the autoregressive nature of vanilla text generation and discuss how to quantify its performance. We will develop an understanding of the stages of inference, how we measure inference, and the performance model that underlies our computing hardware, in particular GPUs.</p>
+<p>Now that we are familiar with the decoder-only LLM and how data flows through it, let’s go deeper into the autoregressive nature of standard text generation and discuss how to quantify its performance. We will develop an understanding of the stages of inference, how we measure inference, and the performance model that underlies our computing hardware, in particular GPUs.</p>
 <section id="sec-inference-pipeline" class="level2" data-number="3.1">
 <h2 data-number="3.1" class="anchored" data-anchor-id="sec-inference-pipeline"><span class="header-section-number">3.1</span> The Inference Pipeline</h2>
 <p>From the time you send a prompt to an LLM until you get a response back, a lot happens between those two moments. The full journey of a single request breaks down into a few stages. Some of these are one-time setup costs, some happen once per request, and some repeat for every output token. Understanding the characteristics of the stages will help you focus your attention on the ones that actually dominate wall-clock time. In this section, as with most of the book, we will assume the LLM is running on a computer with a GPU. The principles will be the same if it is running on CPU, TPU, or other hardware.</p>

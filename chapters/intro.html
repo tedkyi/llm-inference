@@ -302,46 +302,17 @@ Figure&nbsp;1.2: An example LLM response for the prompt “The quick brown fox j
 <p>Text generation continues in a series of steps, one token at a time, with the entire process shown in <a href="#fig-inference-example" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>:</p>
 <ol type="1">
 <li>In the next step, the predicted token <strong>over</strong> is appended to the end of the input text, and the model is fed <strong>“The quick brown fox jumps over”</strong>. In this step it predicts <strong>the</strong>.</li>
-<li>Once again, the predicted token <strong>the</strong> is appended to the end, the model is fed <strong>“The quick brown fox jumps over the”</strong>, and it predicts <strong>lazy</strong>.</li>
+<li>Once again, the predicted token, which is now <strong>the</strong>, is appended to the end, the model is fed <strong>“The quick brown fox jumps over the”</strong>, and it predicts <strong>lazy</strong>.</li>
 <li>Continuing this process, the input <strong>“The quick brown fox jumps over the lazy”</strong> predicts <strong>dog</strong>.</li>
 <li>Then, the input <strong>“The quick brown fox jumps over the lazy dog”</strong> outputs a special token <strong>&lt;EOS&gt;</strong>. The special token tells the LLM to stop the generation, and the completed response is returned to the user.</li>
 </ol>
-<p>In our very first step, the LLM is given all of our input tokens. In many cases, this input prompt can be quite long. Because we have so much new data to process, this initial step uses different computing resources than later steps. We will see in a moment that the first step is called the <strong>prefill</strong> step.</p>
-<p>The remaining steps each add only one new token to the inputs that the LLM has seen before. This has a different computing profile from the prefill. This portion is called the <strong>decode</strong> phase, and when a lot of text is generated, it requires many decode steps to complete generation of the response.</p>
-<p>This is the process that LLMs such as ChatGPT and Claude use to respond to our requests. In this book, we will dig deeper to understand the internals of this inference process, then explore techniques for improving it.</p>
-<!-- Figure: Show the prefill and decode steps for "The quick brown fox jumps"
-ASCII art sketch:
-  Input tokens:     [The] [quick] [brown] [fox] [jumps]
-                         |
-                    Prefill (one forward pass)
-                         |
-                         v
-                      [over]          ← first output token
-                         |
-                    Decode step 1
-                         |
-                         v
-                      [the]
-                         |
-                    Decode step 2
-                         |
-                         v
-                      [lazy]
-                         |
-                    Decode step 3
-                         |
-                         v
-                      [dog]
-                         |
-                    Decode step 4
-                         |
-                         v
-                      [EOS]           ← stop
--->
+<p>In our very first step, the LLM is given all of our input tokens. In many cases, this input prompt can be quite long. Because we have so much new data to process, this initial step uses different computing resources than later steps. This first step is called the <strong>prefill</strong>, and it has a high ratio of computation performed to volume of data used.</p>
+<p>The remaining steps each add only one new token to the inputs that the LLM has seen before. This has a different computing profile from the prefill, with a much lower ratio of computation performed to volume of data used. This portion is called the <strong>decode</strong> phase, and when a lot of text is generated, it requires many decode steps to complete generation of the response.</p>
+<p>This iterative token loop is the core process that LLMs such as ChatGPT and Claude use to respond to requests. In this book, we will dig deeper to understand the internals of this inference process, then explore techniques for improving it.</p>
 </section>
 <section id="why-inference-optimization-matters" class="level3">
 <h3 class="anchored" data-anchor-id="why-inference-optimization-matters">Why inference optimization matters</h3>
-<p>That simple loop — run the model, get a token, repeat — sounds straightforward. But the raw cost of running it naively is staggering. A 70-billion-parameter model stores its weights in about 140 GB of GPU memory (at 2 bytes per parameter). Every single decode step has to read through all of those weights just to produce one token. Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU, and frontier models like Gemini, believed to be ten times larger, would be below 2 tokens per second. Run that for one user at a time with no batching, and you’ve got an extremely expensive system that can barely output faster than one person can read, while also leaving most of the GPU’s capability unused.</p>
+<p>That simple loop — run the model, get a token, repeat — sounds straightforward. But the raw cost of running it naively is staggering. A 70-billion-parameter model stores its weights in about 140 GB of GPU memory (at 2 bytes per parameter). Every single decode step has to, at a minimum, read through all of those weights just to produce one token. Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU, and frontier models like Gemini, which are believed to be ten times larger, would be below 2 tokens per second. Run that for one user at a time with no batching, and you’ve got an extremely expensive system that can barely output faster than one person can read, while also leaving most of the GPU’s computational capability unused.</p>
 <p>The situation gets much better with the right techniques. Modern serving frameworks like vLLM and SGLang apply a combination of the optimizations covered in this book — smarter batching, memory management, kernel optimization, and more — and the results are dramatic. In one benchmark, an unoptimized serving setup on an A100 GPU achieved about 80 tokens per second for a 13B model. The same model served through vLLM achieved roughly 1,900 tokens per second — a 23x improvement <span class="citation" data-cites="anyscale2024batching">(<a href="references.html#ref-anyscale2024batching" role="doc-biblioref">Anyscale 2024</a>)</span>. On newer hardware, optimized frameworks routinely serve models like Llama 3 8B at over 16,000 tokens per second on a single H100 GPU, with per-token latencies in the single-digit milliseconds.</p>
 <p>These aren’t gains from better hardware. They come from understanding the bottlenecks in the LLM inference pipeline and systematically eliminating them. That’s what this book is about.</p>
 </section>

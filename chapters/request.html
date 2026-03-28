@@ -513,6 +513,7 @@ Figure&nbsp;6.3: Paged attention
 <p>The KV cache formula above assumed FP16 storage. If you store keys and values in INT8 or FP8 instead, you immediately halve the memory per token. For our 70B model example, that drops per-request KV cache memory from 1.28 GB to 640 MB at 4K sequence length.</p>
 <p>KV cache quantization is separate from weight quantization (<a href="model-design.html#sec-quantization" class="quarto-xref"><span>Section 4.1</span></a>). The model weights can be in one precision while the KV cache is stored in another. In practice, many deployments run model weights in INT4 or FP8 while keeping the KV cache in FP8 or INT8 – different components have different sensitivity to precision loss.</p>
 <p>The quality impact is generally small. Keys and values are intermediate activations, not learned parameters, and small quantization errors in individual KV entries tend to average out across the many entries involved in an attention computation. The tradeoff is straightforward: half the memory for a small and often negligible reduction in output quality.</p>
+<p>One research paper garnering a lot of interest is <strong>TurboQuant</strong> <span class="citation" data-cites="zandieh2025turboquant">(<a href="references.html#ref-zandieh2025turboquant" role="doc-biblioref">Zandieh et al. 2025</a>)</span>. Rather than simply choosing a new datatype, they use techniques like rotations and vector quantization to compress entries. They report succes squeezing entries down to 3.5 bits without hurting LLM performance. Given that decoding is bandwidth bound, reductions in KV cache size provide close to linear speedups.</p>
 </section>
 <section id="kv-cache-compression" class="level3">
 <h3 class="anchored" data-anchor-id="kv-cache-compression">KV cache compression</h3>
@@ -763,6 +764,9 @@ Yang, Nan, Tao Ge, Liang Wang, et al. 2023. <span>“Inference with Reference: L
 </div>
 <div id="ref-yuan2025nsa" class="csl-entry" role="listitem">
 <span class="nocase">Yuan, Jingyang et al.</span> 2025. <span>“Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention.”</span> <em>arXiv Preprint arXiv:2502.11089</em>. <a href="https://arxiv.org/abs/2502.11089">https://arxiv.org/abs/2502.11089</a>.
+</div>
+<div id="ref-zandieh2025turboquant" class="csl-entry" role="listitem">
+Zandieh, Amir, Majid Daliri, Majid Hadian, and Vahab Mirrokni. 2025. <span>“<span>TurboQuant</span>: Online Vector Quantization with Near-Optimal Distortion Rate.”</span> <em>ICLR</em>. <a href="https://arxiv.org/abs/2504.19874">https://arxiv.org/abs/2504.19874</a>.
 </div>
 <div id="ref-zheng2023sglang" class="csl-entry" role="listitem">
 <span class="nocase">Zheng, Lianmin, Liangsheng Yin, Zhiqiang Xie, et al.</span> 2023. <span>“<span>SGLang</span>: Efficient Execution of Structured Language Model Programs.”</span> <em>arXiv Preprint arXiv:2312.07104</em>. <a href="https://arxiv.org/abs/2312.07104">https://arxiv.org/abs/2312.07104</a>.

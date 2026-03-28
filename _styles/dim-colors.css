@@ -7,6 +7,7 @@
 .dim-v  { color: #CA8A04; }  /* Vocabulary V           — golden yellow */
 .dim-l  { color: #8B4513; }  /* Number of layers L     — brown  */
 .dim-hkv { color: #C084FC; } /* KV heads H_KV          — lilac  */
+.dim-one { color: #F9A8D4; } /* Scalar / single dim 1  — pink   */
 
 /* Viewport-relative image sizing */
 .vh-75 img {

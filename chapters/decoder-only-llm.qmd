@@ -348,16 +348,6 @@ $$\text{Output}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_{\dimh{H}}
 The full self-attention block transformed an input of shape **([S]{.dim-s}, [D]{.dim-d})** to an output of the same shape **([S]{.dim-s}, [D]{.dim-d})**.
 The shape is preserved.
 
-```{=html}
-<!-- FIGURE 4: Complete Self-Attention Data Flow with Tensor Shapes
-    PARAMETER COUNT for one attention layer:
-    W_Q: D × D  =  67M
-    W_K: D × D  =  67M   (with MHA; fewer with GQA)
-    W_V: D × D  =  67M   (with MHA; fewer with GQA)
-    W_O: D × D  =  67M
-    Total: 4 × D² = 4 × 8192² ≈ 268M parameters
--->
-```
 ### Parameter count
 
 For standard multi-head attention with **[D]{.dim-d}** = 8192, the parameter count per layer is:
@@ -493,17 +483,6 @@ When an element of the gate is 0, the corresponding up projection element is zer
 When an element of the gate is 1, the corresponding up projection element is passed through as is.
 The gated up projection result is then projected down back to **[D]{.dim-d}**.
 
-```{=html}
-<!-- FIGURE 8: SwiGLU Gated MLP Data Flow
-
-    For Llama 70B: D = 8192, F = 28672 ≈ (8/3) × D
-    Total: 3 × 8192 × 28672 ≈ 704M parameters per layer
-
-    Note: F ≈ (8/3)D is chosen so that 3DF ≈ 8D²,
-    keeping total parameters roughly equal to the standard 2×4D² = 8D² MLP.
--->
-```
-
 Why go from two weight matrices to three?
 The gating mechanism has been shown empirically to improve model quality for a given parameter budget [@shazeer2020glu].
 The intermediate dimension **[F]{.dim-f}** is adjusted downward (from $4\dimd{\text{D}}$ to roughly $\frac{8}{3}\dimd{\text{D}}$) to keep the total parameter count approximately equal: $3 \times \dimd{\text{D}} \times \frac{8}{3}\dimd{\text{D}} = 8\dimd{\text{D}}^2$, the same as the standard FFN's $2 \times \dimd{\text{D}} \times 4\dimd{\text{D}} = 8\dimd{\text{D}}^2$ parameters. 
@@ -529,28 +508,6 @@ They also have the concepts of always-on experts called **shared experts**. @Fig
 
 The outputs of the selected experts are combined using the router's SoftMax weights.
 
-```{=html}
-<!-- FIGURE 9: MoE Router and Expert Selection
-    EXAMPLE: Mixtral 8×7B
-    ─────────────────────────────────
-    N_experts = 8, top-k = 2
-    Each expert ≈ 7B params (an MLP)
-    Total MLP params: 8 × 7B = 56B  (but only 2 experts active per token)
-    Active params per token: 2 × 7B = 14B
-    Total model params: ~47B (including attention, embeddings)
-    Active params per token: ~13B
-
-    INFERENCE IMPLICATIONS:
-    • Memory footprint: ALL expert weights must be in memory → large
-    • Per-token compute: only k experts run → modest
-    • Expert parallelism: different experts on different GPUs → all-to-all communication
-    • Load balancing: if tokens cluster on few experts → uneven GPU utilization
-
-    Figure should show inactive experts grayed out.
-    Show the sparse activation pattern with filled/empty blocks.
-    Annotate total vs. active parameter counts.
--->
-```
 ![Data flow of weights and activations in an MoE MLP layer. This figure depicts a model with 6 experts, 2 of which are active.](images/moe_flow.svg){#fig-moe-flow .lightbox}
 
 The key trade-off of MoE for inference is clear: **memory footprint is large** (all expert weights must reside in GPU memory) but **per-token compute is modest** (only $k$ of **E** experts are active and consuming FLOPS).

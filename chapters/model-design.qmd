@@ -222,8 +222,8 @@ This reduces the KV cache by a factor equal to the number of heads -- from 32 se
 The quality impact is generally small for large models, and the inference speedup -- especially for long sequences with many concurrent requests -- can be substantial.
 
 **Grouped-Query Attention (GQA)** [@ainslie2023gqa] is a middle ground between MHA and MQA.
-Instead of one shared KV set for all heads, GQA uses $G$ groups, where each group of heads shares one set of keys and values.
-With 32 heads and $G = 8$ groups, the KV cache is reduced by 4x compared to MHA.
+Instead of one shared KV set for all heads, GQA uses **G** groups, where each group of heads shares one set of keys and values.
+With 32 heads and **G** = 8 groups, the KV cache is reduced by 4x compared to MHA.
 GQA has become the dominant choice in recent models -- LLaMA 3, Mistral, and Gemma all use it.
 It offers most of MQA's memory savings with less quality risk.
 A GQA example with 8 query heads and 4 groups is shown on the second row of @fig-kv-variants.

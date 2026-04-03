@@ -269,23 +269,9 @@ Even with continuous batching, there's still a source of waste: when requests in
 Instead of a padded batch tensor of shape $[B, S_{\text{max}}]$ where shorter sequences waste compute on pad tokens, ragged batching creates a packed tensor of shape $[T_{\text{total}}]$ where $T_{\text{total}}$ is the sum of all actual token counts.
 An index array tracks where each request's tokens begin and end, and the attention mask ensures that tokens from one request can't attend to tokens from another.
 
-```{=html}
-<!-- Figure: Ragged batching vs. padded batching
-ASCII art sketch:
-Padded batching:                    Ragged batching:
-+---+---+---+---+---+---+          +---+---+---+---+---+---+---+---+---+
-| A | A | A | A |pad|pad|          | A | A | A | A | B | B | C | C | C |
-+---+---+---+---+---+---+          +---+---+---+---+---+---+---+---+---+
-| B | B |pad|pad|pad|pad|           No padding, tokens packed contiguously
-+---+---+---+---+---+---+          Index: A=[0:4], B=[4:6], C=[6:9]
-| C | C | C |pad|pad|pad|
-+---+---+---+---+---+---+
-  6 pad tokens wasted
--->
-```
 ![Ragged batching compared to simple batching with padding](images/ragged_batching.svg){#fig-ragged-batching .lightbox}
 
-![Causl mask for ragged batching. The dashed squres show the portions applicable to each of the requests.](images/ragged_mask.svg){#fig-ragged-mask .lightbox}
+![Causal mask for ragged batching. The dashed squares show the portions applicable to each of the requests.](images/ragged_mask.svg){#fig-ragged-mask .lightbox}
 
 This matters most during prefill, where the input lengths across requests can vary widely.
 A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching.

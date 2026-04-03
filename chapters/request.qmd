@@ -78,8 +78,8 @@ ASCII art sketch:
 
 ![FlashAttention keeps all intermediate results on-chip --- only two HBM transfers instead of six](images/flash_attn_hbm.svg){#fig-flash-attention .lightbox}
 
-The result: HBM traffic drops from $O(S^2)$ to $O(S \cdot d)$ for the attention matrix, where $d$ is the head dimension (typically 64 or 128).
-For a 4K sequence with $d=128$, that's a reduction from 16.7 million elements to about 524K elements -- roughly a 32x reduction in memory traffic for the attention intermediates.
+The result: HBM traffic drops from $O(S^2)$ to $O(\dims{\text{S}} \cdot \dimdk{d_K})$ for the attention matrix, where $\dimdk{d_K}$ is the head dimension (typically 64 or 128).
+For a 4K sequence with $\dimdk{d_K}=128$, that's a reduction from 16.7 million elements to about 524K elements -- roughly a 32x reduction in memory traffic for the attention intermediates.
 
 Here's the counterintuitive part: FlashAttention actually performs *more* FLOPs than standard attention.
 The online softmax rescaling adds extra multiply-accumulate operations.
@@ -87,8 +87,8 @@ But wall-clock time drops substantially because the bottleneck was never the ari
 By trading a small increase in compute for a large decrease in memory movement, FlashAttention lands in a much better spot on the roofline.
 
 FlashAttention applies to both prefill and decode.
-During prefill, the sequence length $S$ is large (the full prompt), so the $O(S^2)$ savings are dramatic.
-During decode, $S$ is just 1 for the query (the new token), but the key and value sequences span the entire context, so the tiled approach still avoids unnecessary intermediate writes.
+During prefill, the sequence length **[S]{.dim-s}** is large (the full prompt), so the $O(\dims{\text{S}}^2)$ savings are dramatic.
+During decode, **[S]{.dim-s}** is just 1 for the query (the new token), but the key and value sequences span the entire context, so the tiled approach still avoids unnecessary intermediate writes.
 
 ### FlashAttention v1, v2, and v3
 
@@ -182,18 +182,15 @@ This section covers the core techniques for reducing KV cache memory pressure.
 
 ### KV cache memory formula
 
-For a model with $L$ layers, $n_{kv}$ KV heads per layer, and head dimension $d_h$, each token adds the following to the KV cache:
+For a model with **[L]{.dim-l}** layers, $n_{kv}$ KV heads per layer, and head dimension $\dimdk{d_K}$, each token adds the following to the KV cache:
 
-$$\text{bytes per token} = 2 \times L \times n_{kv} \times d_h \times b_{\text{dtype}}$$
+$$\text{bytes per token} = 2 \times \diml{\text{L}} \times n_{kv} \times \dimdk{d_K} \times b_{\text{dtype}}$$
 
 The factor of 2 accounts for both keys and values. $b_{\text{dtype}}$ is the bytes per element (2 for FP16/BF16, 1 for FP8/INT8).
 
-For a concrete example, consider a 70B parameter model with $L = 80$ layers, $n_{kv} = 8$ GQA heads (see @sec-efficient-attention), $d_h = 128$, stored in FP16:
+For a concrete example, consider a 70B parameter model with [L]{.dim-l} = 80 layers, $n_{kv} = 8$ GQA heads (see @sec-efficient-attention), $\dimdk{d_K} = 128$, stored in FP16:
 
-$$\text{bytes per token} = 2 \times 80 \times 8 \times 128 \times 2 = 327{,}680 \text{ bytes} \approx 320 \text{ KB}$$
-
-For a sequence of 4,096 tokens, that's about 1.28 GB per request.
-If you want to serve 32 concurrent requests, you need roughly 41 GB just for KV caches -- and that's before model weights, activations, and framework overhead.
+$$\text{bytes per token} = 2 \times \diml{\text{L}} \times n_{kv} \times \dimdk{d_K} \times b_{\text{dtype}}$$
 On an 80 GB GPU that's already holding 35 GB of model weights (a 70B model in INT4), you're already over budget.
 
 This arithmetic is why KV cache management is critical.
@@ -453,7 +450,7 @@ Speculative decoding uses a separate draft model (or separate heads) to propose 
 ### Lookahead decoding
 
 **Lookahead decoding** [@fu2024lookahead] reformulates autoregressive generation as a fixed-point problem.
-Instead of generating tokens one at a time, it maintains a window of $W$ future token positions, initialized with guesses.
+Instead of generating tokens one at a time, it maintains a window of **W** future token positions, initialized with guesses.
 Then it iteratively refines all positions in parallel using **Jacobi iteration**: at each step, every position computes what its token should be given the current values of all other positions.
 When the sequence converges -- that is, when a contiguous run of positions doesn't change between iterations -- those tokens are accepted.
 
@@ -462,7 +459,7 @@ Common phrases, syntactic patterns, and function words often converge quickly.
 The tokens that take many iterations to converge are the "surprising" ones -- the genuinely creative or informative tokens.
 
 Lookahead decoding requires no draft model, no extra parameters, and no changes to the base model.
-The tradeoff is that each Jacobi iteration involves a forward pass over $W$ token positions, which is more expensive than a single-token decode step.
+The tradeoff is that each Jacobi iteration involves a forward pass over **W** token positions, which is more expensive than a single-token decode step.
 The method wins when enough tokens converge quickly to offset the cost of processing the wider window.
 
 ### Medusa

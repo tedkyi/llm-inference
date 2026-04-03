@@ -745,7 +745,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>This is why quantization has such a dramatic effect on decode speed. If you quantize the weights from FP16 (2 bytes) to INT4 (0.5 bytes), the weight data drops from 140 GB to 35 GB. The minimum decode step time drops to <span class="math inline">\(35 / 3{,}350 \approx 10.4\)</span> ms, roughly 4x faster. The arithmetic intensity goes from 1 to 4 FLOP/byte – still far below the INT4 ridge point, so you’re still bandwidth-bound, but you’ve reduced by 4x the bandwidth needed. So, not only does quantization help fit models into GPU memory, it also speeds up inference. We’ll cover quantization in detail in <a href="model-design.html#sec-quantization" class="quarto-xref"><span>Section 4.1</span></a>.</p>
+<p>This is why quantization has such a dramatic effect on decode speed. If you quantize the weights from FP16 (2 bytes) to INT4 (0.5 bytes), the weight data drops from 140 GB to 35 GB. The minimum decode step time drops to <span class="math inline">\(35 / 3{,}350 \approx 10.4\)</span> ms, roughly 4x faster. The arithmetic intensity goes from 1 to 4 FLOP/byte — still far below the INT4 ridge point, so you’re still bandwidth-bound, but you’ve reduced by 4x the bandwidth needed. So, not only does quantization help fit models into GPU memory, it also speeds up inference. We’ll cover quantization in detail in <a href="model-design.html#sec-quantization" class="quarto-xref"><span>Section 4.1</span></a>.</p>
 </div>
 </div>
 </section>
@@ -835,7 +835,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>This first order analysis ignores the KV cache reads, which do scale with batch size – each request has its own KV cache. At large batch sizes with long sequences, the KV cache bandwidth can become a significant additional cost. It also ignores the memory capacity constraint: each active request’s KV cache occupies HBM, so the maximum batch size is limited by how many KV caches fit in memory alongside the model weights.</p>
+<p>This first order analysis ignores the KV cache reads, which do scale with batch size, since each request has its own KV cache. At large batch sizes with long sequences, the KV cache bandwidth can become a significant additional cost. It also ignores the memory capacity constraint: each active request’s KV cache occupies HBM, so the maximum batch size is limited by how many KV caches fit in memory alongside the model weights.</p>
 </div>
 </div>
 <p>To push the arithmetic intensity above the ridge point and become compute-bound, you’d need a batch size of about 295 for FP16 weights on the H100. In practice, memory capacity limits usually prevent batch sizes this large for big models. A 70B model with 140 GB of weights leaves only ~40 GB for KV caches on an 80 GB GPU. If each request’s KV cache is 1.5 GB, you can fit about 26 concurrent requests – far short of the 295 needed to hit the ridge point. This is why decode for large models remains memory-bandwidth-bound even with batching, and why the optimizations in <a href="request.html#sec-kv-cache" class="quarto-xref"><span>Section 6.3</span></a> for reducing KV cache memory usage are so important – they enable larger batch sizes, which improves throughput.</p>

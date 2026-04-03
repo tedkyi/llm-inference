@@ -636,7 +636,7 @@ In practice, accounting for KV cache reads and other overhead, you might see 15-
 This is why quantization has such a dramatic effect on decode speed.
 If you quantize the weights from FP16 (2 bytes) to INT4 (0.5 bytes), the weight data drops from 140 GB to 35 GB.
 The minimum decode step time drops to $35 / 3{,}350 \approx 10.4$ ms, roughly 4x faster.
-The arithmetic intensity goes from 1 to 4 FLOP/byte -- still far below the INT4 ridge point, so you're still bandwidth-bound, but you've reduced by 4x the bandwidth needed.
+The arithmetic intensity goes from 1 to 4 FLOP/byte --- still far below the INT4 ridge point, so you're still bandwidth-bound, but you've reduced by 4x the bandwidth needed.
 So, not only does quantization help fit models into GPU memory, it also speeds up inference.
 We'll cover quantization in detail in @sec-quantization.
 :::
@@ -715,7 +715,7 @@ At batch size 128, you're still bandwidth-bound but now generating 128 tokens pe
 Each individual request still sees about 24 tokens/s (the step time is the same because we're reading the same weight data), but the system throughput has increased 128x.
 
 ::: callout-note
-This first order analysis ignores the KV cache reads, which do scale with batch size -- each request has its own KV cache.
+This first order analysis ignores the KV cache reads, which do scale with batch size, since each request has its own KV cache.
 At large batch sizes with long sequences, the KV cache bandwidth can become a significant additional cost.
 It also ignores the memory capacity constraint: each active request's KV cache occupies HBM, so the maximum batch size is limited by how many KV caches fit in memory alongside the model weights.
 :::

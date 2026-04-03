@@ -83,7 +83,7 @@ One aspect of the data flow that is not yet captured in this diagram is that the
 All of the other blocks, such as embedding or FFN, process each token position's input in the same way, regardless of what is in other token positions.
 Masked multi-head attention looks at information from the other token positions, so we add an orange line in @fig-model-attn-comm to explicitly show that data flows from earlier tokens to all later tokens.
 Wiring up separate vertical stacks would also require connecting attention layers in this way.
-We are modeling this conceptually at this time, but we will see in @sec-kv-cache-intro that a fundamental optimization will implement this orange path in data store called the KV cache.
+We are modeling this conceptually at this time, and we will see in @sec-kv-cache-intro that a fundamental optimization will implement this orange path in data store called the KV cache.
 
 ![Concept of LLM model being copied for each token position, with attention communication added.](images/full_model_attn_comm.svg){#fig-model-attn-comm .lightbox}
 
@@ -145,7 +145,7 @@ As a reminder, in this book we are using the simpler notation of non-batched pro
 (For batched processing, the input shape would be **(B, [S]{.dim-s})**.)
 The value of **[S]{.dim-s}** varies.
 **[S]{.dim-s}** starts as the length of the prompt, and it increases as generated tokens are appended.
-It is reasonable that **[S]{.dim-s}** might be less than **[D]{.dim-d}** at the beginning of generation, but then **[S]{.dim-s}** grows to be greater than **[D]{.dim-d}** by the end of generating a long response.
+It is reasonable that **[S]{.dim-s}** might be less than **[D]{.dim-d}** at the beginning of generation, and then **[S]{.dim-s}** grows to be greater than **[D]{.dim-d}** by the end of generating a long response.
 
 ### The full model
 

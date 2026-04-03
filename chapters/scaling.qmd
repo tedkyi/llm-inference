@@ -25,29 +25,8 @@ That's roughly 7x the bandwidth of PCIe Gen5.
 In an 8-GPU node like the NVIDIA DGX H100, an **NVSwitch** fabric connects all GPUs in a full-mesh topology, so any GPU can communicate with any other GPU at the full NVLink bandwidth without going through intermediate hops.
 This is critical for collective operations like all-reduce, where every GPU needs to exchange data with every other GPU.
 
-```{=html}
-<!-- Figure: 8-GPU DGX H100 node topology
-ASCII art sketch:
 
-        ┌──────────────────────────────────────┐
-        │            NVSwitch Fabric            │
-        │   (full bisection bandwidth)          │
-        └──┬───┬───┬───┬───┬───┬───┬───┬───────┘
-           │   │   │   │   │   │   │   │
-         ┌─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┐
-         │GPU│GPU│GPU│GPU│GPU│GPU│GPU│GPU│
-         │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │
-         └─┬─┴─┬─┴─┬─┴─┬─┴───┴───┴───┴───┘
-           │   │   │   │
-         ┌─┴───┴───┴───┴─┐
-         │   PCIe Switch   │──── CPU, NIC, NVMe
-         └─────────────────┘
-
-  Each GPU ↔ NVSwitch: 900 GB/s bidirectional (NVLink)
-  Each GPU ↔ PCIe:     128 GB/s bidirectional (Gen5 x16)
--->
-```
-![Intra-node and inter-node connections](images/under_construction.jpg){#fig-interconnect .lightbox}
+![Intra-node and inter-node connections](images/interconnect.svg){#fig-interconnect .lightbox}
 
 ### PCIe
 
@@ -156,7 +135,7 @@ We start with the simple FFN block and show attention next.
 ### Multi-head attention under TP
 
 Attention is naturally suited to tensor parallelism because the heads are independent.
-With $H$ attention heads split across $T$ GPUs, each GPU handles $H/T$ heads.
+With **[H]{.dim-h}** attention heads split across **T** GPUs, each GPU handles **[H]{.dim-h}**/**T** heads.
 The Q, K, and V projection matrices are split column-parallel by head, each GPU computes attention for its local heads, and the output projection is row-parallel with an all-reduce to combine results.
 This effect is depicted in @fig-tp-attn with 2-way tensor parallelism for the attention layer.
 
@@ -168,15 +147,15 @@ For example, with 8 KV head groups split across 8 GPUs with TP=8, each GPU holds
 
 ### Communication cost
 
-The all-reduce operation sums tensors across all $T$ GPUs.
+The all-reduce operation sums tensors across all **T** GPUs.
 Using the ring all-reduce algorithm, the communication volume per all-reduce is approximately:
 
-$$V_{\text{all-reduce}} = 2 \times \frac{T-1}{T} \times d_{\text{model}} \times b \times \text{bytes\_per\_element}$$
+$$V_{\text{all-reduce}} = 2 \times \frac{T-1}{T} \times \dimd{D} \times \text{bytes\_per\_element}$$
 
-where $b$ is the batch size (in tokens) and the factor of 2 accounts for the reduce-scatter and all-gather phases.
-With two all-reduces per transformer layer and $L$ layers, the total communication per forward pass is $2L$ all-reduce operations.
+where the factor of 2 accounts for the reduce-scatter and all-gather phases.
+With two all-reduces per transformer layer and **[L]{.dim-l}** layers, the total communication per forward pass is 2**[L]{.dim-l}** all-reduce operations.
 
-For a 70B model with $d_{\text{model}} = 8192$ and TP=8 on H100 NVLink (900 GB/s), each all-reduce for a single-token decode step moves roughly 2 × 8192 × 2 bytes ≈ 32 KB.
+For a 70B model with **[D]{.dim-d}** = 8192 and TP=8 on H100 NVLink (900 GB/s), each all-reduce for a single-token decode step moves roughly 2 × 8192 × 2 bytes ≈ 32 KB.
 That completes in well under a microsecond -- negligible.
 But for prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with $b$ and can start to matter.
 
@@ -194,33 +173,16 @@ The forward pass flows through the pipeline stages sequentially.
 GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on.
 The communication pattern is simple point-to-point transfers between adjacent stages -- no all-reduce needed.
 
-```{=html}
-<!-- Figure: Pipeline parallelism with 4 stages
-ASCII art sketch:
+![Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs.](images/pipeline_parallel.svg){#fig-pipeline-parallelism .lightbox}
 
-  GPU 0          GPU 1          GPU 2          GPU 3
-  Layers 0-19    Layers 20-39   Layers 40-59   Layers 60-79
-  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
-  │          │──>│          │──>│          │──>│          │
-  │  Stage 0 │   │  Stage 1 │   │  Stage 2 │   │  Stage 3 │
-  │          │   │          │   │          │   │          │
-  └──────────┘   └──────────┘   └──────────┘   └──────────┘
-       ↑                                            │
-       │         Point-to-point activation          │
-       │         transfers between stages           │
-       └────────────── output ──────────────────────┘
--->
-```
-![Pipeline parallel layers](images/under_construction.jpg){#fig-pipeline-parallelism .lightbox}
-
-The activation tensor passed between stages has shape $[b, d_{\text{model}}]$ (for $b$ tokens), which is much smaller than the all-reduce traffic in TP.
+The activation tensor passed between stages has shape **([S]{.dim-s}, [D]{.dim-d})**, which is much smaller than the all-reduce traffic in TP.
 This low communication volume makes PP well-suited for **multi-node** deployment, where network bandwidth is limited.
 
 ### The pipeline bubble
 
 The downside of PP is the **pipeline bubble**.
 When processing a single request, only one stage is active at a time -- the other stages sit idle, waiting for their turn.
-With $P$ pipeline stages, the bubble fraction is roughly $(P-1)/P$.
+With **P** pipeline stages, the bubble fraction is roughly $(\text{P}-1)/\text{P}$.
 With 4 stages, 75% of the hardware is idle at any given moment.
 
 **Micro-batching** is the standard solution.
@@ -233,7 +195,7 @@ First, during decode, each step generates just one token per request, so the pip
 Second, with continuous batching (see @sec-scheduling), there are usually many concurrent requests to keep the pipeline full.
 
 However, PP does add latency to each decode step -- the activation must travel through all stages sequentially.
-With $P$ stages, the minimum latency for a single forward pass is $P$ times the per-stage compute time, plus the communication time between stages.
+With **P** stages, the minimum latency for a single forward pass is **P** times the per-stage compute time, plus the communication time between stages.
 For latency-sensitive applications, this overhead can matter.
 
 ## Expert Parallelism (EP) {#sec-expert-parallelism}
@@ -241,7 +203,7 @@ For latency-sensitive applications, this overhead can matter.
 Mixture-of-Experts (MoE) models -- like Mixtral, DeepSeek-V2, and many recent large models -- replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token.
 This dramatically reduces per-token compute, but it means the full set of expert weights must be in memory.
 
-![Expert parallel MLP calculation](images/under_construction.jpg){#fig-ep-mlp .lightbox}
+![Expert parallel MLP calculation](images/expert_parallel.svg){#fig-ep-mlp .lightbox}
 
 **Expert parallelism** assigns different experts to different GPUs.
 With 64 experts and 8 GPUs, each GPU holds 8 experts.
@@ -271,7 +233,7 @@ The parallelism strategies we've covered so far partition the model.
 **Context parallelism** (also called **sequence parallelism**) partitions the input sequence -- splitting a long sequence of tokens across multiple GPUs so that each GPU processes a subsequence.
 
 This is primarily useful during **prefill** of long contexts.
-If you're processing a 128K-token prompt, the attention computation is $O(S^2)$ and the KV cache for that single request may not fit on one GPU.
+If you're processing a 128K-token prompt, the attention computation is $O(\dims{\text{S}}^2)$ and the KV cache for that single request may not fit on one GPU.
 Splitting the sequence across 4 GPUs gives each one a 32K-token chunk to process.
 
 ### Ring attention
@@ -282,6 +244,105 @@ Through a series of ring-pass steps, the K/V chunks rotate around the ring, and 
 After $T$ steps (where $T$ is the number of GPUs), every GPU has computed attention over the full sequence.
 
 ![Ring attention calculation](images/under_construction.jpg){#fig-ring-attn .lightbox}
+
+```{=html}
+<!--
+FIGURE DESIGN NOTES: Ring attention calculation (#fig-ring-attn)
+
+TOPIC: Show how ring self-attention distributes attention computation across GPUs by
+pinning Q chunks locally and rotating K/V chunks around a logical ring, with
+overlapped computation and communication.
+
+APPROACHES SURVEYED:
+
+1. Animated ring rotation GIF (Coconut Mode blog, The Byte Beat Substack, Akasa blog)
+   Pro: Vividly shows the temporal progression of KV rotation; makes the overlap of
+        compute and communication visually obvious through blinking/moving arrows
+   Con: Does not work in a static SVG or printed book; loses all information when
+        rendered as a single frame; requires a supplementary static version anyway
+
+2. Circular ring topology diagram — GPUs in a circle with directional arrows
+   (original Li et al. paper, Insu Jang's blog, The Byte Beat)
+   Pro: Immediately communicates the "ring" concept; compact; visually distinctive
+   Con: Hard to show the temporal progression or what data each GPU holds at each step;
+        the circle layout wastes space in the center and is harder to label clearly;
+        does not show Q pinning vs KV rotation distinction
+
+3. Attention matrix partition view — full NxN attention matrix divided into sub-blocks,
+   colored by which GPU computes each block (Akasa blog, Coconut Mode blog)
+   Pro: Connects directly to how ML engineers already think about attention; makes the
+        work distribution across GPUs immediately clear; shows causal masking naturally
+   Con: Does not show the communication pattern or ring topology; does not convey the
+        temporal rotation mechanism; works better as a secondary/companion figure
+
+4. Step-by-step panels — 3 side-by-side panels showing the ring state at different
+   time steps (Peter Chng's blog, Coconut Mode progressive build-up)
+   Pro: Works perfectly as a static figure; shows the key insight (Q stays, KV rotates)
+        through discrete snapshots; readers can trace the algorithm step by step;
+        clearly labels what each GPU holds at each moment; naturally shows the pattern
+        without redundancy if limited to 3 representative steps (initial, mid, final)
+   Con: Takes more horizontal space than a single diagram; does not explicitly show
+        the attention matrix decomposition; may feel slightly repetitive
+
+5. Hierarchical two-level diagram — ring topology at top, with expanded per-GPU
+   computation detail below (GPU MODE lecture notes, Christian Mills' blog)
+   Pro: Shows both the big picture (ring) and the local computation simultaneously
+   Con: Complex; too much information density for a single figure; better suited for
+        a lecture slide with verbal narration than a book figure
+
+RECOMMENDATION: Step-by-step panels (Option 4) showing 3 time steps.
+
+Show 4 GPUs arranged in a horizontal ring (linear row with wraparound arrow) at 3
+time steps: Step 0 (initial), Step 1 (after first rotation), and Step T-1 (final).
+Each GPU box shows its pinned Q chunk (in query color, always the same) and its
+current KV chunk (in key/value color, changing each step). Curved arrows between
+GPUs show the KV rotation direction. A small annotation on Step 1 indicates
+"compute + communicate overlap." The final step shows accumulated partial results.
+
+This approach:
+- Is static-friendly (discrete panels work in SVG/print)
+- Leverages existing knowledge (readers know Q, K, V)
+- Shows the key mechanism (Q pinned, KV rotates) at a glance
+- Consistent with existing figure style (svgwrite, labeled tensor blocks, arrows)
+
+SOURCES CONSULTED:
+- Li et al., "Ring Attention with Blockwise Transformers" (ICLR 2024) — original paper
+- coconut-mode.com/posts/ring-attention/ — progressive diagram build-up
+- akasa.com/blog/ring-attention — attention matrix partition view
+- peterchng.com — step-by-step ring rotation panels
+- huggingface.co/blog/exploding-gradients/ulysses-ring-attention — zigzag/load balance
+- thebytebeat.substack.com/p/ring-attention-explained — ring setup + animation
+- insujang.github.io — context parallelism / striped attention comparison
+- christianjmills.com (GPU MODE Lecture 13) — hierarchical ring + compute detail
+
+ASCII ART OF RECOMMENDED FIGURE:
+
+  Step 0 (initial)          Step 1 (rotate KV)        Step T-1 (final)
+  ┌──────┐  ┌──────┐       ┌──────┐  ┌──────┐       ┌──────┐  ┌──────┐
+  │ GPU 0│  │ GPU 1│       │ GPU 0│  │ GPU 1│       │ GPU 0│  │ GPU 1│
+  │      │  │      │       │      │  │      │       │      │  │      │
+  │ Q0   │  │ Q1   │       │ Q0   │  │ Q1   │       │ Q0   │  │ Q1   │
+  │ K0V0 │  │ K1V1 │       │ K3V3 │  │ K0V0 │       │ K2V2 │  │ K3V3 │
+  └──┬───┘  └──┬───┘       └──┬───┘  └──┬───┘       └──┬───┘  └──┬───┘
+     │  ──────▶ │              │  ──────▶ │              │  ──────▶ │
+     │          │              │  overlap │              │          │
+  ┌──┴───┐  ┌──┴───┐       ┌──┴───┐  ┌──┴───┐       ┌──┴───┐  ┌──┴───┐
+  │ GPU 3│  │ GPU 2│       │ GPU 3│  │ GPU 2│       │ GPU 3│  │ GPU 2│
+  │      │  │      │       │      │  │      │       │      │  │      │
+  │ Q3   │  │ Q2   │       │ Q3   │  │ Q2   │       │ Q3   │  │ Q2   │
+  │ K3V3 │  │ K2V2 │       │ K2V2 │  │ K1V1 │       │ K0V0 │  │ K3V3 │
+  └──────┘  └──────┘       └──────┘  └──────┘       └──────┘  └──────┘
+     │  ◀────── │              │  ◀────── │              │  ◀────── │
+
+  Q chunks (colored):        Arrows: KV rotation       Each GPU has now
+  pinned to each GPU,        direction (clockwise).     seen all KV chunks
+  never move.                "compute + communicate     and accumulated full
+                             overlap" label on arrows.  attention output.
+
+  Color coding: Q blocks in query color (pinned), KV blocks in key/value color
+  (rotating). Use different KV shades or labels to track which chunk is where.
+-->
+```
 
 The ring communication pattern overlaps neatly with computation: while a GPU computes attention with the current K/V chunk, it simultaneously sends that chunk to its neighbor and receives the next chunk.
 With enough computation per chunk, the communication is fully hidden.

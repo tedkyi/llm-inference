@@ -12,7 +12,7 @@ The remaining sections target the sequential decoding constraint, exploring tech
 To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from @sec-bottleneck-framework that the GPU has a small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. 
 The standard implementation of self-attention is depicted in @fig-std-attn-hbm and works roughly like this:
 
-![Memory access pattern for a standard implementation of self-attention](images/std_attn_hbm.svg){#fig-std-attn-hbm .lightbox}
+![Memory access pattern for a straitforward implementation of self-attention](images/std_attn_hbm.svg){#fig-std-attn-hbm .lightbox}
 
 1. Read the $Q$ and $K$ tensors, each shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** --- reminder, this would be **(B, [H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** with batched processing but we're avoiding the clutter of repeatedly list the batch dimension.
 2. Compute the score matrix $\text{Scores} = QK^T$ and write $\text{Scores}$, shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**, to HBM.
@@ -202,34 +202,15 @@ Every technique in this section -- paging, quantization, compression, and evicti
 ### PagedAttention
 
 In a naive implementation, you allocate a contiguous block of GPU memory for each request's KV cache sized for the maximum possible sequence length.
-This wastes memory in two ways: **internal fragmentation** (allocated memory that's not yet used because the sequence hasn't grown that long) and **external fragmentation** (gaps between allocations that are too small to be useful).
+This wastes memory in three ways, illustrated in @fig-kv-waste: **reserved** slots held for tokens that haven't been generated yet, **internal fragmentation** (allocated slots that will never be used because the sequence won't reach the maximum length), and **external fragmentation** (gaps between allocations that are too small to be useful).
+
+![Memory waste with contiguous KV cache allocation. Each request pre-allocates for the maximum sequence length, leaving most of the memory unused.](images/kv_waste.svg){#fig-kv-waste .lightbox}
 
 **PagedAttention** [@kwon2023vllm], introduced in vLLM, borrows the virtual memory model from operating systems.
 Instead of one big contiguous allocation per request, the KV cache is divided into fixed-size **pages** (also called blocks), typically holding 16 or 32 tokens each.
 A request's KV cache is a linked list of pages that can be scattered anywhere in GPU memory.
 
-```{=html}
-<!-- Figure: PagedAttention memory layout
-ASCII art sketch:
-
-  Physical GPU Memory (KV cache region):
-  +------+------+------+------+------+------+------+------+
-  | Pg 0 | Pg 1 | Pg 2 | Pg 3 | Pg 4 | Pg 5 | Pg 6 | Pg 7 |
-  +------+------+------+------+------+------+------+------+
-
-  Request A (seq len 45, 16 tokens/page):
-    Page table: [Pg 1] -> [Pg 4] -> [Pg 6]   (3 pages, last ~75% full)
-
-  Request B (seq len 28, 16 tokens/page):
-    Page table: [Pg 0] -> [Pg 3]              (2 pages, last ~75% full)
-
-  Free pages: Pg 2, Pg 5, Pg 7
-
-  No contiguous allocation needed.
-  Fragmentation: only the last page of each request may be partially filled.
--->
-```
-![Paged attention](images/under_construction.jpg){#fig-paged-attention .lightbox}
+![Paged attention](images/paged_attention.svg){#fig-paged-attention .lightbox}
 
 The benefits are significant:
 
@@ -308,27 +289,7 @@ The wasted compute shows up directly as higher TTFT and lower throughput.
 **RadixAttention** [@zheng2023sglang], introduced in the SGLang framework, stores KV cache entries in a **radix tree** keyed by token sequences.
 A radix tree is a prefix-compressed trie: shared prefixes are stored once, and branches diverge only where token sequences differ.
 
-```{=html}
-<!-- Figure: RadixAttention radix tree
-ASCII art sketch:
-
-  Root
-   |
-   +-- [System prompt tokens: 0..2047] ──── KV pages shared
-         |
-         +-- [User msg A tokens: 2048..2100] ── KV pages for A
-         |     |
-         |     +-- [Response A tokens: 2101..2250] ── KV pages for A
-         |
-         +-- [User msg B tokens: 2048..2080] ── KV pages for B
-         |
-         +-- [User msg C tokens: 2048..2130] ── KV pages for C
-
-  Requests A, B, C all share the system prompt KV cache.
-  Only the divergent suffix needs prefill.
--->
-```
-![Radix attention](images/under_construction.jpg){#fig-radix-attention .lightbox}
+![Radix attention: an example radix tree with several different prompts and responses sharing different common prefixes.](images/radix_attention.svg){#fig-radix-attention .lightbox}
 
 When a new request arrives, the system walks the radix tree matching its token sequence.
 If the first 2,048 tokens match a cached prefix, those KV entries are reused directly -- no prefill needed for them.
@@ -360,7 +321,7 @@ Without paged memory, sharing would require contiguous memory layouts to be iden
 PagedAttention makes prefix sharing a natural consequence of the memory model.
 
 
-## Multi-Token Prediction and Speculative Decoding {#sec-speculative}
+## Speculative Decoding and Multi-Token Prediction {#sec-speculative}
 
 Everything up to this point has optimized the cost of individual prefill or decode steps.
 But there's a more fundamental constraint we haven't attacked yet: the autoregressive loop itself.
@@ -370,27 +331,9 @@ Even if each pass is perfectly optimized, you're still bound by the serial depen
 
 This section covers techniques that break or amortize that sequential constraint -- generating multiple tokens per model invocation.
 
-### Multi-token prediction
-
-![Multi-token prediction](images/under_construction.jpg){#fig-multi-token-prediction .lightbox}
-
-**Multi-token prediction (MTP)** [@gloeckle2024mtp] modifies the model architecture to predict multiple future tokens at each position.
-In addition to the standard next-token prediction head, the model has auxiliary heads that predict the token 2, 3, or $k$ steps ahead.
-During training, all heads are trained simultaneously with a shared loss.
-
-At inference time, the auxiliary heads generate candidate tokens for positions beyond the next token.
-These candidates are then verified -- either through additional forward passes or by treating them as draft tokens in a speculative decoding framework.
-When the candidates are accepted, the model has effectively generated multiple tokens from a single forward pass through the main body of the network.
-
-DeepSeek-V3 uses MTP with two prediction heads, and Meta's Llama architecture has explored similar approaches.
-The key advantage of MTP over external draft models (covered below) is that the draft candidates come from the model itself, so they tend to have high acceptance rates.
-The cost is a modest increase in model size and training complexity from the auxiliary heads.
-
 ### The core idea of speculative decoding
 
 **Speculative decoding** [@leviathan2023speculative; @chen2023speculative] is based on a simple but powerful observation: verifying a sequence of tokens is cheaper than generating them one at a time.
-
-![Speculative decoding](images/under_construction.jpg){#fig-speculative-decoding .lightbox}
 
 Here's the setup.
 You have a large **target model** -- the model you actually want to sample from -- and a small, fast **draft model**.
@@ -400,33 +343,12 @@ Accepted tokens are kept.
 The first rejected token is resampled from the target model's distribution.
 Then the cycle repeats.
 
+![Speculative decoding](images/speculative_decoding.svg){#fig-speculative-decoding .lightbox}
+
 The reason this works is the asymmetry between generation and verification.
 Generating $k$ tokens with the target model requires $k$ sequential forward passes.
 But *verifying* $k$ tokens requires just one forward pass, because you can feed all $k$ tokens as input and check them all in parallel -- the same way prefill processes multiple tokens at once.
 The early related work on this idea is Blockwise Parallel Decoding [@stern2018blockwise].
-
-```{=html}
-<!-- Figure: Speculative decoding flow
-ASCII art sketch:
-
-  Draft model (small):
-    Step 1: generate token d1
-    Step 2: generate token d2 (given d1)
-    Step 3: generate token d3 (given d1, d2)
-    Step 4: generate token d4 (given d1, d2, d3)
-    Cost: 4 small forward passes (fast)
-
-  Target model (large):
-    Single forward pass: verify [d1, d2, d3, d4] in parallel
-    Result: accept d1 ✓, accept d2 ✓, reject d3 ✗
-    Resample d3 from target distribution
-    Output: 3 tokens verified in one large forward pass
-
-  Net result: 3 tokens from the target model's distribution
-              using 4 cheap drafts + 1 expensive verification
-              instead of 3 expensive sequential passes
--->
-```
 
 ### Acceptance rate and expected speedup
 
@@ -477,7 +399,11 @@ The acceptance rate can be very high -- often above 0.95 for close matches -- ma
 Standard speculative decoding has a subtle inefficiency: the draft model must wait for the target model to complete verification before it can start drafting the next batch of tokens.
 This is because the draft model needs to know which tokens were accepted so it can condition on the correct prefix.
 
+```{=html}
+<!--
 ![Speculative speculative decoding](images/under_construction.jpg){#fig-speculative-speculative-decoding .lightbox}
+--->
+```
 
 **Speculative speculative decoding** [@mamou2025specspec] eliminates this dependency.
 The draft model speculatively starts generating the next batch of candidates *before* the target model finishes verifying the current batch.
@@ -501,6 +427,22 @@ Speculative decoding's benefit comes from replacing sequential target-model forw
 But in high-throughput serving with large batch sizes, the target model's forward passes are already efficient -- the GPU is well-utilized because it's processing many requests at once.
 Adding draft model overhead on top of an already-efficient pipeline can actually hurt throughput.
 Speculative decoding shines in low-batch-size, latency-sensitive scenarios.
+
+### Multi-token prediction
+
+![Multi-token prediction with $k=3$ predictions for each token position](images/multi_token_prediction.svg){#fig-multi-token-prediction .lightbox}
+
+**Multi-token prediction (MTP)** [@gloeckle2024mtp] modifies the model architecture to predict multiple future tokens at each position.
+In addition to the standard next-token prediction head, the model has auxiliary heads that predict the token 2, 3, or $k$ steps ahead.
+During training, all heads are trained simultaneously with a shared loss.
+
+At inference time, the auxiliary heads generate candidate tokens for positions beyond the next token.
+These candidates are then verified -- either through additional forward passes or by treating them as draft tokens in a speculative decoding framework.
+When the candidates are accepted, the model has effectively generated multiple tokens from a single forward pass through the main body of the network.
+
+DeepSeek-V3 uses MTP with two prediction heads, and Meta's Llama architecture has explored similar approaches.
+The key advantage of MTP over external draft models (covered below) is that the draft candidates come from the model itself, so they tend to have high acceptance rates.
+The cost is a modest increase in model size and training complexity from the auxiliary heads.
 
 
 ## Parallel Decoding {#sec-parallel}

@@ -107,7 +107,7 @@ This is the most communication-intensive parallelism strategy, but it directly r
 The core idea is to partition each linear layer's weight matrix along either its columns or its rows.
 
 In a **column-parallel** linear layer, the weight matrix $W$ is split along the output dimension.
-If we have $T$ GPUs, each GPU holds $W_i$ with shape $[d_{in}, d_{out}/T]$.
+If we have **T** GPUs, each GPU holds $W_i$ with shape $[d_{in}, d_{out}/T]$.
 Each GPU receives the full input activation $x$ and computes $x W_i$ locally, producing a partial output of shape $[d_{out}/T]$.
 No communication is needed yet -- each GPU has an independent slice of the result.
 
@@ -241,108 +241,9 @@ Splitting the sequence across 4 GPUs gives each one a 32K-token chunk to process
 **Ring self-attention** [@li2021ring] arranges the GPUs in a logical ring.
 Each GPU starts with a local chunk of queries and an initial chunk of keys and values.
 Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks.
-After $T$ steps (where $T$ is the number of GPUs), every GPU has computed attention over the full sequence.
+After **T** steps (where **T** is the number of GPUs), every GPU has computed attention over the full sequence.
 
-![Ring attention calculation](images/under_construction.jpg){#fig-ring-attn .lightbox}
-
-```{=html}
-<!--
-FIGURE DESIGN NOTES: Ring attention calculation (#fig-ring-attn)
-
-TOPIC: Show how ring self-attention distributes attention computation across GPUs by
-pinning Q chunks locally and rotating K/V chunks around a logical ring, with
-overlapped computation and communication.
-
-APPROACHES SURVEYED:
-
-1. Animated ring rotation GIF (Coconut Mode blog, The Byte Beat Substack, Akasa blog)
-   Pro: Vividly shows the temporal progression of KV rotation; makes the overlap of
-        compute and communication visually obvious through blinking/moving arrows
-   Con: Does not work in a static SVG or printed book; loses all information when
-        rendered as a single frame; requires a supplementary static version anyway
-
-2. Circular ring topology diagram — GPUs in a circle with directional arrows
-   (original Li et al. paper, Insu Jang's blog, The Byte Beat)
-   Pro: Immediately communicates the "ring" concept; compact; visually distinctive
-   Con: Hard to show the temporal progression or what data each GPU holds at each step;
-        the circle layout wastes space in the center and is harder to label clearly;
-        does not show Q pinning vs KV rotation distinction
-
-3. Attention matrix partition view — full NxN attention matrix divided into sub-blocks,
-   colored by which GPU computes each block (Akasa blog, Coconut Mode blog)
-   Pro: Connects directly to how ML engineers already think about attention; makes the
-        work distribution across GPUs immediately clear; shows causal masking naturally
-   Con: Does not show the communication pattern or ring topology; does not convey the
-        temporal rotation mechanism; works better as a secondary/companion figure
-
-4. Step-by-step panels — 3 side-by-side panels showing the ring state at different
-   time steps (Peter Chng's blog, Coconut Mode progressive build-up)
-   Pro: Works perfectly as a static figure; shows the key insight (Q stays, KV rotates)
-        through discrete snapshots; readers can trace the algorithm step by step;
-        clearly labels what each GPU holds at each moment; naturally shows the pattern
-        without redundancy if limited to 3 representative steps (initial, mid, final)
-   Con: Takes more horizontal space than a single diagram; does not explicitly show
-        the attention matrix decomposition; may feel slightly repetitive
-
-5. Hierarchical two-level diagram — ring topology at top, with expanded per-GPU
-   computation detail below (GPU MODE lecture notes, Christian Mills' blog)
-   Pro: Shows both the big picture (ring) and the local computation simultaneously
-   Con: Complex; too much information density for a single figure; better suited for
-        a lecture slide with verbal narration than a book figure
-
-RECOMMENDATION: Step-by-step panels (Option 4) showing 3 time steps.
-
-Show 4 GPUs arranged in a horizontal ring (linear row with wraparound arrow) at 3
-time steps: Step 0 (initial), Step 1 (after first rotation), and Step T-1 (final).
-Each GPU box shows its pinned Q chunk (in query color, always the same) and its
-current KV chunk (in key/value color, changing each step). Curved arrows between
-GPUs show the KV rotation direction. A small annotation on Step 1 indicates
-"compute + communicate overlap." The final step shows accumulated partial results.
-
-This approach:
-- Is static-friendly (discrete panels work in SVG/print)
-- Leverages existing knowledge (readers know Q, K, V)
-- Shows the key mechanism (Q pinned, KV rotates) at a glance
-- Consistent with existing figure style (svgwrite, labeled tensor blocks, arrows)
-
-SOURCES CONSULTED:
-- Li et al., "Ring Attention with Blockwise Transformers" (ICLR 2024) — original paper
-- coconut-mode.com/posts/ring-attention/ — progressive diagram build-up
-- akasa.com/blog/ring-attention — attention matrix partition view
-- peterchng.com — step-by-step ring rotation panels
-- huggingface.co/blog/exploding-gradients/ulysses-ring-attention — zigzag/load balance
-- thebytebeat.substack.com/p/ring-attention-explained — ring setup + animation
-- insujang.github.io — context parallelism / striped attention comparison
-- christianjmills.com (GPU MODE Lecture 13) — hierarchical ring + compute detail
-
-ASCII ART OF RECOMMENDED FIGURE:
-
-  Step 0 (initial)          Step 1 (rotate KV)        Step T-1 (final)
-  ┌──────┐  ┌──────┐       ┌──────┐  ┌──────┐       ┌──────┐  ┌──────┐
-  │ GPU 0│  │ GPU 1│       │ GPU 0│  │ GPU 1│       │ GPU 0│  │ GPU 1│
-  │      │  │      │       │      │  │      │       │      │  │      │
-  │ Q0   │  │ Q1   │       │ Q0   │  │ Q1   │       │ Q0   │  │ Q1   │
-  │ K0V0 │  │ K1V1 │       │ K3V3 │  │ K0V0 │       │ K2V2 │  │ K3V3 │
-  └──┬───┘  └──┬───┘       └──┬───┘  └──┬───┘       └──┬───┘  └──┬───┘
-     │  ──────▶ │              │  ──────▶ │              │  ──────▶ │
-     │          │              │  overlap │              │          │
-  ┌──┴───┐  ┌──┴───┐       ┌──┴───┐  ┌──┴───┐       ┌──┴───┐  ┌──┴───┐
-  │ GPU 3│  │ GPU 2│       │ GPU 3│  │ GPU 2│       │ GPU 3│  │ GPU 2│
-  │      │  │      │       │      │  │      │       │      │  │      │
-  │ Q3   │  │ Q2   │       │ Q3   │  │ Q2   │       │ Q3   │  │ Q2   │
-  │ K3V3 │  │ K2V2 │       │ K2V2 │  │ K1V1 │       │ K0V0 │  │ K3V3 │
-  └──────┘  └──────┘       └──────┘  └──────┘       └──────┘  └──────┘
-     │  ◀────── │              │  ◀────── │              │  ◀────── │
-
-  Q chunks (colored):        Arrows: KV rotation       Each GPU has now
-  pinned to each GPU,        direction (clockwise).     seen all KV chunks
-  never move.                "compute + communicate     and accumulated full
-                             overlap" label on arrows.  attention output.
-
-  Color coding: Q blocks in query color (pinned), KV blocks in key/value color
-  (rotating). Use different KV shades or labels to track which chunk is where.
--->
-```
+![Ring attention calculation](images/ring_attention.svg){#fig-ring-attn .lightbox}
 
 The ring communication pattern overlaps neatly with computation: while a GPU computes attention with the current K/V chunk, it simultaneously sends that chunk to its neighbor and receives the next chunk.
 With enough computation per chunk, the communication is fully hidden.
@@ -387,9 +288,9 @@ With all the parallelism strategies laid out, let's compare their communication 
 | TP | All-reduce | 2 | $2 \times \frac{T-1}{T} \times d \times b$ bytes | NVLink |
 | PP | Point-to-point | 1 | $d \times b$ bytes (activation) | Network OK |
 | EP | All-to-all | 2 | Routing-dependent; \~$\frac{T-1}{T}$ of tokens | NVLink or network |
-| CP/SP | Ring-pass or all-to-all | $T$ or 2 | $O(S/T \times d)$ per step | NVLink |
+| CP/SP | Ring-pass or all-to-all | **T** or 2 | $O(S/T \times d)$ per step | NVLink |
 
-: Communication patterns and costs for each parallelism strategy. $T$ = number of devices, $d$ = model dimension, $b$ = batch size in tokens, $S$ = sequence length. {#tbl-parallelism-methods .striped}
+: Communication patterns and costs for each parallelism strategy. **T** = number of devices, $d$ = model dimension, $b$ = batch size in tokens, $S$ = sequence length. {#tbl-parallelism-methods .striped}
 
 The key observation is that **TP is the most communication-hungry** strategy, requiring two all-reduce operations per layer.
 This is why TP is confined to within a single node over NVLink.

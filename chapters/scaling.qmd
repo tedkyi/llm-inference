@@ -127,8 +127,8 @@ This means each transformer layer requires **two all-reduce operations** -- one 
 
 ### Gated MLP under TP
 
-We start with the simple FFN block and show attention next.
-@Fig-tp-mlp shows what 2-way tensor parallelism looks like for the gated MLP which is now more common.
+We start with the simpler FFN block and show attention next.
+@Fig-tp-mlp shows what 2-way tensor parallelism looks like for the gated MLP, which is now the more common form of FFN.
 
 ![Tensor parallel MLP calculation](images/tp_gated_mlp.svg){#fig-tp-mlp .lightbox}
 

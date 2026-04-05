@@ -104,7 +104,7 @@ To reduce the storage of the scaling factors, they can themselves be quantized a
 
 **Post-Training Quantization (PTQ)** is performed after the model is fully trained.
 This is the dominant approach since it can be applied to any model from any source, without requiring any special training.
-Simple PTQ simply analyzes the weights, and more advanced techniques require processing a small set of calibration data through the model so activation information can also be analyzed.
+Simple PTQ only examines the weights, and more advanced techniques require processing a small set of calibration data through the model so activation information can also be analyzed.
 **Quantization-Aware Training (QAT)** modifies the model training procedure to minimize the rounding errors caused by quantization.
 While effective, the extra work required has limited adoption.
 

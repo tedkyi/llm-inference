@@ -9,12 +9,12 @@ The remaining sections target the sequential decoding constraint, exploring tech
 
 ### Why standard attention wastes bandwidth
 
-To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from @sec-bottleneck-framework that the GPU has a small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. 
+To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from @sec-bottleneck-framework that the GPU has small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. 
 The standard implementation of self-attention is depicted in @fig-std-attn-hbm and works roughly like this:
 
-![Memory access pattern for a straitforward implementation of self-attention](images/std_attn_hbm.svg){#fig-std-attn-hbm .lightbox}
+![Memory access pattern for a straightforward implementation of self-attention](images/std_attn_hbm.svg){#fig-std-attn-hbm .lightbox}
 
-1. Read the $Q$ and $K$ tensors, each shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** --- reminder, this would be **(B, [H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** with batched processing but we're avoiding the clutter of repeatedly list the batch dimension.
+1. Read the $Q$ and $K$ tensors, each shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** --- reminder, this would be **(B, [H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** with batched processing but we're avoiding the clutter of repeatedly listing the batch dimension.
 2. Compute the score matrix $\text{Scores} = QK^T$ and write $\text{Scores}$, shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**, to HBM.
 3. Read $\text{Scores}$ shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** back from HBM.
 4. Apply SoftMax to get the attention weights and write $\text{Attn}$, also shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**, to HBM.
@@ -235,7 +235,7 @@ The tradeoff is straightforward: half the memory for a small and often negligibl
 
 One research paper garnering a lot of interest is **TurboQuant** [@zandieh2025turboquant].
 Rather than simply choosing a new datatype, they use techniques like rotations and vector quantization to compress entries.
-They report succes squeezing entries down to 3.5 bits without hurting LLM performance.
+They report success squeezing entries down to 3.5 bits without hurting LLM performance.
 Given that decoding is bandwidth bound, reductions in KV cache size provide close to linear speedups.
 
 ### KV cache compression

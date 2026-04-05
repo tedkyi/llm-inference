@@ -1,4 +1,4 @@
-# Framing LLM Inference {#sec-framing}
+# Measuring LLM Inference {#sec-framing}
 
 Now that we are familiar with the decoder-only LLM and how data flows through it, let's go deeper into the autoregressive nature of standard text generation and discuss how to quantify its performance.
 We will develop an understanding of the stages of inference, how we measure inference, and the performance model that underlies our computing hardware, in particular GPUs.
@@ -256,7 +256,7 @@ MBU is a good diagnostic for decode activity.
 A low MBU during decode means the memory system is not being fully utilized --- perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management.
 Together, MFU and MBU give you a quick read on whether your system is limited by compute efficiency, memory bandwidth efficiency, or something else entirely.
 Note that manufacturers often report peak compute and bandwidth numbers on very specific workloads that yield the highest numbers.
-You should not expect to get close to 100% MFU or MBU for real world use cases.
+You should not expect to get close to 100% MFU or MBU for real-world use cases.
 
 ### Capacity metrics
 
@@ -469,7 +469,7 @@ We'll demonstrate how to compare these numbers in just a moment, when we discuss
 
 There's one more piece of hardware context that matters for inference: the CPU-GPU relationship.
 The GPU is told what to do by the CPU.
-The CPU orchestrates inference by launching **kernels** -- GPU functions that execute on the SMs.
+The CPU orchestrates inference by launching **kernels** --- GPU functions that execute on the SMs.
 Each kernel launch involves the CPU sending a command to the GPU, which has a small but non-zero overhead, typically on the order of 5-10 microseconds.
 
 For a single kernel launch, this overhead is negligible.
@@ -481,7 +481,7 @@ When you're launching hundreds of short kernels per decode step, the cumulative 
 A CUDA graph captures a fixed sequence of kernel launches into a single object that can be replayed with a single launch command.
 Instead of the CPU issuing multiple individual kernel launches, it replays one graph.
 This amortizes the launch overhead and can noticeably reduce latency for decode steps.
-We'll revisit CUDA graphs in more detail in @sec-request, where we'll also discuss their limitations -- primarily that the captured graph must be static, which creates complications when sequence lengths or batch sizes change dynamically.
+We'll revisit CUDA graphs in more detail in @sec-request, where we'll also discuss their limitations --- primarily that the captured graph must be static, which creates complications when sequence lengths or batch sizes change dynamically.
 
 ### The bottleneck framework
 
@@ -528,7 +528,7 @@ $$\text{Ridge point} = \frac{\text{Peak FLOP/s}}{\text{Peak bandwidth}} = \frac{
 This means that any kernel with an arithmetic intensity below about 295 FLOP/byte is memory-bandwidth-bound on the H100 at FP16 precision.
 Any kernel above that threshold is compute-bound.
 The regions we've discussed are shown on the roofline plot for the H100 SXM in @fig-roofline.
-On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is $3.3 \times 10^{12}$.
+On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is $3.35 \times 10^{12}$.
 On the right, the attainable FLOPS is capped at the peak of $989.4 \times 10^{12}$.
 
 ![Roofline plot for the H100 SXM at FP16](images/roofline.svg){#fig-roofline .lightbox}
@@ -607,7 +607,7 @@ The approximate FLOPs are:
 
 $$\text{FLOPs}_{\text{decode}} \approx 2 \times P \times 1 = 2 \times 70 \times 10^9 = 140 \times 10^9 \text{ FLOPs} = 140 \text{ GFLOP}$$
 
-But the data movement is nearly the same as prefill -- the GPU still has to read all the model weights from HBM:
+But the data movement is nearly the same as prefill --- the GPU still has to read all the model weights from HBM:
 
 $$\text{Weight bytes} = 140 \text{ GB}$$
 

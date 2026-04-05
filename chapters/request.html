@@ -220,7 +220,7 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/inference.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></a>
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Measuring LLM Inference</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -343,19 +343,19 @@ window.Quarto = {
 <h2 data-number="6.1" class="anchored" data-anchor-id="sec-attention-kernels"><span class="header-section-number">6.1</span> Memory-Aware Attention Kernels</h2>
 <section id="why-standard-attention-wastes-bandwidth" class="level3">
 <h3 class="anchored" data-anchor-id="why-standard-attention-wastes-bandwidth">Why standard attention wastes bandwidth</h3>
-<p>To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a> that the GPU has a small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. The standard implementation of self-attention is depicted in <a href="#fig-std-attn-hbm" class="quarto-xref">Figure&nbsp;<span>6.1</span></a> and works roughly like this:</p>
+<p>To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a> that the GPU has small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. The standard implementation of self-attention is depicted in <a href="#fig-std-attn-hbm" class="quarto-xref">Figure&nbsp;<span>6.1</span></a> and works roughly like this:</p>
 <div id="fig-std-attn-hbm" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-std-attn-hbm-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/std_attn_hbm.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;6.1: Memory access pattern for a straitforward implementation of self-attention"><img src="images/std_attn_hbm.svg" class="img-fluid figure-img"></a>
+<a href="images/std_attn_hbm.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;6.1: Memory access pattern for a straightforward implementation of self-attention"><img src="images/std_attn_hbm.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-std-attn-hbm-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.1: Memory access pattern for a straitforward implementation of self-attention
+Figure&nbsp;6.1: Memory access pattern for a straightforward implementation of self-attention
 </figcaption>
 </figure>
 </div>
 <ol type="1">
-<li>Read the <span class="math inline">\(Q\)</span> and <span class="math inline">\(K\)</span> tensors, each shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> — reminder, this would be <strong>(B, <span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> with batched processing but we’re avoiding the clutter of repeatedly list the batch dimension.</li>
+<li>Read the <span class="math inline">\(Q\)</span> and <span class="math inline">\(K\)</span> tensors, each shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> — reminder, this would be <strong>(B, <span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> with batched processing but we’re avoiding the clutter of repeatedly listing the batch dimension.</li>
 <li>Compute the score matrix <span class="math inline">\(\text{Scores} = QK^T\)</span> and write <span class="math inline">\(\text{Scores}\)</span>, shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>, to HBM.</li>
 <li>Read <span class="math inline">\(\text{Scores}\)</span> shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> back from HBM.</li>
 <li>Apply SoftMax to get the attention weights and write <span class="math inline">\(\text{Attn}\)</span>, also shaped <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>, to HBM.</li>
@@ -503,7 +503,7 @@ Figure&nbsp;6.4: Paged attention
 <p>The KV cache formula above assumed FP16 storage. If you store keys and values in INT8 or FP8 instead, you immediately halve the memory per token. For our 70B model example, that drops per-request KV cache memory from 1.28 GB to 640 MB at 4K sequence length.</p>
 <p>KV cache quantization is separate from weight quantization (<a href="model-design.html#sec-quantization" class="quarto-xref"><span>Section 4.1</span></a>). The model weights can be in one precision while the KV cache is stored in another. In practice, many deployments run model weights in INT4 or FP8 while keeping the KV cache in FP8 or INT8 – different components have different sensitivity to precision loss.</p>
 <p>The quality impact is generally small. Keys and values are intermediate activations, not learned parameters, and small quantization errors in individual KV entries tend to average out across the many entries involved in an attention computation. The tradeoff is straightforward: half the memory for a small and often negligible reduction in output quality.</p>
-<p>One research paper garnering a lot of interest is <strong>TurboQuant</strong> <span class="citation" data-cites="zandieh2025turboquant">(<a href="references.html#ref-zandieh2025turboquant" role="doc-biblioref">Zandieh et al. 2025</a>)</span>. Rather than simply choosing a new datatype, they use techniques like rotations and vector quantization to compress entries. They report succes squeezing entries down to 3.5 bits without hurting LLM performance. Given that decoding is bandwidth bound, reductions in KV cache size provide close to linear speedups.</p>
+<p>One research paper garnering a lot of interest is <strong>TurboQuant</strong> <span class="citation" data-cites="zandieh2025turboquant">(<a href="references.html#ref-zandieh2025turboquant" role="doc-biblioref">Zandieh et al. 2025</a>)</span>. Rather than simply choosing a new datatype, they use techniques like rotations and vector quantization to compress entries. They report success squeezing entries down to 3.5 bits without hurting LLM performance. Given that decoding is bandwidth bound, reductions in KV cache size provide close to linear speedups.</p>
 </section>
 <section id="kv-cache-compression" class="level3">
 <h3 class="anchored" data-anchor-id="kv-cache-compression">KV cache compression</h3>

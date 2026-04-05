@@ -220,7 +220,7 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/inference.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></a>
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Measuring LLM Inference</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -435,7 +435,7 @@ Table&nbsp;4.1: Common datatype precisions supported. The Layout column shows th
 </section>
 <section id="when-quantization-is-applied" class="level3">
 <h3 class="anchored" data-anchor-id="when-quantization-is-applied">When quantization is applied</h3>
-<p><strong>Post-Training Quantization (PTQ)</strong> is performed after the model is fully trained. This is the dominant approach since it can be applied to any model from any source, without requiring any special training. Simple PTQ simply analyzes the weights, and more advanced techniques require processing a small set of calibration data through the model so activation information can also be analyzed. <strong>Quantization-Aware Training (QAT)</strong> modifies the model training procedure to minimize the rounding errors caused by quantization. While effective, the extra work required has limited adoption.</p>
+<p><strong>Post-Training Quantization (PTQ)</strong> is performed after the model is fully trained. This is the dominant approach since it can be applied to any model from any source, without requiring any special training. Simple PTQ only examines the weights, and more advanced techniques require processing a small set of calibration data through the model so activation information can also be analyzed. <strong>Quantization-Aware Training (QAT)</strong> modifies the model training procedure to minimize the rounding errors caused by quantization. While effective, the extra work required has limited adoption.</p>
 </section>
 <section id="techniques" class="level3">
 <h3 class="anchored" data-anchor-id="techniques">Techniques</h3>
@@ -1032,8 +1032,8 @@ Zhu, Xunyu, Jian Li, Yong Liu, Can Ma, and Weiping Wang. 2024. <span>“A Survey
   </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
-      <a href="../chapters/inference.html" class="pagination-link" aria-label="Framing LLM Inference">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span>
+      <a href="../chapters/inference.html" class="pagination-link" aria-label="Measuring LLM Inference">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Measuring LLM Inference</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">

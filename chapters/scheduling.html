@@ -220,7 +220,7 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/inference.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></a>
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Measuring LLM Inference</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -573,17 +573,17 @@ Figure&nbsp;5.7: Causal mask for ragged batching. The dashed squares show the po
 </figure>
 </div>
 <p>This matters most during prefill, where the input lengths across requests can vary widely. A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching. With ragged batching, the compute is proportional to the actual number of tokens: <span class="math inline">\(2{,}048 + 3 \times 128 = 2{,}432\)</span> tokens instead of <span class="math inline">\(4 \times 2{,}048 = 8{,}192\)</span> tokens.</p>
-<div id="fig-ragged-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<div id="fig-ragged-shared-prefix" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div aria-describedby="fig-ragged-shared-prefix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <a href="images/ragged_shared_prefix.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-8" title="Figure&nbsp;5.8: Ragged batching example with a shared prefix"><img src="images/ragged_shared_prefix.svg" class="img-fluid figure-img"></a>
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ragged-shared-prefix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;5.8: Ragged batching example with a shared prefix
 </figcaption>
 </figure>
 </div>
-<p>The benefits of ragged batching combine really well with prefix caching, which we will discuss in <a href="request.html#sec-prefix-caching" class="quarto-xref"><span>Section 6.4</span></a>. Here is a quick diagram showing how sharing the prefix in ragged batching can save huge amounts of compute with long shared prefixes, such as a long system prompt.</p>
+<p>The benefits of ragged batching combine really well with prefix caching, which we will discuss in <a href="request.html#sec-prefix-caching" class="quarto-xref"><span>Section 6.4</span></a>. <a href="#fig-ragged-shared-prefix" class="quarto-xref">Figure&nbsp;<span>5.8</span></a> briefly shows how sharing the prefix in ragged batching can save huge amounts of compute with long shared prefixes, such as a long system prompt.</p>
 </section>
 <section id="sec-request-scheduling" class="level2" data-number="5.4">
 <h2 data-number="5.4" class="anchored" data-anchor-id="sec-request-scheduling"><span class="header-section-number">5.4</span> Request Scheduling and Prioritization</h2>

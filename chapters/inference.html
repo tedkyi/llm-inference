@@ -8,7 +8,7 @@
 
 <meta name="description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 
-<title>3&nbsp; Framing LLM Inference – LLM Inference Illustrated</title>
+<title>3&nbsp; Measuring LLM Inference – LLM Inference Illustrated</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -127,7 +127,7 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../_styles/dim-colors.css">
-<meta name="twitter:title" content="3&nbsp; Framing LLM Inference – LLM Inference Illustrated">
+<meta name="twitter:title" content="3&nbsp; Measuring LLM Inference – LLM Inference Illustrated">
 <meta name="twitter:description" content="A book about autoregressive LLM inference and the techniques that make it fast, efficient, and scalable">
 <meta name="twitter:image" content="images/pipeline_stages.svg">
 <meta name="twitter:card" content="summary_large_image">
@@ -142,7 +142,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/inference.html"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/inference.html"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Measuring LLM Inference</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -220,7 +220,7 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/inference.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></a>
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Measuring LLM Inference</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -320,7 +320,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title"><span id="sec-framing" class="quarto-section-identifier"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Framing LLM Inference</span></span></h1>
+<h1 class="title"><span id="sec-framing" class="quarto-section-identifier"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Measuring LLM Inference</span></span></h1>
 </div>
 
 
@@ -471,7 +471,7 @@ Figure&nbsp;3.3: Throughput-latency curve showing how throughput gains diminish 
 <p><strong>Model FLOPs Utilization (MFU)</strong> is the fraction of the GPU’s peak floating-point throughput that is actually used for model computation. This metric was introduced in the PaLM paper <span class="citation" data-cites="chowdhery2022palm">(<a href="references.html#ref-chowdhery2022palm" role="doc-biblioref"><span class="nocase">Chowdhery et al.</span> 2022</a>)</span> and has become a standard efficiency metric. If your GPU can do 990 TFLOP/s at FP16, and your model computation actually achieves 300 TFLOP/s, your MFU is about 30%.</p>
 <p>MFU is most useful for characterizing compute-bound workloads like prefill. A low MFU during prefill suggests that something is preventing the GPU from doing math at full speed — perhaps memory transfers, kernel launch overhead, or poorly shaped matrix multiplications. We’ll see how to use the roofline model to reason about this precisely in <a href="#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a>.</p>
 <p><strong>Model Bandwidth Utilization (MBU)</strong> is the analogous metric for memory bandwidth. MBU is the fraction of peak memory bandwidth that is actually used for reading model data. During decode, the bottleneck is typically how fast you can stream model weights and KV cache entries from HBM. If your GPU has 3.35 TB/s of HBM bandwidth and your decode step actually achieves 2.5 TB/s, your MBU is about 75%.</p>
-<p>MBU is a good diagnostic for decode activity. A low MBU during decode means the memory system is not being fully utilized — perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management. Together, MFU and MBU give you a quick read on whether your system is limited by compute efficiency, memory bandwidth efficiency, or something else entirely. Note that manufacturers often report peak compute and bandwidth numbers on very specific workloads that yield the highest numbers. You should not expect to get close to 100% MFU or MBU for real world use cases.</p>
+<p>MBU is a good diagnostic for decode activity. A low MBU during decode means the memory system is not being fully utilized — perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management. Together, MFU and MBU give you a quick read on whether your system is limited by compute efficiency, memory bandwidth efficiency, or something else entirely. Note that manufacturers often report peak compute and bandwidth numbers on very specific workloads that yield the highest numbers. You should not expect to get close to 100% MFU or MBU for real-world use cases.</p>
 </section>
 <section id="capacity-metrics" class="level3">
 <h3 class="anchored" data-anchor-id="capacity-metrics">Capacity metrics</h3>
@@ -613,9 +613,9 @@ Figure&nbsp;3.5: GPU memory hierarchy showing registers, SRAM, L2 cache, and HBM
 </section>
 <section id="cpu-gpu-interaction-and-kernel-launch-overhead" class="level3">
 <h3 class="anchored" data-anchor-id="cpu-gpu-interaction-and-kernel-launch-overhead">CPU-GPU interaction and kernel launch overhead</h3>
-<p>There’s one more piece of hardware context that matters for inference: the CPU-GPU relationship. The GPU is told what to do by the CPU. The CPU orchestrates inference by launching <strong>kernels</strong> – GPU functions that execute on the SMs. Each kernel launch involves the CPU sending a command to the GPU, which has a small but non-zero overhead, typically on the order of 5-10 microseconds.</p>
+<p>There’s one more piece of hardware context that matters for inference: the CPU-GPU relationship. The GPU is told what to do by the CPU. The CPU orchestrates inference by launching <strong>kernels</strong> — GPU functions that execute on the SMs. Each kernel launch involves the CPU sending a command to the GPU, which has a small but non-zero overhead, typically on the order of 5-10 microseconds.</p>
 <p>For a single kernel launch, this overhead is negligible. But a single transformer layer can require multiple kernel launches (matrix multiplications, layer norm, activation functions, attention), and a large model may have 80 or more layers. During decode, where each step generates just one token, the actual computation per kernel can be very small. When you’re launching hundreds of short kernels per decode step, the cumulative launch overhead starts to matter.</p>
-<p><strong>CUDA graphs</strong> address this problem. A CUDA graph captures a fixed sequence of kernel launches into a single object that can be replayed with a single launch command. Instead of the CPU issuing multiple individual kernel launches, it replays one graph. This amortizes the launch overhead and can noticeably reduce latency for decode steps. We’ll revisit CUDA graphs in more detail in <a href="request.html" class="quarto-xref"><span>Chapter 6</span></a>, where we’ll also discuss their limitations – primarily that the captured graph must be static, which creates complications when sequence lengths or batch sizes change dynamically.</p>
+<p><strong>CUDA graphs</strong> address this problem. A CUDA graph captures a fixed sequence of kernel launches into a single object that can be replayed with a single launch command. Instead of the CPU issuing multiple individual kernel launches, it replays one graph. This amortizes the launch overhead and can noticeably reduce latency for decode steps. We’ll revisit CUDA graphs in more detail in <a href="request.html" class="quarto-xref"><span>Chapter 6</span></a>, where we’ll also discuss their limitations — primarily that the captured graph must be static, which creates complications when sequence lengths or batch sizes change dynamically.</p>
 </section>
 <section id="the-bottleneck-framework" class="level3">
 <h3 class="anchored" data-anchor-id="the-bottleneck-framework">The bottleneck framework</h3>
@@ -673,7 +673,7 @@ Table&nbsp;3.2: Key hardware parameters for the NVIDIA H100 SXM.
 </div>
 <p><a href="#tbl-h100-specs" class="quarto-xref">Table&nbsp;<span>3.2</span></a> summarizes the key hardware parameters for the H100 SXM that we need for the roofline model. For the H100 SXM at FP16, we calculate:</p>
 <p><span class="math display">\[\text{Ridge point} = \frac{\text{Peak FLOP/s}}{\text{Peak bandwidth}} = \frac{989.4 \times 10^{12}}{3.35 \times 10^{12}} \approx 295 \text{ FLOP/byte}\]</span></p>
-<p>This means that any kernel with an arithmetic intensity below about 295 FLOP/byte is memory-bandwidth-bound on the H100 at FP16 precision. Any kernel above that threshold is compute-bound. The regions we’ve discussed are shown on the roofline plot for the H100 SXM in <a href="#fig-roofline" class="quarto-xref">Figure&nbsp;<span>3.6</span></a>. On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is <span class="math inline">\(3.3 \times 10^{12}\)</span>. On the right, the attainable FLOPS is capped at the peak of <span class="math inline">\(989.4 \times 10^{12}\)</span>.</p>
+<p>This means that any kernel with an arithmetic intensity below about 295 FLOP/byte is memory-bandwidth-bound on the H100 at FP16 precision. Any kernel above that threshold is compute-bound. The regions we’ve discussed are shown on the roofline plot for the H100 SXM in <a href="#fig-roofline" class="quarto-xref">Figure&nbsp;<span>3.6</span></a>. On the left, the attainable FLOPS equals the bandwidth times the arithmetic intensity, so the slope of the blue line is <span class="math inline">\(3.35 \times 10^{12}\)</span>. On the right, the attainable FLOPS is capped at the peak of <span class="math inline">\(989.4 \times 10^{12}\)</span>.</p>
 <div id="fig-roofline" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-roofline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -726,7 +726,7 @@ Note
 <h3 class="anchored" data-anchor-id="sec-decode-stage">Decode is memory-bandwidth-bound</h3>
 <p>Now consider a single decode step with batch size 1. The model runs a forward pass for just one new token. The approximate FLOPs are:</p>
 <p><span class="math display">\[\text{FLOPs}_{\text{decode}} \approx 2 \times P \times 1 = 2 \times 70 \times 10^9 = 140 \times 10^9 \text{ FLOPs} = 140 \text{ GFLOP}\]</span></p>
-<p>But the data movement is nearly the same as prefill – the GPU still has to read all the model weights from HBM:</p>
+<p>But the data movement is nearly the same as prefill — the GPU still has to read all the model weights from HBM:</p>
 <p><span class="math display">\[\text{Weight bytes} = 140 \text{ GB}\]</span></p>
 <p>The arithmetic intensity calculated using only the weight reads is:</p>
 <p><span class="math display">\[\text{AI}_{\text{decode}} = \frac{140 \times 10^9}{140 \times 10^9} = 1 \text{ FLOP/byte}\]</span></p>

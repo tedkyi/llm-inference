@@ -243,6 +243,8 @@ The workflow looks like this:
 3. The KV cache is transferred over a fast interconnect (such as NVLink or InfiniBand) to a **decode instance**
 4. The decode instance generates tokens autoregressively using the transferred KV cache
 
+A comparison of co-located and disaggregated prefill on a sample workload is shown in @fig-disaggregated-prefill.
+
 ![Disaggregated prefill](images/disaggregated_prefill.svg){#fig-disaggregated-prefill .lightbox}
 
 The main cost is the KV cache transfer.
@@ -268,6 +270,7 @@ Even with continuous batching, there's still a source of waste: when requests in
 
 Instead of a padded batch tensor of shape $[B, S_{\text{max}}]$ where shorter sequences waste compute on pad tokens, ragged batching creates a packed tensor of shape $[T_{\text{total}}]$ where $T_{\text{total}}$ is the sum of all actual token counts.
 An index array tracks where each request's tokens begin and end, and the attention mask ensures that tokens from one request can't attend to tokens from another.
+A comparison of simple padded batching and ragged batching is shown in @fig-ragged-batching and @fig-ragged-mask.
 
 ![Ragged batching compared to simple batching with padding](images/ragged_batching.svg){#fig-ragged-batching .lightbox}
 

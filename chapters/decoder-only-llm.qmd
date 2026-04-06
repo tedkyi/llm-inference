@@ -328,7 +328,7 @@ FlashAttention computes the exact same result but avoids materializing the full 
 ### The causal mask
 
 In a decoder-only model used for autoregressive generation, each token should only attend to itself and to tokens that came before it --- never to future tokens.
-This is enforced by a **causal mask**: an upper-triangular matrix of $-\infty$ values added to the attention scores before SoftMax.
+This is enforced by a **causal mask**: an upper-triangular matrix of $-\infty$ values added to the attention scores before SoftMax, as shown in @fig-causal-mask.
 
 ![How the causal mask is applied in self-attention, shown for only one attention head for **[S]{.dim-s}** = 5](images/causal_mask.svg){#fig-causal-mask .lightbox}
 
@@ -500,6 +500,9 @@ Standard LLM models have one MLP per layer, and they have no choice but to apply
 Because not all of the MLP weights are used for each token, this is often referred to as a **sparse MLP**.
 In contrast, the original MLP architecture is referred to as a **dense MLP** architecture.
 
+![Data flow of weights and activations in an MoE MLP layer. This figure depicts a model with 6 experts, 2 of which are active.](images/moe_flow.svg){#fig-moe-flow .lightbox}
+
+@Fig-moe-flow shows the data flow for an MoE MLP layer.
 The router in MoE is usually a simple learned linear layer that produces a score for each expert.
 If there are **E** experts, the router has a weight matrix of shape **([D]{.dim-d}, E)**.
 There are different designs for how the experts are chosen, and one of the simplest methods is for the router to select the top $k$ experts with the highest scores.
@@ -511,8 +514,6 @@ More recent LLMs such as **Qwen 3** [@yang2025qwen3] have hundreds of experts an
 They also have the concept of always-on experts called **shared experts**. @Fig-moe-flow shows what the vanilla data flow looks like with an MoE configuration with 6 total experts, 2 of which are active.
 
 The outputs of the selected experts are combined using the router's SoftMax weights.
-
-![Data flow of weights and activations in an MoE MLP layer. This figure depicts a model with 6 experts, 2 of which are active.](images/moe_flow.svg){#fig-moe-flow .lightbox}
 
 The key trade-off of MoE for inference is clear: **memory footprint is large** (all expert weights must reside in GPU memory) but **per-token compute is modest** (only $k$ of **E** experts are active and consuming FLOPS).
 Mixtral 8×7B [@jiang2024mixtral] has roughly 47B total parameters but only ~13B active per token.

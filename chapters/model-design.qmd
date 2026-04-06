@@ -239,6 +239,7 @@ MLA is depicted on the bottom row of @fig-kv-variants.
 
 **Cross-Layer Attention (CLA)** [@brandon2024cla] takes a different angle: rather than sharing KV across heads within a layer, it shares KV across adjacent layers.
 If every pair of consecutive layers shares the same KV cache, the total cache size is halved.
+@Fig-cross-layer-attn compares standard attention with CLA, where the K and V vectors are shared between pairs of layers.
 CLA can be combined with GQA or MQA for even greater reductions.
 
 ### Reducing attention compute
@@ -249,14 +250,16 @@ Beyond the KV cache, the attention computation itself can be a bottleneck, parti
 
 **Sliding window attention** [@beltagy2020longformer] restricts each token to attend only to a fixed-size window of nearby tokens rather than the full sequence.
 This reduces the attention computation from $O(n^2)$ to $O(n \times w)$, where $w$ is the window size.
+@Fig-sliding-window-attn illustrates the difference between full attention and sliding window attention with a window size of 4.
 For inference, sliding window attention also bounds the KV cache size per layer to the window size, regardless of the total sequence length.
 Several recent models -- including Mistral -- use sliding window attention in some or all layers, often combined with a few full-attention layers to preserve the model's ability to attend to distant tokens.
 
-![Parallel attention and MLP blocks](images/parallel_block.svg){#fig-attn-head-variants .lightbox}
+![Parallel attention and MLP blocks](images/parallel_block.svg){#fig-parallel-block .lightbox}
 
-**Parallel attention and MLP blocks** is a simpler architectural trick used in some models, including PaLM [@chowdhery2022palm].
+**Parallel attention and MLP blocks** is a simple architectural trick used in some models, including PaLM [@chowdhery2022palm].
 Instead of computing attention and MLP sequentially within each transformer block, they are computed in parallel and their outputs are summed.
-This doesn't reduce total FLOPs, but it reduces the serial dependency within each layer, which can improve GPU utilization and reduce latency -- especially when the attention and MLP computations can be overlapped on different hardware units.
+This doesn't reduce total FLOPs, but it reduces the serial dependency within each layer, which can improve GPU utilization and reduce latency --- especially when the attention and MLP computations can be overlapped on different hardware units.
+A schematic of this parallel design is shown in @fig-parallel-block.
 
 ::: callout-note
 This book focuses on the dominant transformer architecture with softmax attention.

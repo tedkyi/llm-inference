@@ -15,6 +15,9 @@ We'll start by understanding the communication fabric, then work through each pa
 
 Before we can reason about the cost of distributing work, we need to know how fast data moves between devices.
 The answer varies enormously depending on which devices are talking to each other.
+@fig-interconnect shows the different communication paths between GPUs in a cluster of two nodes, each with 8 H100 GPUs, and the typical bandwidths for each path.
+
+![Intra-node and inter-node connections](images/interconnect.svg){#fig-interconnect .lightbox}
 
 ### Intra-node: NVLink and NVSwitch
 
@@ -24,9 +27,6 @@ That's roughly 7x the bandwidth of PCIe Gen5.
 
 In an 8-GPU node like the NVIDIA DGX H100, an **NVSwitch** fabric connects all GPUs in a full-mesh topology, so any GPU can communicate with any other GPU at the full NVLink bandwidth without going through intermediate hops.
 This is critical for collective operations like all-reduce, where every GPU needs to exchange data with every other GPU.
-
-
-![Intra-node and inter-node connections](images/interconnect.svg){#fig-interconnect .lightbox}
 
 ### PCIe
 
@@ -166,14 +166,15 @@ The key insight is that TP requires **high-bandwidth, low-latency** communicatio
 
 **Pipeline parallelism** takes a different approach: instead of splitting each layer across devices, it assigns entire layers to different devices.
 If you have 80 transformer layers and 4 GPUs, each GPU gets 20 consecutive layers.
+This is depicted in @fig-pipeline-parallelism.
+
+![Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs.](images/pipeline_parallel.svg){#fig-pipeline-parallelism .lightbox}
 
 ### How it works
 
 The forward pass flows through the pipeline stages sequentially.
 GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on.
 The communication pattern is simple point-to-point transfers between adjacent stages -- no all-reduce needed.
-
-![Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs.](images/pipeline_parallel.svg){#fig-pipeline-parallelism .lightbox}
 
 The activation tensor passed between stages has shape **([S]{.dim-s}, [D]{.dim-d})**, which is much smaller than the all-reduce traffic in TP.
 This low communication volume makes PP well-suited for **multi-node** deployment, where network bandwidth is limited.
@@ -200,17 +201,18 @@ For latency-sensitive applications, this overhead can matter.
 
 ## Expert Parallelism (EP) {#sec-expert-parallelism}
 
-Mixture-of-Experts (MoE) models -- like Mixtral, DeepSeek-V2, and many recent large models -- replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token.
+Mixture-of-Experts (MoE) models, like Mixtral, DeepSeek-V2, and many recent large models, replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token.
 This dramatically reduces per-token compute, but it means the full set of expert weights must be in memory.
-
-![Expert parallel MLP calculation](images/expert_parallel.svg){#fig-ep-mlp .lightbox}
 
 **Expert parallelism** assigns different experts to different GPUs.
 With 64 experts and 8 GPUs, each GPU holds 8 experts.
 When a token is routed to an expert on another GPU, the token's activation must be sent to that GPU and the result sent back.
 
+![Expert parallel MLP calculation](images/expert_parallel.svg){#fig-ep-mlp .lightbox}
+
 ### All-to-all communication
 
+@Fig-ep-mlp shows the data flow for expert parallelism.
 The communication pattern for EP is **all-to-all**: every GPU potentially needs to send tokens to every other GPU and receive results back.
 Each MoE layer requires two all-to-all operations -- one to dispatch tokens to the correct experts, and one to collect results.
 
@@ -242,6 +244,7 @@ Splitting the sequence across 4 GPUs gives each one a 32K-token chunk to process
 Each GPU starts with a local chunk of queries and an initial chunk of keys and values.
 Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks.
 After **T** steps (where **T** is the number of GPUs), every GPU has computed attention over the full sequence.
+This pattern is depicted in @fig-ring-attn for **T** = 4 GPUs.
 
 ![Ring attention calculation](images/ring_attention.svg){#fig-ring-attn .lightbox}
 

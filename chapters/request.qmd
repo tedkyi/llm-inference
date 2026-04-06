@@ -78,7 +78,8 @@ ASCII art sketch:
 
 ![FlashAttention keeps all intermediate results on-chip --- only two HBM transfers instead of six](images/flash_attn_hbm.svg){#fig-flash-attention .lightbox}
 
-The result: HBM traffic drops from $O(S^2)$ to $O(\dims{\text{S}} \cdot \dimdk{d_K})$ for the attention matrix, where $\dimdk{d_K}$ is the head dimension (typically 64 or 128).
+The result is depicted in @fig-flash-attention.
+HBM traffic drops from $O(S^2)$ to $O(\dims{\text{S}} \cdot \dimdk{d_K})$ for the attention matrix, where $\dimdk{d_K}$ is the head dimension (typically 64 or 128).
 For a 4K sequence with $\dimdk{d_K}=128$, that's a reduction from 16.7 million elements to about 524K elements -- roughly a 32x reduction in memory traffic for the attention intermediates.
 
 Here's the counterintuitive part: FlashAttention actually performs *more* FLOPs than standard attention.
@@ -206,6 +207,7 @@ This wastes memory in three ways, illustrated in @fig-kv-waste: **reserved** slo
 **PagedAttention** [@kwon2023vllm], introduced in vLLM, borrows the virtual memory model from operating systems.
 Instead of one big contiguous allocation per request, the KV cache is divided into fixed-size **pages** (also called blocks), typically holding 16 or 32 tokens each.
 A request's KV cache is a linked list of pages that can be scattered anywhere in GPU memory.
+The same requests from @fig-kv-waste are shown in @fig-paged-attention with a paged memory model.
 
 ![Paged attention](images/paged_attention.svg){#fig-paged-attention .lightbox}
 
@@ -285,6 +287,7 @@ The wasted compute shows up directly as higher TTFT and lower throughput.
 
 **RadixAttention** [@zheng2023sglang], introduced in the SGLang framework, stores KV cache entries in a **radix tree** keyed by token sequences.
 A radix tree is a prefix-compressed trie: shared prefixes are stored once, and branches diverge only where token sequences differ.
+An example radix tree is shown in @fig-radix-attention.
 
 ![Radix attention: an example radix tree with several different prompts and responses sharing different common prefixes.](images/radix_attention.svg){#fig-radix-attention .lightbox}
 
@@ -339,6 +342,7 @@ Then the target model processes all $k$ candidates in a single forward pass, che
 Accepted tokens are kept.
 The first rejected token is resampled from the target model's distribution.
 Then the cycle repeats.
+A comparison of standard decoding and speculative decoding is shown in @fig-speculative-decoding.
 
 ![Speculative decoding](images/speculative_decoding.svg){#fig-speculative-decoding .lightbox}
 
@@ -432,6 +436,7 @@ Speculative decoding shines in low-batch-size, latency-sensitive scenarios.
 **Multi-token prediction (MTP)** [@gloeckle2024mtp] modifies the model architecture to predict multiple future tokens at each position.
 In addition to the standard next-token prediction head, the model has auxiliary heads that predict the token 2, 3, or $k$ steps ahead.
 During training, all heads are trained simultaneously with a shared loss.
+A comparison of standard decoding and multi-token prediction is shown in @fig-multi-token-prediction.
 
 At inference time, the auxiliary heads generate candidate tokens for positions beyond the next token.
 These candidates are then verified -- either through additional forward passes or by treating them as draft tokens in a speculative decoding framework.

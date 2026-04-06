@@ -269,7 +269,7 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#sec-quantization" id="toc-sec-quantization" class="nav-link active" data-scroll-target="#sec-quantization"><span class="header-section-number">4.1</span> Quantization</a>
+  <li><a href="#sec-quantization" id="toc-sec-quantization" class="nav-link active" data-scroll-target="#sec-quantization"><span class="header-section-number">4.1</span> Model Quantization</a>
   <ul class="collapse">
   <li><a href="#lower-precision-datatypes" id="toc-lower-precision-datatypes" class="nav-link" data-scroll-target="#lower-precision-datatypes">Lower precision datatypes</a></li>
   <li><a href="#weight-only-quantization" id="toc-weight-only-quantization" class="nav-link" data-scroll-target="#weight-only-quantization">Weight-only quantization</a></li>
@@ -322,7 +322,7 @@ window.Quarto = {
 <p>The optimizations in this chapter are all about the model itself, separate from request handling. They change what the hardware has to do per token by reducing the model’s compute and memory footprint at the architecture and weight level. Some of these are choices made by model designers prior to training. Others are applied post-training to an existing model. Either way, the result is the same: fewer bytes to move, fewer FLOPs to compute, or both.</p>
 <p>We’ll keep the coverage here lighter than in subsequent chapters. Much of the time, you don’t get a choice about the model to be used. Because of this, much of the focus of this book is on what you can do when you’re given a model to serve. But understanding these techniques is still important, whether you have any say in the model or not.</p>
 <section id="sec-quantization" class="level2" data-number="4.1">
-<h2 data-number="4.1" class="anchored" data-anchor-id="sec-quantization"><span class="header-section-number">4.1</span> Quantization</h2>
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-quantization"><span class="header-section-number">4.1</span> Model Quantization</h2>
 <p>One can make a strong argument that <strong>quantization</strong> is the single most impactful model-level optimization for LLM inference. The reason is straightforward, and it connects directly to the bottleneck framework from <a href="inference.html#sec-bottleneck-framework" class="quarto-xref"><span>Section 3.4</span></a>.</p>
 <p>During decode, the bottleneck is memory bandwidth. As we’ve discussed, each decode step reads the entire model’s weights from HBM just to produce one token. If your model has 70 billion parameters stored in FP16 (2 bytes each), that’s 140 GB of weight data read per token. On an H100 with 3.35 TB/s of bandwidth, reading 140 GB takes about 42 milliseconds – and that’s a hard floor on your per-token latency, ignoring everything else. If you quantize those same weights to INT4 (0.5 bytes each), you’re reading 35 GB instead, and the floor drops to about 10 milliseconds. That’s a 4x improvement in your theoretical best-case decode speed, and you didn’t change a single line of serving code.</p>
 <p>The key insight is that quantization doesn’t just reduce the amount of GPU memory needed to store the model weights (which is a pretty big benefit). Quantization also reduces the bandwidth demand that dominates decode latency, and it can speed up computation too. Let’s walk through the main approaches to quantization. We will assume 16-bit weights in FP16 or BF16 are our baseline.</p>
@@ -515,7 +515,7 @@ Figure&nbsp;4.2: Cross-layer attention with a factor of 2 KV sharing between lay
 </figcaption>
 </figure>
 </div>
-<p><strong>Cross-Layer Attention (CLA)</strong> <span class="citation" data-cites="brandon2024cla">(<a href="references.html#ref-brandon2024cla" role="doc-biblioref">Brandon et al. 2024</a>)</span> takes a different angle: rather than sharing KV across heads within a layer, it shares KV across adjacent layers. If every pair of consecutive layers shares the same KV cache, the total cache size is halved. CLA can be combined with GQA or MQA for even greater reductions.</p>
+<p><strong>Cross-Layer Attention (CLA)</strong> <span class="citation" data-cites="brandon2024cla">(<a href="references.html#ref-brandon2024cla" role="doc-biblioref">Brandon et al. 2024</a>)</span> takes a different angle: rather than sharing KV across heads within a layer, it shares KV across adjacent layers. If every pair of consecutive layers shares the same KV cache, the total cache size is halved. <a href="#fig-cross-layer-attn" class="quarto-xref">Figure&nbsp;<span>4.2</span></a> compares standard attention with CLA, where the K and V vectors are shared between pairs of layers. CLA can be combined with GQA or MQA for even greater reductions.</p>
 </section>
 <section id="reducing-attention-compute" class="level3">
 <h3 class="anchored" data-anchor-id="reducing-attention-compute">Reducing attention compute</h3>
@@ -530,18 +530,18 @@ Figure&nbsp;4.3: Full causal attention (left) vs.&nbsp;sliding window attention 
 </figcaption>
 </figure>
 </div>
-<p><strong>Sliding window attention</strong> <span class="citation" data-cites="beltagy2020longformer">(<a href="references.html#ref-beltagy2020longformer" role="doc-biblioref">Beltagy et al. 2020</a>)</span> restricts each token to attend only to a fixed-size window of nearby tokens rather than the full sequence. This reduces the attention computation from <span class="math inline">\(O(n^2)\)</span> to <span class="math inline">\(O(n \times w)\)</span>, where <span class="math inline">\(w\)</span> is the window size. For inference, sliding window attention also bounds the KV cache size per layer to the window size, regardless of the total sequence length. Several recent models – including Mistral – use sliding window attention in some or all layers, often combined with a few full-attention layers to preserve the model’s ability to attend to distant tokens.</p>
-<div id="fig-attn-head-variants" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<p><strong>Sliding window attention</strong> <span class="citation" data-cites="beltagy2020longformer">(<a href="references.html#ref-beltagy2020longformer" role="doc-biblioref">Beltagy et al. 2020</a>)</span> restricts each token to attend only to a fixed-size window of nearby tokens rather than the full sequence. This reduces the attention computation from <span class="math inline">\(O(n^2)\)</span> to <span class="math inline">\(O(n \times w)\)</span>, where <span class="math inline">\(w\)</span> is the window size. <a href="#fig-sliding-window-attn" class="quarto-xref">Figure&nbsp;<span>4.3</span></a> illustrates the difference between full attention and sliding window attention with a window size of 4. For inference, sliding window attention also bounds the KV cache size per layer to the window size, regardless of the total sequence length. Several recent models – including Mistral – use sliding window attention in some or all layers, often combined with a few full-attention layers to preserve the model’s ability to attend to distant tokens.</p>
+<div id="fig-parallel-block" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div aria-describedby="fig-parallel-block-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <a href="images/parallel_block.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;4.4: Parallel attention and MLP blocks"><img src="images/parallel_block.svg" class="img-fluid figure-img"></a>
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-attn-head-variants-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-parallel-block-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 Figure&nbsp;4.4: Parallel attention and MLP blocks
 </figcaption>
 </figure>
 </div>
-<p><strong>Parallel attention and MLP blocks</strong> is a simpler architectural trick used in some models, including PaLM <span class="citation" data-cites="chowdhery2022palm">(<a href="references.html#ref-chowdhery2022palm" role="doc-biblioref"><span class="nocase">Chowdhery et al.</span> 2022</a>)</span>. Instead of computing attention and MLP sequentially within each transformer block, they are computed in parallel and their outputs are summed. This doesn’t reduce total FLOPs, but it reduces the serial dependency within each layer, which can improve GPU utilization and reduce latency – especially when the attention and MLP computations can be overlapped on different hardware units.</p>
+<p><strong>Parallel attention and MLP blocks</strong> is a simple architectural trick used in some models, including PaLM <span class="citation" data-cites="chowdhery2022palm">(<a href="references.html#ref-chowdhery2022palm" role="doc-biblioref"><span class="nocase">Chowdhery et al.</span> 2022</a>)</span>. Instead of computing attention and MLP sequentially within each transformer block, they are computed in parallel and their outputs are summed. This doesn’t reduce total FLOPs, but it reduces the serial dependency within each layer, which can improve GPU utilization and reduce latency — especially when the attention and MLP computations can be overlapped on different hardware units. A schematic of this parallel design is shown in <a href="#fig-parallel-block" class="quarto-xref">Figure&nbsp;<span>4.4</span></a>.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">

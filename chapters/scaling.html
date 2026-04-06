@@ -348,11 +348,7 @@ window.Quarto = {
 <p>We’ll start by understanding the communication fabric, then work through each parallelism strategy, and finish by analyzing when communication becomes the bottleneck.</p>
 <section id="sec-interconnects" class="level2" data-number="7.1">
 <h2 data-number="7.1" class="anchored" data-anchor-id="sec-interconnects"><span class="header-section-number">7.1</span> Interconnects and Multi-GPU Topology</h2>
-<p>Before we can reason about the cost of distributing work, we need to know how fast data moves between devices. The answer varies enormously depending on which devices are talking to each other.</p>
-<section id="intra-node-nvlink-and-nvswitch" class="level3">
-<h3 class="anchored" data-anchor-id="intra-node-nvlink-and-nvswitch">Intra-node: NVLink and NVSwitch</h3>
-<p>Within a single server node, NVIDIA GPUs communicate over <strong>NVLink</strong>, a high-bandwidth point-to-point interconnect. On the H100, each GPU has 18 NVLink connections providing 900 GB/s of bidirectional bandwidth <span class="citation" data-cites="nvidia2023h100">(<a href="references.html#ref-nvidia2023h100" role="doc-biblioref">NVIDIA 2023b</a>)</span>. That’s roughly 7x the bandwidth of PCIe Gen5.</p>
-<p>In an 8-GPU node like the NVIDIA DGX H100, an <strong>NVSwitch</strong> fabric connects all GPUs in a full-mesh topology, so any GPU can communicate with any other GPU at the full NVLink bandwidth without going through intermediate hops. This is critical for collective operations like all-reduce, where every GPU needs to exchange data with every other GPU.</p>
+<p>Before we can reason about the cost of distributing work, we need to know how fast data moves between devices. The answer varies enormously depending on which devices are talking to each other. <a href="#fig-interconnect" class="quarto-xref">Figure&nbsp;<span>7.1</span></a> shows the different communication paths between GPUs in a cluster of two nodes, each with 8 H100 GPUs, and the typical bandwidths for each path.</p>
 <div id="fig-interconnect" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-interconnect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -363,6 +359,10 @@ Figure&nbsp;7.1: Intra-node and inter-node connections
 </figcaption>
 </figure>
 </div>
+<section id="intra-node-nvlink-and-nvswitch" class="level3">
+<h3 class="anchored" data-anchor-id="intra-node-nvlink-and-nvswitch">Intra-node: NVLink and NVSwitch</h3>
+<p>Within a single server node, NVIDIA GPUs communicate over <strong>NVLink</strong>, a high-bandwidth point-to-point interconnect. On the H100, each GPU has 18 NVLink connections providing 900 GB/s of bidirectional bandwidth <span class="citation" data-cites="nvidia2023h100">(<a href="references.html#ref-nvidia2023h100" role="doc-biblioref">NVIDIA 2023b</a>)</span>. That’s roughly 7x the bandwidth of PCIe Gen5.</p>
+<p>In an 8-GPU node like the NVIDIA DGX H100, an <strong>NVSwitch</strong> fabric connects all GPUs in a full-mesh topology, so any GPU can communicate with any other GPU at the full NVLink bandwidth without going through intermediate hops. This is critical for collective operations like all-reduce, where every GPU needs to exchange data with every other GPU.</p>
 </section>
 <section id="pcie" class="level3">
 <h3 class="anchored" data-anchor-id="pcie">PCIe</h3>
@@ -514,10 +514,7 @@ Figure&nbsp;7.3: Tensor parallel attention calculation
 </section>
 <section id="sec-pipeline-parallelism" class="level2" data-number="7.4">
 <h2 data-number="7.4" class="anchored" data-anchor-id="sec-pipeline-parallelism"><span class="header-section-number">7.4</span> Pipeline Parallelism (PP)</h2>
-<p><strong>Pipeline parallelism</strong> takes a different approach: instead of splitting each layer across devices, it assigns entire layers to different devices. If you have 80 transformer layers and 4 GPUs, each GPU gets 20 consecutive layers.</p>
-<section id="how-it-works" class="level3">
-<h3 class="anchored" data-anchor-id="how-it-works">How it works</h3>
-<p>The forward pass flows through the pipeline stages sequentially. GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on. The communication pattern is simple point-to-point transfers between adjacent stages – no all-reduce needed.</p>
+<p><strong>Pipeline parallelism</strong> takes a different approach: instead of splitting each layer across devices, it assigns entire layers to different devices. If you have 80 transformer layers and 4 GPUs, each GPU gets 20 consecutive layers. This is depicted in <a href="#fig-pipeline-parallelism" class="quarto-xref">Figure&nbsp;<span>7.4</span></a>.</p>
 <div id="fig-pipeline-parallelism" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-pipeline-parallelism-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -528,6 +525,9 @@ Figure&nbsp;7.4: Pipeline parallelism of an 80-layer model across 4 GPUs. There 
 </figcaption>
 </figure>
 </div>
+<section id="how-it-works" class="level3">
+<h3 class="anchored" data-anchor-id="how-it-works">How it works</h3>
+<p>The forward pass flows through the pipeline stages sequentially. GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on. The communication pattern is simple point-to-point transfers between adjacent stages – no all-reduce needed.</p>
 <p>The activation tensor passed between stages has shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, which is much smaller than the all-reduce traffic in TP. This low communication volume makes PP well-suited for <strong>multi-node</strong> deployment, where network bandwidth is limited.</p>
 </section>
 <section id="the-pipeline-bubble" class="level3">
@@ -540,7 +540,8 @@ Figure&nbsp;7.4: Pipeline parallelism of an 80-layer model across 4 GPUs. There 
 </section>
 <section id="sec-expert-parallelism" class="level2" data-number="7.5">
 <h2 data-number="7.5" class="anchored" data-anchor-id="sec-expert-parallelism"><span class="header-section-number">7.5</span> Expert Parallelism (EP)</h2>
-<p>Mixture-of-Experts (MoE) models – like Mixtral, DeepSeek-V2, and many recent large models – replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token. This dramatically reduces per-token compute, but it means the full set of expert weights must be in memory.</p>
+<p>Mixture-of-Experts (MoE) models, like Mixtral, DeepSeek-V2, and many recent large models, replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token. This dramatically reduces per-token compute, but it means the full set of expert weights must be in memory.</p>
+<p><strong>Expert parallelism</strong> assigns different experts to different GPUs. With 64 experts and 8 GPUs, each GPU holds 8 experts. When a token is routed to an expert on another GPU, the token’s activation must be sent to that GPU and the result sent back.</p>
 <div id="fig-ep-mlp" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ep-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -551,10 +552,9 @@ Figure&nbsp;7.5: Expert parallel MLP calculation
 </figcaption>
 </figure>
 </div>
-<p><strong>Expert parallelism</strong> assigns different experts to different GPUs. With 64 experts and 8 GPUs, each GPU holds 8 experts. When a token is routed to an expert on another GPU, the token’s activation must be sent to that GPU and the result sent back.</p>
 <section id="all-to-all-communication" class="level3">
 <h3 class="anchored" data-anchor-id="all-to-all-communication">All-to-all communication</h3>
-<p>The communication pattern for EP is <strong>all-to-all</strong>: every GPU potentially needs to send tokens to every other GPU and receive results back. Each MoE layer requires two all-to-all operations – one to dispatch tokens to the correct experts, and one to collect results.</p>
+<p><a href="#fig-ep-mlp" class="quarto-xref">Figure&nbsp;<span>7.5</span></a> shows the data flow for expert parallelism. The communication pattern for EP is <strong>all-to-all</strong>: every GPU potentially needs to send tokens to every other GPU and receive results back. Each MoE layer requires two all-to-all operations – one to dispatch tokens to the correct experts, and one to collect results.</p>
 <p>The communication volume depends on the routing decisions, but in expectation, each GPU sends <span class="math inline">\((T-1)/T\)</span> of its tokens to other GPUs (since only <span class="math inline">\(1/T\)</span> of experts are local). For a model with many MoE layers – DeepSeek-V3 has MoE in every other transformer block – this all-to-all traffic adds up.</p>
 </section>
 <section id="load-balancing" class="level3">
@@ -569,7 +569,7 @@ Figure&nbsp;7.5: Expert parallel MLP calculation
 <p>This is primarily useful during <strong>prefill</strong> of long contexts. If you’re processing a 128K-token prompt, the attention computation is <span class="math inline">\(O(\textcolor{#DC2626}{\text{S}}^2)\)</span> and the KV cache for that single request may not fit on one GPU. Splitting the sequence across 4 GPUs gives each one a 32K-token chunk to process.</p>
 <section id="ring-attention" class="level3">
 <h3 class="anchored" data-anchor-id="ring-attention">Ring attention</h3>
-<p><strong>Ring self-attention</strong> <span class="citation" data-cites="li2021ring">(<a href="references.html#ref-li2021ring" role="doc-biblioref">Li et al. 2021</a>)</span> arranges the GPUs in a logical ring. Each GPU starts with a local chunk of queries and an initial chunk of keys and values. Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks. After <strong>T</strong> steps (where <strong>T</strong> is the number of GPUs), every GPU has computed attention over the full sequence.</p>
+<p><strong>Ring self-attention</strong> <span class="citation" data-cites="li2021ring">(<a href="references.html#ref-li2021ring" role="doc-biblioref">Li et al. 2021</a>)</span> arranges the GPUs in a logical ring. Each GPU starts with a local chunk of queries and an initial chunk of keys and values. Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks. After <strong>T</strong> steps (where <strong>T</strong> is the number of GPUs), every GPU has computed attention over the full sequence. This pattern is depicted in <a href="#fig-ring-attn" class="quarto-xref">Figure&nbsp;<span>7.6</span></a> for <strong>T</strong> = 4 GPUs.</p>
 <div id="fig-ring-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ring-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">

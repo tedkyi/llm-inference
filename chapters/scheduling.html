@@ -533,6 +533,7 @@ Note
 <li>The KV cache is transferred over a fast interconnect (such as NVLink or InfiniBand) to a <strong>decode instance</strong></li>
 <li>The decode instance generates tokens autoregressively using the transferred KV cache</li>
 </ol>
+<p>A comparison of co-located and disaggregated prefill on a sample workload is shown in <a href="#fig-disaggregated-prefill" class="quarto-xref">Figure&nbsp;<span>5.5</span></a>.</p>
 <div id="fig-disaggregated-prefill" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-disaggregated-prefill-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -551,7 +552,7 @@ Figure&nbsp;5.5: Disaggregated prefill
 <section id="ragged-batching" class="level2" data-number="5.3">
 <h2 data-number="5.3" class="anchored" data-anchor-id="ragged-batching"><span class="header-section-number">5.3</span> Ragged batching</h2>
 <p>Even with continuous batching, there’s still a source of waste: when requests in a batch have different sequence lengths, the shorter sequences need padding to match the longest one in the batch for the attention computation. <strong>Ragged batching</strong> eliminates this by concatenating all the tokens from different requests into a single flat sequence, with appropriate attention masks to prevent cross-request attention.</p>
-<p>Instead of a padded batch tensor of shape <span class="math inline">\([B, S_{\text{max}}]\)</span> where shorter sequences waste compute on pad tokens, ragged batching creates a packed tensor of shape <span class="math inline">\([T_{\text{total}}]\)</span> where <span class="math inline">\(T_{\text{total}}\)</span> is the sum of all actual token counts. An index array tracks where each request’s tokens begin and end, and the attention mask ensures that tokens from one request can’t attend to tokens from another.</p>
+<p>Instead of a padded batch tensor of shape <span class="math inline">\([B, S_{\text{max}}]\)</span> where shorter sequences waste compute on pad tokens, ragged batching creates a packed tensor of shape <span class="math inline">\([T_{\text{total}}]\)</span> where <span class="math inline">\(T_{\text{total}}\)</span> is the sum of all actual token counts. An index array tracks where each request’s tokens begin and end, and the attention mask ensures that tokens from one request can’t attend to tokens from another. A comparison of simple padded batching and ragged batching is shown in <a href="#fig-ragged-batching" class="quarto-xref">Figure&nbsp;<span>5.6</span></a> and <a href="#fig-ragged-mask" class="quarto-xref">Figure&nbsp;<span>5.7</span></a>.</p>
 <div id="fig-ragged-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ragged-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">

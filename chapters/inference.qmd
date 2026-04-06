@@ -7,7 +7,7 @@ We will develop an understanding of the stages of inference, how we measure infe
 
 From the time you send a prompt to an LLM until you get a response back, a lot happens between those two moments.
 The full journey of a single request breaks down into a few stages.
-Some of these are one-time setup costs, some happen once per request, and some repeat for every output token.
+Some happen once per request and some repeat for every output token.
 Understanding the characteristics of the stages will help you focus your attention on the ones that actually dominate wall-clock time.
 In this section, as with most of the book, we will assume the LLM is running on a computer with a GPU.
 The principles will be the same if it is running on CPU, TPU, or other hardware.
@@ -26,19 +26,20 @@ Loading that volume of data from an NVMe SSD at 7 GB/s takes about 20 seconds, a
 Because this is so slow, on typical inference software, the weights are loaded into GPU memory at startup and they stay there for the lifetime of the serving session.
 
 **Ingestion** is the entry point for each request.
-The system takes your prompt and forms a new request.
-Your prompt may be merged with other content, such as a system prompt.
+The system takes the user's prompt and forms a new request.
+The user's prompt may be merged with other content, such as a system prompt.
 Next, this finalized raw text is tokenized --- converted from characters into the integer token IDs that the model actually works with --- and any additional validation or preprocessing is applied.
 This stage is fast compared to the resource-intensive work involving the neural network model that follows and is typically handled on the CPU.
-This stage may also involve queuing.
-In a production system, requests may wait in a queue until there are resources available to process them, and if the system has multiple priority levels, lower priority requests may wait longer.
 We are skipping many details about the steps within ingestion because what they have in common is that they usually happen once and are relatively fast.
-One area where ingestion has a dramatic impact on speed and user experience is in the timing and granularity of scheduling request work, and we will discuss scheduling in @sec-scheduling.
+One exception, which can significantly harm user experience, is request queuing.
+In a production system, requests may wait in a queue until there are resources available to process them, and if the system has multiple priority levels, lower priority requests may wait longer.
+Queueing time can be a significant contributor to overall latency, even though it doesn't consume system resources.
+The timing and granularity of scheduling request work can dramatically improve performance (up to the limits of system resources), and we will discuss scheduling in @sec-scheduling.
 
 **Prefill** is where the heavy lifting begins.
 The model processes the entire set of input tokens in a single forward pass through the entire network — all layers, all attention heads, all FFN blocks.
 In particular, the attention layers calculate attention scores across all of the input tokens.
-Since the attention scores are a square whose sides are the number of tokens, this grows quadratically with respect to the sequence length, and it becomes very expensive when there are many input tokens.
+Since the attention scores are a square whose sides are the number of tokens, the compute needed for attention grows quadratically with respect to the sequence length, and it becomes very expensive when there are many input tokens.
 Because all input tokens are known up front, the attention calculation can be done all at once using a large matrix-matrix multiplication between queries and keys.
 Despite how efficiently modern GPUs perform matrix multiplication, the size of the matrices involved means that prefill for all but the shortest prompts is **compute-bound** — the bottleneck is how fast the GPU can do the arithmetic, not how fast it can move data into the computational cores.
 
@@ -61,10 +62,10 @@ $$\text{KV cache} = 2 \times 80 \times 8 \times 4096 \times 128 \times 2 \approx
 That's 1.34 GB of GPU memory consumed by a single request's KV cache, just from the input tokens.
 This memory usage is one of the primary constraints on how many requests can be served concurrently, which we'll explore in @sec-efficient-attention, @sec-kv-cache, and other sections.
 
-After prefill completes, the system has two things: the KV cache populated with entries for all input tokens and the logits for the last input position's next token prediction, which are used to generate the first output token.
+After prefill completes, the system has two things: the KV cache populated with entries for all input tokens and the logits for the last input position's next token prediction, the latter of which are used to generate the first output token.
 
 ::: callout-note
-For a detailed look at exactly how the key, value, and query projections are computed during the transformer's forward pass and how they relate to the KV cache, see sections [-@sec-self-attention] and [-@sec-kv-cache-intro].
+For a detailed look at exactly how the key, value, and query projections are computed during the transformer's forward pass and how they relate to the KV cache, refer to sections [-@sec-self-attention] and [-@sec-kv-cache-intro].
 :::
 
 **Decode** is the phase where the LLM's response is generated (except for the first token).
@@ -109,30 +110,30 @@ Common strategies include:
 * top-p / nucleus sampling (restrict sampling to the smallest set of tokens whose cumulative probability exceeds $p$)
 
 Sampling adds negligible overhead relative to the preceding forward pass.
-The forward pass involves billions of multiply-accumulate operations across all the model's layers; sampling involves a softmax over the vocabulary (typically 30K-200K entries) and a random draw.
-Sampling is not where the time goes.
+The forward pass involves billions of multiply-accumulate operations across all the model's layers. 
+Sampling merely involves a softmax over the vocabulary (typically 30K-200K entries) and a random draw, so sampling is not where all the time goes.
 
 **Completion** wraps things up.
 The model has finished because it either generated a stop token, hit a maximum length limit, or has been interrupted by the serving system.
 The accumulated response is detokenized back into text, the KV cache memory is freed, and the result is returned to the user.
 In most production deployments, the response is **streamed** back to the user as tokens are generated, rather than waiting for the full response to complete.
-Streaming doesn't change what's happening on the GPU --- each decode step produces the same token whether it's streamed immediately or batched for delivery later --- but it reduces how long users have to wait to see the beginning of the LLM response.
+Streaming doesn't change what's happening on the GPU --- each decode step produces the same token whether it's streamed immediately or batched for delivery later --- but it reduces how long users have to wait to see parts of the LLM response.
 Whether batch or streaming, completion steps are like ingestion in that they are usually fast one-time operations that happen on the CPU.
 
 ### Where the time goes
 
 Of the five stages above, the vast majority of compute and memory bandwidth is consumed by prefill and decode.
-Model loading is a one-time cost.
 Ingestion and completion are fast operations on CPU that together account for a tiny fraction of request latency.
 Note that we are excluding queueing time from ingestion for now, treating that as a fixed cost associated with workload.
 Queueing time can be long for a system under heavy load, and various techniques associated with scheduling are discussed in @sec-scheduling.
+Aside from scheduling, most of the techniques covered in this book target prefill and decode, because that's where the time goes and where the greatest opportunity for improvement lies.
 
 ### Two fundamentally different regimes
 
 While prefill and decode are both expensive, the contrast between the types of resources they need is worth emphasizing.
 
-During prefill, we have a large set of tokens to process, so we can keep the GPU's compute units busy with very large matrix multiplications.
-During decode, we're typically generating one token at a time, so we need many forward passes which each require much smaller computations that mostly involve reading a lot of data.
+During prefill, we have a large set of tokens to process, so we can keep the GPU's compute units busy with very large matrix multiplication operations.
+During decode, we're typically generating one token at a time, so we need many forward passes which each require much smaller computations that usually involve reading a lot of data.
 
 This means prefill and decode need different resources from the hardware.
 Prefill wants raw compute horsepower.
@@ -146,8 +147,8 @@ Understanding the fundamental difference in resource needs between prefill and d
 ## Performance Metrics {#sec-metrics}
 
 Now that we have a mental model of what happens during inference, the natural next question is: how do we know if our system is doing it *well*?
-This section introduces the metrics you'll encounter throughout the rest of the book.
-We'll group them by what they measure, because different concerns utilize different metrics.
+This section introduces the metrics you'll encounter in conversations about LLM serving.
+We'll group them by what they measure, as different concerns utilize different metrics.
 
 ### User-facing latency metrics
 
@@ -155,7 +156,7 @@ The metrics that matter most in interactive applications are the ones users actu
 
 **Time to First Token (TTFT)** is the wall-clock time from when a request is submitted to when the first output token is produced.
 In a chat application, this is how long the user stares at a blank screen before text starts appearing.
-TTFT is significantly impacted by the duration of the prefill phase because ingestion usually is fast, we don't need to decode many tokens to start returning text to the user, and completion is also fast.
+TTFT is significantly impacted by the duration of the prefill phase because ingestion usually is fast, we don't need to decode many tokens to start streaming text to the user, and completion is also fast.
 Since the system has to process the entire input before it can begin generating any output, longer prompts mean longer prefill, which means higher TTFT.
 
 Note that TTFT isn't as simple as the prefill duration plus fixed costs for the other phases.
@@ -168,8 +169,8 @@ So the TTFT the user experiences can be somewhat higher than the time the infere
 This is what governs how fast text appears to stream after that first token shows up.
 TPOT is a function of the decode process.
 When each decode step produces one token, TPOT is essentially the time per decode step.
-For a fluent reading experience in interactive applications, you generally want TPOT below about 50–100 milliseconds.
-Go much higher and the output starts to feel sluggish.
+For a fluent reading experience in interactive applications, you generally want TPOT below about 50–100 milliseconds (which equates to 10-20 tokens per second).
+Go much higher, and the output starts to feel sluggish.
 
 TPOT is an average, and individual decode steps can vary.
 The KV cache grows with each token, so later decode steps read slightly more data than earlier ones.
@@ -196,11 +197,11 @@ RPS is highly dependent on the workload.
 Latency and throughput are in fundamental tension, and this tradeoff is at the heart of inference system configuration.
 
 One key mechanism impacting latency and throughput is **batching**.
-If you process requests one at a time, each request gets the lowest possible latency while being serviced --- there's no waiting to fill a batch, and the hardware is entirely dedicated to that single request.
+If you process requests one at a time, each request gets the lowest possible latency while being serviced, since the hardware is entirely dedicated to that single request.
 But the GPU is badly underutilized, especially during decode, where a single request doesn't generate enough arithmetic to keep the compute units busy.
 
 If instead you batch multiple requests together, the GPU can do more useful work per memory read.
-Reading the model weights once and applying them to 32 requests in a batch is far more efficient than reading them 32 separate times.
+Reading the model weights once and applying them to 32 requests in a batch is far more efficient than reading them 32 separate times, once per request.
 With larger batches, throughput goes up, but now each individual request might have to wait before processing begins, because the system is pausing to accumulate enough requests for a full batch.
 Also, each decode step takes slightly longer because there's more work per step, so with larger batches, latency goes up a little.
 
@@ -226,12 +227,15 @@ Goodput is the metric that connects basic system performance to whether users ar
 ### Cost efficiency
 
 At scale, inference cost is often a key optimization target.
-**Cost per token** measures how much it costs in dollars (or GPU-hours) to generate one output token.
+**Cost per token** measures how much it costs in dollars (or GPU-hours) to generate output tokens.
 It's roughly inversely proportional to throughput --- if you double your throughput on the same hardware, you halve your cost per token.
 This means that most of the techniques covered in this book that improve throughput will reduce cost.
 
 The picture gets more nuanced when you factor in different hardware devices (each with different cost and performance profiles), different precision formats, and the amortized cost of hardware across many workloads.
 But as a first approximation, optimizing for throughput is optimizing for cost.
+
+While cost per token is often measured in aggregate, it can also be useful to break out cost betweeen input and output tokens, or between prefill and decode.
+In fact, major providers usually charge separately for input and output tokens, reflecting the different costs for prefill and decode compute.
 
 ### Hardware utilization metrics
 
@@ -249,8 +253,8 @@ We'll see how to use the roofline model to reason about this precisely in @sec-b
 
 **Model Bandwidth Utilization (MBU)** is the analogous metric for memory bandwidth.
 MBU is the fraction of peak memory bandwidth that is actually used for reading model data.
-During decode, the bottleneck is typically how fast you can stream model weights and KV cache entries from HBM.
-If your GPU has 3.35 TB/s of HBM bandwidth and your decode step actually achieves 2.5 TB/s, your MBU is about 75%.
+During decode, the bottleneck is typically how fast you can stream model weights and KV cache entries from GPU main memory.
+If your GPU has 3.35 TB/s of memory bandwidth and your decode step actually achieves 2.5 TB/s, your MBU is about 75%.
 
 MBU is a good diagnostic for decode activity.
 A low MBU during decode means the memory system is not being fully utilized --- perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management.
@@ -260,7 +264,7 @@ You should not expect to get close to 100% MFU or MBU for real-world use cases.
 
 ### Capacity metrics
 
-These metrics describe the system's resource utilization.
+These metrics describe the system's high-level resource utilization.
 
 **Concurrency** is the average number of in-flight requests the system is serving simultaneously.
 This is primarily constrained by GPU memory: each active request needs space for its KV cache, and the KV cache grows with sequence length.
@@ -276,7 +280,7 @@ The KV cache is the variable that dominates, and it scales with both concurrency
 
 **Maximum sequence length supported** is the longest sequence (counting both input and output tokens) that the system can handle.
 Note that even if the model was trained to support 128K tokens, your deployment might be limited to 32K if that's all the KV cache memory you can afford while maintaining your target concurrency.
-This is usually a hard constraint that is set up front in the serving framework at the time the model is loaded.
+The serving framework typically sets this as a hard constraint at model load time.
 
 ### Preemption metrics
 
@@ -305,9 +309,9 @@ The shape of the workload greatly impacts many metrics.
 ### The input/output quadrants
 
 The simplest way to characterize an LLM workload is by the length of the input and the length of the output.
-These two dimensions create four quadrants, and each one has a distinct performance profile.
+These two dimensions create four quadrants, shown in @fig-io-quadrants, and each one has a distinct performance profile.
 
-![The four workload quadrants defined by input and output length](images/io_quadrants.svg){#fig-io-quadrants .lightbox}
+![The four workload quadrants defined by input and output length, with example scenarios](images/io_quadrants.svg){#fig-io-quadrants .lightbox}
 
 **Short input, short output** is the lightest quadrant.
 Think of a simple one-off chatbot exchange or a classification task: a sentence or two goes in, and a sentence or two comes out.
@@ -387,7 +391,7 @@ Requests that arrive in isolation may run in small, inefficient batches, wasting
 The more variable the arrival pattern, the harder it is to maintain consistently high utilization.
 We'll see in @sec-batching how modern schedulers use techniques like continuous batching to adapt dynamically to changing arrival patterns, rather than waiting for a fixed batch to fill up.
 
-In summary, understanding your workload --- the mix of input/output lengths, the latency requirements, and the arrival patterns --- is one step toward choosing the right optimizations.
+In summary, understanding your workload --- the mix of input/output lengths, the latency requirements, and the arrival patterns --- is the first step toward choosing the right inference configuration.
 A system tuned for batch summarization of long documents looks very different from one tuned for low-latency chatbot responses, even though they might be serving the same model.
 
 ## The Hardware Model and Bottleneck Framework {#sec-bottleneck-framework}
@@ -430,7 +434,7 @@ For the H100 SXM, relative throughput for several data types is shown in @tbl-pr
 These numbers are theoretical peaks — the maximum the hardware can deliver if every tensor core is busy on every cycle.
 In practice, you never hit the peak, but it sets the ceiling.
 You get roughly double the throughput when you halve the precision.
-This is one reason quantization (covered in @sec-quantization) is such a useful optimization lever.
+This is one reason model quantization (covered in @sec-quantization) is such a useful optimization lever.
 When you reduce the precision of model weights and activations, you're saving memory and also increasing compute throughput.
 
 ### The memory hierarchy
@@ -499,7 +503,7 @@ For now, we'll focus on the first two bottlenecks.
 ### The roofline model
 
 The **roofline model**, introduced by @williams2009roofline, gives us a simple visual framework for understanding which bottleneck applies to a given workload.
-The core idea is that every compute workload has a property called **arithmetic intensity** — the ratio of compute operations to bytes of data moved, measured in FLOPs per byte (FLOP/byte).
+The core idea is that every compute workload has a property called **arithmetic intensity**, which is the ratio of compute operations to bytes of data moved, measured in FLOPs per byte (FLOP/byte).
 Arithmetic intensity tells you how much work the computational unit does for each byte being read from memory.
 
 The roofline model says that a kernel's achievable performance is capped by whichever ceiling it hits first:
@@ -513,7 +517,6 @@ For a given GPU, the ridge point is simply the ratio of peak compute throughput 
 | Parameter            | Value           |
 |----------------------|-----------------|
 | Peak FP16 throughput | 989.4 TFLOPS    |
-| HBM3 capacity        | 80 GB           |
 | HBM3 bandwidth       | 3.35 TB/s       |
 | Ridge point (FP16)   | \~295 FLOP/byte |
 
@@ -543,9 +546,9 @@ We will revisit this in @sec-quantization when we discuss model quantization.
 ## Putting Numbers on a Baseline {#sec-prefill-decode}
 
 With the roofline model in hand, let's look at real numbers for prefill and decode.
-We'll use the NVIDIA H100 SXM as our reference hardware and a 70-billion-parameter model as our reference model.
+We'll use the NVIDIA H100 SXM as our reference hardware and the 70 billion parameter Llama 3 model as our reference model.
 The goal is to establish a **baseline** for inference without any optimizations.
-Every technique in the rest of this book is an improvement on this baseline.
+We will start by looking at the model parameters and the computations with them.
 
 ### Prefill is compute-bound {#sec-prefill-stage}
 
@@ -553,16 +556,16 @@ During prefill, the model processes **[S]{.dim-s}** input tokens in one forward 
 A large, fixed cost is the matrix multiplications in the attention projections and MLP layers.
 A widely used approximation for the total FLOPs of a forward pass is:
 
-$$\text{FLOPS}_{\text{prefill}} \approx 2 \times P \times S$$
+$$\text{FLOPS}_{\text{prefill}} \approx 2 \times P \times \dims{S}$$
 
 where $P$ is the number of model parameters and **[S]{.dim-s}** is the number of input tokens.
 The factor of 2 comes from the fact that each parameter participates in one multiply and one add (a multiply-accumulate operation counts as 2 FLOPs).
 This approximation covers the linear layers and is reasonably accurate for large models where attention's quadratic component is small relative to the total.
 
 ::: callout-note
-This $2 \times P \times S$ approximation counts the FLOPs for the linear projections (QKV projections, output projection, and MLP layers).
-It omits the quadratic attention score computation ($O(S^2 \times d_{\text{head}} \times H \times L)$) and smaller operations like layer norms and activations.
-For very long sequences, the $S^2$ in the attention cost becomes significant, and adds even more to the arithmetic intensity.
+This $2 \times P \times \dims{S}$ approximation counts the FLOPs for the linear projections (QKV projections, output projection, and MLP layers).
+It omits the quadratic attention score computation ($O(\dims{S}^2 \times \dimdk{d_{K}} \times \dimh{H} \times \diml{L})$) and smaller operations like layer norms and activations.
+For very long sequences, the $\dims{S}^2$ in the attention cost becomes significant, and adds even more to the arithmetic intensity.
 :::
 
 For our 70B model with $S = 4{,}096$ input tokens:
@@ -630,7 +633,7 @@ The minimum time for a single decode step is bounded by the time to read the wei
 $$t_{\text{decode}} \geq \frac{140 \text{ GB}}{3.35 \text{ TB/s}} \approx 41.8 \text{ ms}$$
 
 At one decode step per output token, that's a theoretical maximum of about 24 tokens per second for a single request.
-In practice, accounting for KV cache reads and other overhead, you might see 15-20 tokens per second for a batch-1, 70B FP16 model on an H100 -- comfortably in the range where text streaming feels smooth, but not exactly fast.
+In practice, accounting for KV cache reads and other overhead, you might see 15-20 tokens per second for a batch-1, 70B FP16 model on an H100 --- comfortably in the range where text streaming feels smooth, but not exactly fast.
 
 ::: callout-note
 This is why quantization has such a dramatic effect on decode speed.
@@ -638,19 +641,19 @@ If you quantize the weights from FP16 (2 bytes) to INT4 (0.5 bytes), the weight 
 The minimum decode step time drops to $35 / 3{,}350 \approx 10.4$ ms, roughly 4x faster.
 The arithmetic intensity goes from 1 to 4 FLOP/byte --- still far below the INT4 ridge point, so you're still bandwidth-bound, but you've reduced by 4x the bandwidth needed.
 So, not only does quantization help fit models into GPU memory, it also speeds up inference.
-We'll cover quantization in detail in @sec-quantization.
+We'll cover model quantization in detail in @sec-quantization.
 :::
 
 ### The KV cache adds to reads and writes
 
 The analysis above only accounts for reading the model weights.
-But during decode, the attention computation also reads the full KV cache -- all the keys and values from all previous tokens, across all layers.
+But during decode, the attention computation also reads the full KV cache --- all the keys and values from all previous tokens, across all layers.
 
 For our 70B model with 80 layers, 8 KV heads, head dimension 128, and FP16 entries, the KV cache after processing a total of **[S]{.dim-s}** tokens (input + output so far) is:
 
-$$\text{KV cache size} = 2 \times 80 \times 8 \times 128 \times S \times 2 = 327{,}680 \times S \text{ bytes}$$
+$$\text{KV cache size} = 2 \times 80 \times 8 \times 128 \times \dims{S} \times 2 = 327{,}680 \times \dims{S} \text{ bytes}$$
 
-After a 4,096-token prefill and 512 tokens of decode ($S = 4{,}608$):
+After a 4,096-token prefill and 512 tokens of decode ($\dims{S} = 4{,}608$):
 
 $$\text{KV cache} \approx 1.51 \text{ GB}$$
 
@@ -661,13 +664,13 @@ $$\text{Total bytes} = \underbrace{140 \text{ GB}}_{\text{weights}} + \underbrac
 
 For a 70B model, this KV cache is a relatively small addition -- about 1% of the total data read.
 But consider a smaller model.
-For a longer sequence, such as $S = 100{,}000$, the KV cache would be \~33 GB.
+For a longer sequence, such as $\dims{S} = 100{,}000$, the KV cache would be \~33 GB.
 At these lengths, KV cache bandwidth becomes a significant factor in decode time.
 
 The KV cache also grows by one entry per layer per KV head per decode step.
 Each step must write:
 
-$$\Delta \text{KV cache} = 2 \times L \times H_{\text{kv}} \times d_{\text{head}} \times b_{\text{kv}}$$
+$$\Delta \text{KV cache} = 2 \times \diml{L} \times \dimh{H_{\text{KV}}} \times \dimdk{d_{K}} \times \dimb{b}_{\text{KV}}$$
 
 For our 70B model: $2 \times 80 \times 8 \times 128 \times 2 = 327{,}680$ bytes $\approx 320$ KB per decode step.
 This is a small amount of data to write, but the cumulative effect is what matters: the KV cache grows monotonically, and every subsequent decode step has to read the entire thing.
@@ -687,9 +690,9 @@ $$\text{FLOPs}_{\text{batch}} \approx 2 \times P \times B$$
 But the weight data read stays constant at $P \times b_w$ bytes (where $b_w$ is bytes per weight).
 The arithmetic intensity for the weight multiplications becomes:
 
-$$\text{AI}_{\text{batch}} = \frac{2 \times P \times B}{P \times b_w} = \frac{2B}{b_w}$$
+$$\text{AI}_{\text{batch}} = \frac{2 \times P \times B}{P \times b} = \frac{2B}{b}$$
 
-For FP16 weights ($b_w = 2$), we end up with $\text{AI}_{\text{batch}} = B \text{ FLOP/byte}$.
+For FP16 weights ($b = 2$), we end up with $\text{AI}_{\text{batch}} = B \text{ FLOP/byte}$.
 
 | Batch size | Arithmetic intensity (FLOP/byte) | Regime on H100  |
 |------------|----------------------------------|-----------------|
@@ -723,8 +726,8 @@ It also ignores the memory capacity constraint: each active request's KV cache o
 To push the arithmetic intensity above the ridge point and become compute-bound, you'd need a batch size of about 295 for FP16 weights on the H100.
 In practice, memory capacity limits usually prevent batch sizes this large for big models.
 A 70B model with 140 GB of weights leaves only \~40 GB for KV caches on an 80 GB GPU.
-If each request's KV cache is 1.5 GB, you can fit about 26 concurrent requests -- far short of the 295 needed to hit the ridge point.
-This is why decode for large models remains memory-bandwidth-bound even with batching, and why the optimizations in @sec-kv-cache for reducing KV cache memory usage are so important -- they enable larger batch sizes, which improves throughput.
+If each request's KV cache is 1.5 GB, you can fit about 26 concurrent requests, far short of the 295 needed to hit the ridge point.
+This is why decode for large models remains memory-bandwidth-bound even with batching, and why the optimizations for reducing KV cache memory usage in @sec-kv-cache and elsewhere are so important --- they enable larger batch sizes, which improves throughput.
 
 ### Back-of-envelope summary
 
@@ -744,16 +747,19 @@ Let's collect the key numbers for our reference configuration: a 70B parameter m
 
 A few things stand out from this table:
 
-1.  **Prefill processes tokens roughly 300x more efficiently than batch-1 decode**, in terms of tokens produced per second. This is the direct consequence of the arithmetic intensity gap.
+1.  **Prefill processes tokens roughly 300x faster than batch-1 decode**, in terms of tokens per second. This is the direct consequence of the arithmetic intensity gap.
 
-2.  **Batching is the single most important lever for decode throughput.** Going from batch size 1 to 32 increases system throughput by 32x with essentially no increase in step time, because we're bandwidth-bound either way -- the same weight data is read, just applied to more tokens.
+2.  **Batching is the single most important lever for decode throughput.** Going from batch size 1 to 32 increases system throughput by 32x with essentially no increase in step time, because we're bandwidth-bound either way. 
+The same weight data is read, just applied to more tokens.
+Unfortunately, total memory capacity limits how large we can push batch size.
 
-3.  **The step time for decode barely changes with batch size** (as long as we remain bandwidth-bound). This means that batching increases *system* throughput without significantly increasing per-request latency -- a rare win-win, limited mainly by available memory for KV caches.
+3.  **The step time for decode barely changes with batch size** (as long as we remain bandwidth-bound). This means that batching increases system throughput without significantly increasing per-request latency.
+This is a rare case where we can improve one metric, throughput, without a tradeoff in another metric, latency.
 
-4.  **Weight memory dominates the data read for large models.** The KV cache is a relatively small fraction of the total data read per step, though it becomes more significant for smaller models and longer sequences.
+4.  **Weight memory dominates the data read for large models.** The KV cache is a relatively small fraction of the total data read per step, though it becomes more significant for smaller models and very long sequences.
 
 These numbers are the baseline that every optimization in subsequent chapters maps onto.
-When we discuss quantization in @sec-quantization, we'll see how reducing bytes per weight directly reduces the bandwidth denominator.
+When we discuss model quantization in @sec-quantization, we'll see how reducing bytes per weight directly reduces the bandwidth denominator.
 When we discuss batching strategies in @sec-batching, we'll see how continuous batching and chunked prefill allow the system to maintain high batch sizes.
 When we discuss KV cache optimizations in @sec-kv-cache, we'll see how reducing KV cache memory enables larger batches.
 And when we discuss speculative decoding in @sec-speculative, we'll see how generating multiple tokens per decode step changes the numerator.
@@ -763,15 +769,13 @@ And when we discuss speculative decoding in @sec-speculative, we'll see how gene
 The next four chapters in this book each focus on a specific class of bottleneck and the techniques that address it:
 
 | Chapter | Bottleneck class | Core lever |
-|------------------|-------------------------------|-----------------------|
-| @sec-model -- Model Reduction | Model size and compute | Reduce cost per token via decreasing model size |
-| @sec-scheduling -- Scheduling and Batching | Pipeline and scheduling | Reduce wasted GPU resources through smarter batching and memory management |
+|----------------|------------------|-----------------------|
+| @sec-model -- Model Design | Model size and compute | Reduce cost per token via decreasing model size |
+| @sec-scheduling -- Scheduling and Batching |Scheduling and queuing | Reduce wasted GPU resources through smarter batching and memory management |
 | @sec-request -- Request-Level Optimizations | Request compute and memory; sequential decoding | Optimize individual requests; break the sequential decoding constraint |
-| @sec-scaling -- Multi-Device Inference | Hardware capacity | Distribute across devices when one GPU isn't enough |
+| @sec-scaling -- Multi-Device Inference | Hardware capacity | Distribute across multiple devices when one GPU isn't enough |
 
-: How each chapter maps to the bottleneck framework.
-
-This bottleneck framework gives you a way to evaluate any optimization you encounter: what bottleneck does it address, and does that bottleneck actually apply to your workload?
+This bottleneck framework gives you a way to evaluate each optimization you encounter: what bottleneck does it address, and does that bottleneck actually apply to your workload?
 An optimization that reduces compute won't help a memory-bandwidth-bound decode step much.
 A technique that reduces memory traffic won't help a compute-bound prefill.
 Keeping the roofline in mind as you read the rest of this book will help you understand not just *what* each technique does, but *why* it works and *when* it helps.

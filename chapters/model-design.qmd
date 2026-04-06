@@ -13,7 +13,7 @@ Much of the time, you don't get a choice about the model to be used.
 Because of this, much of the focus of this book is on what you can do when you're given a model to serve.
 But understanding these techniques is still important, whether you have any say in the model or not.
 
-## Quantization {#sec-quantization}
+## Model Quantization {#sec-quantization}
 
 One can make a strong argument that **quantization** is the single most impactful model-level optimization for LLM inference.
 The reason is straightforward, and it connects directly to the bottleneck framework from @sec-bottleneck-framework.

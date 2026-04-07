@@ -305,11 +305,11 @@ window.Quarto = {
   <li><a href="#speculative-speculative-decoding" id="toc-speculative-speculative-decoding" class="nav-link" data-scroll-target="#speculative-speculative-decoding">Speculative speculative decoding</a></li>
   <li><a href="#when-speculative-decoding-helps-vs.-hurts" id="toc-when-speculative-decoding-helps-vs.-hurts" class="nav-link" data-scroll-target="#when-speculative-decoding-helps-vs.-hurts">When speculative decoding helps vs.&nbsp;hurts</a></li>
   <li><a href="#multi-token-prediction" id="toc-multi-token-prediction" class="nav-link" data-scroll-target="#multi-token-prediction">Multi-token prediction</a></li>
+  <li><a href="#medusa" id="toc-medusa" class="nav-link" data-scroll-target="#medusa">Medusa</a></li>
   </ul></li>
   <li><a href="#sec-parallel" id="toc-sec-parallel" class="nav-link" data-scroll-target="#sec-parallel"><span class="header-section-number">6.6</span> Parallel Decoding</a>
   <ul class="collapse">
   <li><a href="#lookahead-decoding" id="toc-lookahead-decoding" class="nav-link" data-scroll-target="#lookahead-decoding">Lookahead decoding</a></li>
-  <li><a href="#medusa" id="toc-medusa" class="nav-link" data-scroll-target="#medusa">Medusa</a></li>
   <li><a href="#tree-based-verification-as-a-unifying-framework" id="toc-tree-based-verification-as-a-unifying-framework" class="nav-link" data-scroll-target="#tree-based-verification-as-a-unifying-framework">Tree-based verification as a unifying framework</a></li>
   </ul></li>
   <li><a href="#sec-further-request" id="toc-sec-further-request" class="nav-link" data-scroll-target="#sec-further-request"><span class="header-section-number">6.7</span> Further Reading</a></li>
@@ -338,7 +338,7 @@ window.Quarto = {
 </header>
 
 
-<p>The previous chapter tackled scheduling — how to keep the GPU busy by managing how requests are handled. This chapter examines the efficiency with which individual requests are handled. The first two sections address memory-bandwidth bottlenecks at the kernel level – optimizations that apply to both prefill and decode. The remaining sections target the sequential decoding constraint, exploring techniques that generate multiple tokens per step or amortize the cost of each one.</p>
+<p>The previous chapter tackled scheduling, addressing how to keep the GPU busy by managing how requests are handled. This chapter examines the efficiency with which individual requests are handled. The first two sections address memory-bandwidth bottlenecks at the hardware execution level. The middle sections cover efficient use and reuse of the KV cache. And the remaining sections target the sequential decoding constraint, exploring techniques that can generate multiple tokens per step.</p>
 <section id="sec-attention-kernels" class="level2" data-number="6.1">
 <h2 data-number="6.1" class="anchored" data-anchor-id="sec-attention-kernels"><span class="header-section-number">6.1</span> Memory-Aware Attention Kernels</h2>
 <section id="why-standard-attention-wastes-bandwidth" class="level3">
@@ -611,6 +611,7 @@ Figure&nbsp;6.6: Speculative decoding
 </section>
 <section id="multi-token-prediction" class="level3">
 <h3 class="anchored" data-anchor-id="multi-token-prediction">Multi-token prediction</h3>
+<p>Speculative decoding uses a separate draft model (or separate heads) to propose candidates. <strong>Multi-token prediction (MTP)</strong> methods take a different approach: they generate multiple future tokens using the base model itself, without any auxiliary model.</p>
 <div id="fig-multi-token-prediction" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-multi-token-prediction-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -625,32 +626,31 @@ Figure&nbsp;6.7: Multi-token prediction with <span class="math inline">\(k=3\)</
 <p>At inference time, the auxiliary heads generate candidate tokens for positions beyond the next token. These candidates are then verified – either through additional forward passes or by treating them as draft tokens in a speculative decoding framework. When the candidates are accepted, the model has effectively generated multiple tokens from a single forward pass through the main body of the network.</p>
 <p>DeepSeek-V3 uses MTP with two prediction heads, and Meta’s Llama architecture has explored similar approaches. The key advantage of MTP over external draft models (covered below) is that the draft candidates come from the model itself, so they tend to have high acceptance rates. The cost is a modest increase in model size and training complexity from the auxiliary heads.</p>
 </section>
-</section>
-<section id="sec-parallel" class="level2" data-number="6.6">
-<h2 data-number="6.6" class="anchored" data-anchor-id="sec-parallel"><span class="header-section-number">6.6</span> Parallel Decoding</h2>
-<p>Speculative decoding uses a separate draft model (or separate heads) to propose candidates. <strong>Parallel decoding</strong> methods take a different approach: they generate multiple future tokens using the base model itself, without any auxiliary model.</p>
-<section id="lookahead-decoding" class="level3">
-<h3 class="anchored" data-anchor-id="lookahead-decoding">Lookahead decoding</h3>
-<p><strong>Lookahead decoding</strong> <span class="citation" data-cites="fu2024lookahead">(<a href="references.html#ref-fu2024lookahead" role="doc-biblioref">Fu et al. 2024</a>)</span> reformulates autoregressive generation as a fixed-point problem. Instead of generating tokens one at a time, it maintains a window of <strong>W</strong> future token positions, initialized with guesses. Then it iteratively refines all positions in parallel using <strong>Jacobi iteration</strong>: at each step, every position computes what its token should be given the current values of all other positions. When the sequence converges – that is, when a contiguous run of positions doesn’t change between iterations – those tokens are accepted.</p>
-<p>The intuition is that many tokens in a sequence are relatively predictable given their context. Common phrases, syntactic patterns, and function words often converge quickly. The tokens that take many iterations to converge are the “surprising” ones – the genuinely creative or informative tokens.</p>
-<p>Lookahead decoding requires no draft model, no extra parameters, and no changes to the base model. The tradeoff is that each Jacobi iteration involves a forward pass over <strong>W</strong> token positions, which is more expensive than a single-token decode step. The method wins when enough tokens converge quickly to offset the cost of processing the wider window.</p>
-</section>
 <section id="medusa" class="level3">
 <h3 class="anchored" data-anchor-id="medusa">Medusa</h3>
 <p><strong>Medusa</strong> <span class="citation" data-cites="cai2024medusa">(<a href="references.html#ref-cai2024medusa" role="doc-biblioref">Cai et al. 2024</a>)</span> adds multiple lightweight <strong>decoding heads</strong> to the base model. The standard model has one head that predicts the next token. Medusa adds <span class="math inline">\(k\)</span> additional heads, where head <span class="math inline">\(i\)</span> predicts the token <span class="math inline">\(i+1\)</span> positions ahead. These heads are small (typically just a single linear layer or a small MLP) and are trained on top of the frozen base model.</p>
 <p>At inference time, all <span class="math inline">\(k+1\)</span> heads produce predictions simultaneously from the same hidden state. The candidates from all heads are organized into a tree structure and verified using the tree-based attention approach described in <a href="#sec-speculative" class="quarto-xref"><span>Section 6.5</span></a>. The longest accepted path through the tree gives the output.</p>
 <p>Medusa has a practical advantage over speculative decoding with a separate draft model: since the heads share the base model’s forward pass, there’s no need to run a separate model. The additional compute for the lightweight heads is small compared to the main model’s forward pass. The disadvantage is that the heads need to be trained for each specific base model, adding a fine-tuning step.</p>
 </section>
+</section>
+<section id="sec-parallel" class="level2" data-number="6.6">
+<h2 data-number="6.6" class="anchored" data-anchor-id="sec-parallel"><span class="header-section-number">6.6</span> Parallel Decoding</h2>
+<section id="lookahead-decoding" class="level3">
+<h3 class="anchored" data-anchor-id="lookahead-decoding">Lookahead decoding</h3>
+<p><strong>Lookahead decoding</strong> <span class="citation" data-cites="fu2024lookahead">(<a href="references.html#ref-fu2024lookahead" role="doc-biblioref">Fu et al. 2024</a>)</span> reformulates autoregressive generation as a fixed-point problem. Instead of generating tokens one at a time, it maintains a window of <strong>W</strong> future token positions, initialized with guesses. Then it iteratively refines all positions in parallel using <strong>Jacobi iteration</strong>: at each step, every position computes what its token should be given the current values of all other positions. When the sequence converges – that is, when a contiguous run of positions doesn’t change between iterations – those tokens are accepted.</p>
+<p>The intuition is that many tokens in a sequence are relatively predictable given their context. Common phrases, syntactic patterns, and function words often converge quickly. The tokens that take many iterations to converge are the “surprising” ones – the genuinely creative or informative tokens.</p>
+<p>Lookahead decoding requires no draft model, no extra parameters, and no changes to the base model. The tradeoff is that each Jacobi iteration involves a forward pass over <strong>W</strong> token positions, which is more expensive than a single-token decode step. The method wins when enough tokens converge quickly to offset the cost of processing the wider window.</p>
+</section>
 <section id="tree-based-verification-as-a-unifying-framework" class="level3">
 <h3 class="anchored" data-anchor-id="tree-based-verification-as-a-unifying-framework">Tree-based verification as a unifying framework</h3>
-<p>Looking across the techniques in these last two sections, a common pattern emerges. Multi-token prediction, speculative decoding with a draft tree, Medusa, and even lookahead decoding all follow the same high-level structure:</p>
+<p>Looking across the techniques in these last two sections, a common pattern emerges. Speculative decoding with a draft tree, Multi-token prediction, and even lookahead decoding all follow the same high-level structure:</p>
 <ol type="1">
 <li><strong>Propose</strong>: generate multiple candidate tokens using some cheap mechanism (draft model, auxiliary heads, Jacobi iteration, or reference text)</li>
 <li><strong>Organize</strong>: arrange candidates into a tree (or chain) of possible continuations</li>
 <li><strong>Verify</strong>: run the target model on the full tree in a single forward pass, using the causal mask to check all candidates in parallel</li>
 <li><strong>Accept</strong>: take the longest prefix (or longest path through the tree) where the target model agrees with the proposals</li>
 </ol>
-<p>The differences between techniques lie entirely in step 1 – how candidates are generated. The verification and acceptance steps are the same across all methods. This unifying view makes it easier to reason about the tradeoffs: the quality and cost of the proposal mechanism determine the acceptance rate and overhead, while the verification step is always a single forward pass whose cost depends on the total number of candidate tokens.</p>
+<p>The main differences between techniques lie in step 1 – how candidates are generated. The verification and acceptance steps are the same across all methods. This unifying view makes it easier to reason about the tradeoffs: the quality and cost of the proposal mechanism determine the acceptance rate and overhead, while the verification step is always a single forward pass whose cost depends on the total number of candidate tokens.</p>
 <p>This also explains why these techniques interact with batch size the same way. The verification step is essentially a small prefill – it processes multiple tokens in parallel. At large batch sizes, the GPU is already busy with many requests, so the marginal cost of the extra verification tokens is higher relative to the benefit. At small batch sizes, the GPU has spare capacity, and the extra tokens come nearly for free.</p>
 <hr>
 <p>The techniques in this chapter operate at the level of individual requests – optimizing attention kernels, managing KV cache memory, and breaking the sequential decoding constraint. In <a href="scaling.html" class="quarto-xref"><span>Chapter 7</span></a>, we’ll move up a level and consider what happens when a single GPU isn’t enough: how to distribute the model across multiple devices while keeping communication overhead manageable.</p>

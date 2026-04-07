@@ -357,7 +357,7 @@ Combined with KV cache sharding from GQA/MQA models (@sec-efficient-attention) a
 
 The next chapter (@sec-production) will discuss how all of these techniques come together in production serving systems, including how frameworks like vLLM and TensorRT-LLM configure parallelism strategies automatically based on available hardware.
 
-## Further Reading
+## Further Reading {#sec-further-scaling}
 
 **Tensor parallelism.** Megatron-LM [@shoeybi2019megatron] is the foundational paper for tensor parallelism in transformers.
 It introduces the column-parallel and row-parallel linear layer decompositions used by essentially every inference framework today.

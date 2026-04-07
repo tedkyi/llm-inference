@@ -243,7 +243,7 @@ The techniques from the preceding chapters provide the building blocks, but asse
 The frameworks surveyed here each represent a different set of answers to these challenges, and the right choice depends on your specific workload, hardware, and reliability requirements.
 
 
-## Further Reading
+## Further Reading {#sec-further-production}
 
 **Framework documentation.** Each of the major frameworks has comprehensive documentation that goes well beyond what we've covered here.
 The vLLM docs [@vllm2024docs] include guides on configuring PagedAttention parameters, enabling speculative decoding, and tuning scheduler policies.

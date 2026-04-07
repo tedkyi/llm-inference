@@ -764,7 +764,7 @@ When we discuss batching strategies in @sec-batching, we'll see how continuous b
 When we discuss KV cache optimizations in @sec-kv-cache, we'll see how reducing KV cache memory enables larger batches.
 And when we discuss speculative decoding in @sec-speculative, we'll see how generating multiple tokens per decode step changes the numerator.
 
-## Map of the optimizations
+## Map of the optimizations {#sec-map-optimizations}
 
 The next four chapters in this book each focus on a specific class of bottleneck and the techniques that address it:
 
@@ -782,7 +782,7 @@ Keeping the roofline in mind as you read the rest of this book will help you und
 
 The book concludes in @sec-production with a discussion of production LLM serving systems.
 
-## Further Reading
+## Further Reading {#sec-further-inference}
 
 The Anyscale blog post on reproducible performance metrics [@anyscale2024metrics] is a practical guide to LLM inference metrics, including many of the ones introduced in this chapter, such as TTFT, TPOT, throughput, and goodput.
 

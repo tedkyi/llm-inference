@@ -507,7 +507,7 @@ The techniques in this chapter operate at the level of individual requests -- op
 In @sec-scaling, we'll move up a level and consider what happens when a single GPU isn't enough: how to distribute the model across multiple devices while keeping communication overhead manageable.
 
 
-## Further Reading
+## Further Reading {#sec-further-request}
 
 **Attention kernels.** The FlashAttention series of papers [@dao2022flashattention; @dao2023flashattention2; @shah2024flashattention3] is essential reading for understanding how IO-aware algorithm design can outperform naive implementations even when the naive version does fewer FLOPs.
 The original FlashAttention paper is notable for its clear presentation of the tiling strategy and the online softmax trick.

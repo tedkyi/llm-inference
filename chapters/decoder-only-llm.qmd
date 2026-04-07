@@ -230,7 +230,7 @@ Weight tying doesn't affect model speed, but it does reduce the parameter count.
 The percentage savings is greater for small models, which is why we see weight tying used in some small LLMs.
 Because of the minimal impact on speed, we will keep things simple in this book and assume the weights are not tied.
 
-## The decoder block
+## The decoder block {#sec-decoder-block}
 
 Drilling into each layer in the model, each decoder block in a modern LLM uses the **pre-norm** formulation:
 $$\begin{aligned}

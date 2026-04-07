@@ -305,7 +305,7 @@ The compute cost of the final softmax over a larger vocabulary also increases, t
 For most practical scenarios, the efficiency gains from fewer decode steps outweigh the increased embedding and LM head size.
 This is one reason why the trend in recent LLMs has been toward larger vocabularies.
 
-## Summary
+## Summary {#sec-summary-model-design}
 
 The techniques in this chapter all reduce how much work the hardware has to do for each token.
 Model quantization reduces the bytes-per-parameter, directly attacking the bandwidth bottleneck that dominates decoding, and weight-activation quantization can also speed up compute by enabling the use of faster, lower-precision computational cores.
@@ -317,7 +317,7 @@ These are the model-level knobs.
 Once they're set --- once you have a quantized, architecturally efficient model ready to serve --- the next set of optimizations operates at the system level: how to schedule requests, batch them together, and manage memory.
 That's where we turn next in @sec-scheduling.
 
-## Further Reading
+## Further Reading {#sec-further-model-design}
 
 Quantization is a deep field with a large body of work.
 The GPTQ [@frantar2022gptq] and AWQ [@lin2023awq] papers are essential reading if you want to understand the mechanics of post-training weight quantization beyond the overview given here.

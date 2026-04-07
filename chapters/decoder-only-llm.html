@@ -280,7 +280,7 @@ window.Quarto = {
   <li><a href="#positional-encoding" id="toc-positional-encoding" class="nav-link" data-scroll-target="#positional-encoding">Positional encoding</a></li>
   <li><a href="#weight-tying" id="toc-weight-tying" class="nav-link" data-scroll-target="#weight-tying">Weight tying</a></li>
   </ul></li>
-  <li><a href="#the-decoder-block" id="toc-the-decoder-block" class="nav-link" data-scroll-target="#the-decoder-block"><span class="header-section-number">2.3</span> The decoder block</a></li>
+  <li><a href="#sec-decoder-block" id="toc-sec-decoder-block" class="nav-link" data-scroll-target="#sec-decoder-block"><span class="header-section-number">2.3</span> The decoder block</a></li>
   <li><a href="#sec-self-attention" id="toc-sec-self-attention" class="nav-link" data-scroll-target="#sec-self-attention"><span class="header-section-number">2.4</span> Self-Attention Mechanics</a>
   <ul class="collapse">
   <li><a href="#the-input-1" id="toc-the-input-1" class="nav-link" data-scroll-target="#the-input-1">The input</a></li>
@@ -511,8 +511,8 @@ Figure&nbsp;2.6: Data flow of an entire decoder-only LLM. The details within eac
 <p>Weight tying doesn’t affect model speed, but it does reduce the parameter count. The percentage savings is greater for small models, which is why we see weight tying used in some small LLMs. Because of the minimal impact on speed, we will keep things simple in this book and assume the weights are not tied.</p>
 </section>
 </section>
-<section id="the-decoder-block" class="level2" data-number="2.3">
-<h2 data-number="2.3" class="anchored" data-anchor-id="the-decoder-block"><span class="header-section-number">2.3</span> The decoder block</h2>
+<section id="sec-decoder-block" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="sec-decoder-block"><span class="header-section-number">2.3</span> The decoder block</h2>
 <p>Drilling into each layer in the model, each decoder block in a modern LLM uses the <strong>pre-norm</strong> formulation: <span class="math display">\[\begin{aligned}
 \hat{X} &amp;= X + \text{SelfAttention}(\text{Norm}(X)) \\
 y &amp;= \hat{X} + \text{FFN}(\text{Norm}(\hat{X}))

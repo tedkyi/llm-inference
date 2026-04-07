@@ -310,8 +310,8 @@ window.Quarto = {
   <li><a href="#batching-changes-the-picture" id="toc-batching-changes-the-picture" class="nav-link" data-scroll-target="#batching-changes-the-picture">Batching changes the picture</a></li>
   <li><a href="#back-of-envelope-summary" id="toc-back-of-envelope-summary" class="nav-link" data-scroll-target="#back-of-envelope-summary">Back-of-envelope summary</a></li>
   </ul></li>
-  <li><a href="#map-of-the-optimizations" id="toc-map-of-the-optimizations" class="nav-link" data-scroll-target="#map-of-the-optimizations"><span class="header-section-number">3.6</span> Map of the optimizations</a></li>
-  <li><a href="#further-reading" id="toc-further-reading" class="nav-link" data-scroll-target="#further-reading"><span class="header-section-number">3.7</span> Further Reading</a></li>
+  <li><a href="#sec-map-optimizations" id="toc-sec-map-optimizations" class="nav-link" data-scroll-target="#sec-map-optimizations"><span class="header-section-number">3.6</span> Map of the optimizations</a></li>
+  <li><a href="#sec-further-inference" id="toc-sec-further-inference" class="nav-link" data-scroll-target="#sec-further-inference"><span class="header-section-number">3.7</span> Further Reading</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -911,8 +911,8 @@ Note
 <p>These numbers are the baseline that every optimization in subsequent chapters maps onto. When we discuss model quantization in <a href="model-design.html#sec-quantization" class="quarto-xref"><span>Section 4.1</span></a>, we’ll see how reducing bytes per weight directly reduces the bandwidth denominator. When we discuss batching strategies in <a href="scheduling.html#sec-batching" class="quarto-xref"><span>Section 5.1</span></a>, we’ll see how continuous batching and chunked prefill allow the system to maintain high batch sizes. When we discuss KV cache optimizations in <a href="request.html#sec-kv-cache" class="quarto-xref"><span>Section 6.3</span></a>, we’ll see how reducing KV cache memory enables larger batches. And when we discuss speculative decoding in <a href="request.html#sec-speculative" class="quarto-xref"><span>Section 6.5</span></a>, we’ll see how generating multiple tokens per decode step changes the numerator.</p>
 </section>
 </section>
-<section id="map-of-the-optimizations" class="level2" data-number="3.6">
-<h2 data-number="3.6" class="anchored" data-anchor-id="map-of-the-optimizations"><span class="header-section-number">3.6</span> Map of the optimizations</h2>
+<section id="sec-map-optimizations" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="sec-map-optimizations"><span class="header-section-number">3.6</span> Map of the optimizations</h2>
 <p>The next four chapters in this book each focus on a specific class of bottleneck and the techniques that address it:</p>
 <table class="caption-top table">
 <colgroup>
@@ -953,8 +953,8 @@ Note
 <p>This bottleneck framework gives you a way to evaluate each optimization you encounter: what bottleneck does it address, and does that bottleneck actually apply to your workload? An optimization that reduces compute won’t help a memory-bandwidth-bound decode step much. A technique that reduces memory traffic won’t help a compute-bound prefill. Keeping the roofline in mind as you read the rest of this book will help you understand not just <em>what</em> each technique does, but <em>why</em> it works and <em>when</em> it helps.</p>
 <p>The book concludes in <a href="production.html" class="quarto-xref"><span>Chapter 8</span></a> with a discussion of production LLM serving systems.</p>
 </section>
-<section id="further-reading" class="level2" data-number="3.7">
-<h2 data-number="3.7" class="anchored" data-anchor-id="further-reading"><span class="header-section-number">3.7</span> Further Reading</h2>
+<section id="sec-further-inference" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="sec-further-inference"><span class="header-section-number">3.7</span> Further Reading</h2>
 <p>The Anyscale blog post on reproducible performance metrics <span class="citation" data-cites="anyscale2024metrics">(<a href="references.html#ref-anyscale2024metrics" role="doc-biblioref">Kadous et al. 2023</a>)</span> is a practical guide to LLM inference metrics, including many of the ones introduced in this chapter, such as TTFT, TPOT, throughput, and goodput.</p>
 <p>The NVIDIA Hopper architecture blog post <span class="citation" data-cites="nvidia2024hopper">(<a href="references.html#ref-nvidia2024hopper" role="doc-biblioref">NVIDIA 2022</a>)</span> provides detailed block diagrams of the H100’s SM and full-chip layout, including the memory hierarchy, tensor core organization, and the Tensor Memory Accelerator. <span class="citation" data-cites="gu2024gpusbrrr">Gu and Dao (<a href="references.html#ref-gu2024gpusbrrr" role="doc-biblioref">2024</a>)</span> from Hazy Research gives a practitioner-oriented walkthrough of GPU memory levels with concrete bandwidth numbers at each tier, which is useful context for understanding why kernel design choices matter so much for inference performance. For a detailed empirical look at the H100’s L2 cache behavior and measured bandwidth at different access patterns, <span class="citation" data-cites="chipsandcheese2023h100">Chips and Cheese (<a href="references.html#ref-chipsandcheese2023h100" role="doc-biblioref">2023</a>)</span> is an informative deep dive.</p>
 <p>For GPU hardware specifics, the NVIDIA H100 datasheet <span class="citation" data-cites="nvidia2023h100">(<a href="references.html#ref-nvidia2023h100" role="doc-biblioref">NVIDIA 2023</a>)</span> and the CUDA Programming Guide <span class="citation" data-cites="nvidia2024cuda">(<a href="references.html#ref-nvidia2024cuda" role="doc-biblioref">NVIDIA 2024</a>)</span> are the authoritative references. The datasheet gives the peak throughput and bandwidth numbers used throughout this book. The programming guide covers the memory hierarchy, kernel launch mechanics, and CUDA graphs in much more detail than we do here.</p>

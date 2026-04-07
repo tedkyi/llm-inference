@@ -91,7 +91,7 @@ FlashAttention applies to both prefill and decode.
 During prefill, the sequence length **[S]{.dim-s}** is large (the full prompt), so the $O(\dims{\text{S}}^2)$ savings are dramatic.
 During decode, **[S]{.dim-s}** is just 1 for the query (the new token), but the key and value sequences span the entire context, so the tiled approach still avoids unnecessary intermediate writes.
 
-### FlashAttention v1, v2, and v3
+### FlashAttention v1, v2, v3, and v4
 
 The original FlashAttention [@dao2022flashattention] established the tiling approach. Subsequent versions improved the implementation substantially:
 
@@ -215,7 +215,9 @@ The benefits are significant:
 
 - **Near-zero fragmentation**: the only wasted space is the partial last page of each request. With 16-token pages, average waste is 8 tokens per request -- negligible compared to the old approach of reserving memory for the maximum sequence length.
 - **Dynamic allocation**: pages are allocated on demand as the sequence grows, so a short request doesn't tie up memory it will never use.
-- **Sharing**: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. This is the foundation for prefix caching, which we'll cover in @sec-prefix-caching.
+- **Sharing**: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. 
+The combination of paged attention and ragged batching (discussed in @sec-ragged-batching) is a beautiful solution that reduces both KV cache memory usage and memory reads.
+@Fig-ragged-shared-prefix shows the elegance and large savings when you combine the two, and is worth reviewing again here.
 - **Fine-grained preemption**: if the scheduler needs to free memory (@sec-request-scheduling), it can evict individual pages rather than killing an entire request. Pages can be swapped to CPU memory and swapped back later.
 
 PagedAttention has become the standard approach for KV cache memory management.

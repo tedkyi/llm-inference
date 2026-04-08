@@ -21,16 +21,6 @@ Beyond PagedAttention, vLLM implements continuous batching, chunked prefill (@se
 It supports NVIDIA, AMD, and other hardware backends, making it one of the most broadly portable options.
 vLLM has become the default choice for many deployments, largely because of its active open-source community and broad model support.
 
-### TensorRT-LLM
-
-**TensorRT-LLM** takes a different approach.
-Rather than optimizing memory management at the Python level, it focuses on squeezing maximum throughput from NVIDIA hardware through aggressive kernel fusion and compilation (@sec-kernel-fusion).
-Models are compiled into optimized execution plans that fuse operations across layers, eliminate unnecessary memory traffic, and exploit NVIDIA-specific hardware features like FP8 on Hopper GPUs.
-
-The tradeoff is narrower hardware support -- TensorRT-LLM runs only on NVIDIA GPUs -- and a heavier compilation step before serving begins.
-But on NVIDIA hardware, it often achieves the highest raw throughput, particularly for large-batch, throughput-oriented workloads.
-It implements the same core techniques (continuous batching, paged KV cache, tensor parallelism) but through a compiled execution path rather than an interpreted one.
-
 ### SGLang
 
 **SGLang** [@zheng2023sglang] innovates in two directions.
@@ -41,35 +31,58 @@ When many requests share system prompts, few-shot examples, or RAG context, this
 Second, SGLang provides a programming model for **multi-call LLM programs** -- workflows where a single user interaction involves multiple LLM calls with branching logic, structured output constraints, or iterative refinement.
 By co-designing the serving engine with this programming model, SGLang can optimize across calls in ways that a stateless API cannot.
 
-### DeepSpeed-Inference
+### TensorRT-LLM
 
-**DeepSpeed-Inference** [@aminabadi2022deepspeed] focuses on scaling to very large models across many devices and nodes.
-Its ZeRO-Inference system distributes model weights across GPUs and even to NVMe storage, enabling inference on models that don't fit in aggregate GPU memory.
-This makes it particularly useful for multi-node inference and extremely large models.
+**TensorRT-LLM** focuses on squeezing maximum throughput from NVIDIA hardware through aggressive kernel fusion and compilation (@sec-kernel-fusion).
+Models are compiled into optimized execution plans that fuse operations across layers, eliminate unnecessary memory traffic, and exploit NVIDIA-specific hardware features like FP8 on Hopper GPUs.
 
-DeepSpeed-Inference also implements custom CUDA kernels for fused operations, but its primary strength is the multi-GPU and multi-node orchestration layer rather than single-device kernel optimization.
+The tradeoff is narrower hardware support --- TensorRT-LLM runs only on NVIDIA GPUs --- and a heavier compilation step before serving begins.
+But on NVIDIA hardware, it often achieves the highest raw throughput, particularly for large-batch, throughput-oriented workloads.
+It implements the same core techniques (continuous batching, paged KV cache, tensor parallelism) but through a compiled execution path rather than an interpreted one.
 
 ### Framework comparison
 
-The following table summarizes the key differences across these frameworks.
-Keep in mind that all four are actively developed, so specific feature gaps tend to close over time.
+The following table summarizes the key differences across these three leading frameworks.
+All three are actively developed, so specific feature gaps tend to close over time.
 
-| Feature | vLLM | TensorRT-LLM | SGLang | DeepSpeed-Inference |
-|---|---|---|---|---|
-| Core innovation | PagedAttention | Kernel fusion / compilation | RadixAttention + structured gen | ZeRO-Inference / NVMe offload |
-| KV cache management | Paged (virtual memory) | Paged | Radix tree | Contiguous + offload |
-| Continuous batching | Yes | Yes | Yes | Yes |
-| Speculative decoding | Yes | Yes | Yes | Limited |
-| Multi-LoRA | Yes | Yes | Yes | No |
-| Hardware support | NVIDIA, AMD, others | NVIDIA only | NVIDIA, AMD | NVIDIA |
-| Best suited for | General-purpose serving | Max throughput on NVIDIA | Prefix-heavy / multi-call | Very large models, multi-node |
+| Feature | vLLM | TensorRT-LLM | SGLang |
+|---|---|---|---|
+| Core innovation | PagedAttention | Kernel fusion / compilation | RadixAttention + structured gen |
+| KV cache management | Paged (virtual memory) | Paged | Radix tree |
+| Continuous batching | Yes | Yes | Yes |
+| Speculative decoding | Yes | Yes | Yes |
+| Multi-LoRA | Yes | Yes | Yes |
+| Hardware support | NVIDIA, AMD, others | NVIDIA only | NVIDIA, AMD |
+| Best suited for | General-purpose serving | Max throughput on NVIDIA | Prefix-heavy / multi-call |
 
 : Framework comparison across major open-source LLM serving systems. {#tbl-frameworks .striped}
 
+### Other frameworks
+
+Several other serving frameworks are worth knowing about, even though vLLM, SGLang, and TensorRT-LLM have emerged as the dominant choices.
+
+**Text Generation Inference (TGI)** is Hugging Face's serving engine.
+It saw wide adoption in 2023--2024 thanks to tight integration with the Hugging Face model ecosystem, and it implements continuous batching, paged KV cache, and speculative decoding.
+However, TGI has entered maintenance mode, and Hugging Face now offers vLLM and TensorRT-LLM as alternative backends within TGI --- a signal that even its maintainers view the original engine as no longer competitive on raw performance.
+
+**LMDeploy**, developed by the InternLM team at the Shanghai AI Lab, focuses on high throughput with quantized models.
+Its TurboMind backend delivers strong tokens-per-second numbers, particularly for 4-bit quantized models from the Llama family.
+It is less well-known outside of China but appears regularly in inference benchmarks.
+
+**DeepSpeed-Inference** [@aminabadi2022deepspeed] is the inference-focused sibling of the widely used DeepSpeed training library.
+Its ZeRO-Inference system distributes model weights across GPUs and even to NVMe storage, enabling inference on models that don't fit in aggregate GPU memory.
+DeepSpeed-Inference also implements custom CUDA kernels for fused operations, but its primary strength is multi-GPU and multi-node orchestration rather than single-device kernel optimization.
+As GPU memory capacities have grown and tensor parallelism support has improved across all frameworks, the niche for NVMe offloading has narrowed, and DeepSpeed-Inference sees less adoption as a standalone serving system than the three leading frameworks.
+
 ::: callout-note
-CPU and hybrid inference engines like llama.cpp and Apple MLX serve an important role for local and edge deployment, but they operate under fundamentally different constraints -- limited memory bandwidth, no HBM, CPU-only or unified-memory architectures.
-Closed-source serving systems from cloud providers are also out of scope.
 This chapter focuses on GPU-based serving at scale.
+Closed-source serving systems from cloud providers are out of scope, and so is local and edge deployment, which operates under fundamentally different constraints --- limited memory bandwidth, no HBM, CPU-only or unified-memory architectures.
+While we won't discuss them here, the top inference engines for local deployment are:
+
+- **llama.cpp** --- the C/C++ inference engine that pioneered running LLMs on consumer hardware via aggressive quantization. Many of the tools below use llama.cpp under the hood.
+- **Ollama** --- wraps llama.cpp in a Docker-like interface for pulling and running models with a single command. The fastest path from zero to a locally running LLM.
+- **Apple MLX** --- Apple's framework optimized for the unified-memory architecture of Apple Silicon, achieving strong throughput on MacBook and Mac hardware.
+- **LM Studio** --- a desktop application built on llama.cpp that provides a GUI for downloading, configuring, and chatting with local models.
 :::
 
 ## Multi-LoRA Serving {#sec-multi-lora}
@@ -728,9 +741,222 @@ Reasoning parser integration supports DeepSeek-R1, Qwen-3, and GLM-4.5 thinking 
 
 ## TensorRT-LLM {#sec-tensorrt-llm}
 
-This section provides a more detailed look at how TensorRT-LLM implements the techniques we've covered, and how it compares to the other frameworks in terms of design choices and tradeoffs.
+TensorRT-LLM takes a fundamentally different design path from vLLM and SGLang.
+Where those frameworks operate primarily at the Python level -- scheduling, memory management, and model execution all live in Python with selective CUDA kernel calls -- TensorRT-LLM compiles the entire model into an optimized execution plan before serving begins.
+The result is a system that trades flexibility and hardware breadth for raw throughput on NVIDIA hardware.
 
+### Architecture and compilation {#sec-trtllm-architecture}
 
+TensorRT-LLM has gone through a significant architectural shift.
+The **legacy TensorRT backend** compiled the model graph through NVIDIA's TensorRT engine, which performed kernel selection, operator fusion, and memory optimization at build time.
+This produced highly optimized execution plans but required a heavyweight compilation step -- rebuilding the engine for different batch sizes, sequence lengths, or quantization configurations.
+
+The **PyTorch workflow**, which became the default in v1.0, takes a different approach [@nvidia2024trtllm].
+Instead of compiling through TensorRT's graph optimizer, it runs the model through PyTorch and applies optimizations via `torch.compile` and **piecewise CUDA graphs** -- the same strategy vLLM V1 adopted (@sec-vllm-v1).
+The PyTorch workflow offers more flexibility: you can modify model code without recompiling, swap attention backends, and iterate faster during development.
+The tradeoff is that the legacy backend can still squeeze out a few extra percent of throughput for well-characterized workloads where the compilation cost is amortized across many requests.
+
+An **AutoTuner** benchmarks and selects optimal kernel implementations for each specific configuration, trading compile-time for runtime efficiency [@nvidia2024trtllm; @trtllm2024releasenotes].
+This is the compilation philosophy in a nutshell: spend time upfront to make every kernel call as fast as possible.
+
+### Scheduling and memory management {#sec-trtllm-scheduling}
+
+TensorRT-LLM's scheduler uses the same continuous batching approach as the other frameworks (@sec-batching), but NVIDIA's terminology calls it **in-flight batching** -- the batch composition changes at every iteration, with finished sequences immediately evicted and new requests inserted [@nvidia2024trtllm; @trtllm2024gptattention].
+The constraint is that context-phase sequences must precede generation-phase sequences in the packed input tensor, which affects how the scheduler orders work within each step.
+
+**Chunked prefill** splits context processing into chunks that are batched with generation tokens, just as in vLLM and SGLang (@sec-prefill-strategies).
+It requires paged KV cache and fused multi-head attention (FMHA) to be enabled, and chunk sizes (except the final one) must be integer multiples of the KV cache block size [@trtllm2024gptattention; @nvidia2024trtllm].
+
+**Preemption** is where TensorRT-LLM's design choices diverge most from the other frameworks.
+It offers two **separate** preemption strategies under the `MAX_UTILIZATION` allocation policy, rather than the hybrid swap-with-recompute-fallback that vLLM uses [@trtllm2024kvcache; @squeezebits2025scheduler]:
+
+- **Swap**: the preempted request's KV cache is copied to host (CPU) memory and reloaded when the request resumes. This preserves computed state but introduces "significant overhead" from PCIe transfers, particularly for long sequences.
+- **Drop** (recomputation): the KV cache is discarded entirely. On resumption, the original context plus any tokens generated so far are concatenated and run through a single prefill pass to reconstruct the cache. This is preferred over swapping because it only requires one forward pass rather than a round-trip through host memory.
+
+The default policy is `GUARANTEED_NO_EVICT`, which takes a more conservative approach than either preemption strategy: it preallocates memory for the maximum output length of each request at admission time.
+If there isn't enough KV cache memory to guarantee a request can run to completion, the request is simply not admitted.
+This eliminates preemption entirely at the cost of smaller batch sizes, since reserved-but-unused memory can't serve other requests.
+It's the safe choice for latency-sensitive deployments where preemption would cause unacceptable tail latency spikes.
+
+**Priority-based KV cache eviction** adds a finer-grained control layer on top of these policies.
+You can assign priority levels (0--100) to specific token ranges within a request, plus duration values that control how long the priority applies [@trtllm2024kvcachereuse].
+The practical use case is system prompts: assign them maximum priority so they remain cached longer, improving reuse for requests that share the same system prompt.
+
+**OOM handling** is less adaptive than what vLLM and SGLang provide.
+There is no automatic dynamic batch size reduction at runtime -- `max_batch_size` is configured at build or launch time.
+NVIDIA's guidance is to profile throughput across batch sizes, set `max_batch_size` 20--30% above the throughput knee, and reduce it if KV cache utilization consistently exceeds 80% [@nvidia2024trtllm].
+This is a manual tuning process rather than the self-adjusting ratios that SGLang uses (@sec-sglang-scheduling).
+
+There is no built-in **SLA-aware scheduling** -- no mechanism to automatically adjust scheduling based on per-request latency targets.
+The priority-based KV cache eviction and request admission policies provide building blocks, but tying them to SLA tiers is left to the orchestration layer.
+
+### Attention backends and kernel optimization {#sec-trtllm-attention}
+
+This is where TensorRT-LLM's compilation heritage shows most clearly.
+Rather than selecting from a menu of third-party attention backends the way vLLM and SGLang do, TensorRT-LLM primarily uses its own custom attention kernels, with FlashInfer available as a pluggable alternative [@nvidia2024trtllm; @trtllm2024gptattention].
+
+The **context phase** (prefill) uses NVIDIA's fused multi-head attention (FMHA) kernels, which implement FlashAttention v1 and v2 algorithms for larger sequences.
+For short sequences, vanilla MHA/MQA runs instead.
+Two FMHA modes are available: standard FP32 accumulation and a variant that forces FP32 in the first batched matrix multiplication for improved numerical accuracy.
+**FP8 context FMHA** accelerates attention on Ada Lovelace and Hopper GPUs and works simultaneously with paged KV cache [@trtllm2024gptattention].
+
+The **generation phase** uses **XQA** (eXtended Query Attention), a specialized kernel for MQA and GQA models that is distinct from TensorRT-LLM's other attention paths [@trtllm2024gptattention].
+XQA supports FP16 and BF16 compute with FP16, BF16, FP8, and INT8 KV cache, and paged KV cache with block sizes of 8, 16, 32, 64, or 128 tokens.
+It's enabled by default and can be disabled with `--disable_xqa`.
+
+**Multi-block mode** is TensorRT-LLM's version of FlashDecoding (@sec-attention-kernels) -- it distributes attention computation across multiple CUDA thread blocks during the generation phase to improve GPU occupancy when a single query attends to a long KV cache.
+It's enabled by default since v0.13 [@trtllm2024gptattention].
+
+The kernel fusion story goes well beyond attention.
+The **masked multi-head attention kernel** fuses QKV bias addition, RoPE application, and dequantization/quantization into a single kernel launch.
+A fused **GEMM-SwiGLU kernel** is available on Hopper (SM90).
+Fused **MoE finalize and AllReduce** operations reduce overhead for Mixture-of-Experts models, and one-sided AlltoAll over NVLink further optimizes MoE communication [@trtllm2024gptattention; @trtllm2024releasenotes].
+
+**Piecewise CUDA graphs** capture operation sequences into optimized graphs for reduced CPU launch overhead, combined with `torch.compile` in the PyTorch workflow [@nvidia2024trtllm].
+This is the same approach vLLM V1 takes (@sec-vllm-v1), but TensorRT-LLM was an earlier adopter.
+
+One notable absence: **FlexAttention** is not supported.
+FlexAttention is a PyTorch-native API (`torch.nn.attention.flex_attention`) for user-defined attention patterns via compilation.
+TensorRT-LLM uses its own custom attention kernels and plugin system rather than PyTorch's attention APIs, so FlexAttention's composability advantage doesn't apply here.
+
+### KV cache engineering {#sec-trtllm-kvcache}
+
+TensorRT-LLM implements paged KV cache with configurable block sizes of 8, 16, 32, 64, or 128 tokens (default 128, must be a power of 2) [@trtllm2024gptattention].
+The contrast with the legacy **contiguous KV cache** is stark: the old approach allocated a monolithic tensor of shape `[max_batch_size * max_beam_width, 2, num_heads, max_seqlen, hidden_dim_per_head]`, wasting memory whenever sequences were shorter than the maximum -- which was almost always.
+
+**KV cache quantization** supports INT8 and FP8 modes with per-tensor scaling factors.
+The XQA kernel handles FP16, BF16, FP8, and INT8 KV cache combinations, so quantization integrates cleanly with the generation-phase attention path [@trtllm2024gptattention].
+There is no support for **TurboQuant**, the rotation-plus-vector-quantization technique for KV cache compression that has community integrations in vLLM and SGLang.
+
+**Prefix caching** (KV cache reuse) uses **block hashing** -- only full blocks can be shared across requests, similar to vLLM's approach and unlike SGLang's token-level radix tree (@sec-sglang-radix).
+It's enabled by default when built with paged context FMHA, with the default block size of 128 tokens [@trtllm2024kvcachereuse].
+There's an important practical limitation: reuse requires the first request to complete its block before subsequent requests can access it.
+At high batch sizes, requests may launch before prior ones finish filling their blocks, preventing reuse.
+
+A **KV Cache Event API** provides real-time tracking of cache state changes -- block creation, storage, removal, and updates -- enabling downstream routing decisions [@trtllm2024kvcachereuse].
+This is particularly useful for multi-instance deployments where a load balancer needs to know which instances already have specific token sequences cached.
+
+**Host memory offloading** extends KV cache reuse by preserving evicted blocks in pinned host memory with LRU eviction.
+A `secondary_offload_min_priority` threshold prevents low-priority blocks from being offloaded at all, evicting them directly to reduce GPU-CPU traffic [@trtllm2024kvcache; @trtllm2024kvcachereuse].
+
+**MLA** (Multi-Head Latent Attention) support is first-class.
+KV cache reuse for MLA was added in v1.1, chunked prefill for MLA in v1.0, FP8 MLA on Hopper and Blackwell in v0.19.0, and FlashMLA for SM90 in v0.19.0 [@trtllm2024releasenotes].
+
+**Sliding window attention** is handled through a **cyclic KV cache** that treats storage as a circular buffer retaining the last $N$ tokens.
+Per-layer window sizes are supported, and a **StreamingLLM** mode maintains a set of "sink tokens" permanently while cycling other positions, adjusting position embeddings to use in-cache positions [@trtllm2024gptattention].
+The limitation is that it's incompatible with beam search.
+
+**Keyformer**-style token-level eviction based on attention scores is not supported.
+TensorRT-LLM's selective eviction operates at the block level via prioritized LRU, not at the individual token level.
+
+### Speculative decoding {#sec-trtllm-speculative}
+
+TensorRT-LLM supports a broad set of speculative decoding methods (@sec-speculative), with particularly strong performance numbers on large models [@trtllm2024specdec; @trtllm2024kvcachereuse].
+
+**Draft model decoding** uses two independently trained models that share the same vocabulary.
+The draft model generates up to $K$ candidate tokens, and the target model validates them in a single forward pass.
+The performance on H200 GPUs tells the story: Llama 405B with a 3B draft model achieves 120.75 tokens/sec -- a 3.61x speedup over the 33.46 tok/sec baseline.
+Llama 70B with a 1B draft achieves 146.05 tokens/sec (2.86x speedup).
+These numbers are notably higher than what vLLM reports for draft model decoding (@sec-vllm-speculative), reflecting TensorRT-LLM's kernel-level optimizations.
+Draft model decoding works with FP8 quantization and is compatible with Triton Inference Server [@trtllm2024kvcachereuse].
+
+**EAGLE** is well-supported across versions.
+EAGLE-1 uses predefined decoding trees, while EAGLE-2 assembles trees dynamically via beam search.
+EAGLE-3 was added in v0.19.0 with disaggregated serving support following in v0.21.0 [@trtllm2024releasenotes; @trtllm2024specdec].
+
+**Medusa** adds multiple lightweight LM heads predicting future tokens, with configurable tree structures at runtime via `medusa_choices`.
+Inflight batching support has been available since v0.9.0.
+The current limitations are notable: it only supports Vicuna (fine-tuned LLaMA), requires `medusa_temperature=0`, and is incompatible with beam search [@trtllm2024specdec].
+
+**ReDrafter** takes a different approach -- recurrent prediction where each draft token depends on the previous one.
+The engine performs logits prediction, beam search, and acceptance internally, supporting both inflight fused batching and static batching [@trtllm2024specdec].
+
+**N-gram speculative decoding** copies input prompt and previously generated output as draft tokens, requiring only the target model.
+It performs best on tasks with high n-gram overlap -- summarization, question answering, code editing -- where the output draws heavily from the input.
+NGram v2 was added in v1.0 [@trtllm2024specdec; @trtllm2024releasenotes].
+
+**Multi-token prediction** is supported for models with built-in MTP heads, notably DeepSeek V3/R1.
+When combined with disaggregated serving, MTP adds another 1.6x--2.5x speedup on top of the disaggregation benefits [@trtllm2024releasenotes; @trtllm2024disagg].
+
+**Lookahead decoding** (Jacobi iteration) runs two parallel computation branches -- a lookahead branch and a verification branch -- within the same model, requiring no additional training or fine-tuning.
+It has been experimental since v0.13.0, with inflight batching support since v0.16.0 [@trtllm2024specdec; @trtllm2024releasenotes].
+
+An **overlap scheduler** between draft forwards was added in v0.21.0, implementing the pipelined draft-verify idea from speculative speculative decoding (@sec-speculative) [@trtllm2024releasenotes].
+
+**Inference with reference** -- reusing a reference output to accelerate decoding -- is not supported.
+
+### Parallelism {#sec-trtllm-parallelism}
+
+TensorRT-LLM supports data parallelism, tensor parallelism, pipeline parallelism, expert parallelism, and context parallelism, with the constraint that `tensor_parallel_size * pipeline_parallel_size` must equal the total GPU count [@trtllm2024parallelism; @trtllm2024sharding].
+
+**Tensor parallelism** splits individual weight matrices across devices with AllReduce synchronization via NCCL.
+It's the preferred strategy within a single node where fast NVLink connections keep the AllReduce cost low.
+
+**Pipeline parallelism** divides the model into sets of contiguous layers, with each GPU housing one set.
+Communication is limited to sending activations between sequential GPU sets.
+It may increase latency but reduces per-step communication overhead compared to TP, making it the preferred strategy across nodes.
+The recommended default for multi-node deployment is **TP within a node, PP across nodes** -- with one exception: NVIDIA's NVL36/NVL72 Blackwell systems have multi-node NVLink, so TP can span their full GPU sets without the usual cross-node bandwidth penalty [@trtllm2024sharding].
+
+**Expert parallelism** distributes complete expert weights across GPUs, so each GPU holds the full weights of its assigned experts.
+Configuration uses `--moe_tp_size` and `--moe_ep_size`, with the constraint that their product must equal `tp_size`.
+A hybrid approach combining EP with TP enables load balancing across experts [@trtllm2024expertparallel].
+
+**Wide Expert Parallel** introduces expert slots that are decoupled from specific experts, enabling replication of high-demand experts for load balancing [@trtllm2024parallelism].
+The **Expert Parallelism Load Balancer** (EPLB) handles both offline and online load balancing, with optimized communication kernels for GB200 multi-node NVLink.
+Large-scale EP was extended in v0.21.0, and **DeepEP** integration provides optimized MoE communication kernels [@trtllm2024releasenotes; @nvidia2024trtllm].
+Token dropping for load balancing is not implemented -- load balancing relies on expert replication and EPLB instead.
+
+**Attention Data Parallel** (ADP) is a distinctive feature that doesn't appear in the other frameworks under this name.
+ADP replicates GEMM weights on every GPU but partitions the KV cache across devices, eliminating cross-GPU communication during the attention phase.
+This is conceptually similar to what vLLM calls DP+EP for MLA models (@sec-vllm-parallelism) and what SGLang calls `--enable-dp-attention` (@sec-sglang-parallelism), but TensorRT-LLM provides it as an explicit mode enabled via `enable_attention_dp: true` [@trtllm2024parallelism].
+
+**Context parallelism** distributes long sequences across GPUs during the prefill phase, including Ulysses-style context parallel support added in v0.16.0 [@trtllm2024releasenotes; @nvidia2024trtllm].
+
+**Disaggregated prefill** is more mature in TensorRT-LLM than in the other frameworks.
+It fully separates context (prefill) and generation (decode) phases onto different GPU pools, eliminating interference between phases and enabling independent optimization of TTFT and TPOT.
+Three deployment approaches are available [@trtllm2024disagg]:
+
+1. **trtllm-serve**: a REST-based orchestrator with round-robin or KV-cache-aware routing
+2. **Dynamo**: datacenter-scale deployment with a smart router and Kubernetes support
+3. **Triton Inference Server**: an ensemble model with a BLS (Business Logic Scripting) orchestrator
+
+KV cache transfer between prefill and decode GPUs uses MPI, UCX, or NIXL backends over RDMA or NVLink.
+UCX and NIXL are recommended for deployments that need dynamic scaling.
+A particularly useful capability is support for **different parallelism strategies between phases** -- for example, context with TP2 paired with generation using PP2, with orchestrated block mapping for layout transformation between the two [@trtllm2024disagg].
+
+The performance gains are substantial: DeepSeek R1 shows 1.4x--2.5x speedup, and Qwen 3 shows 1.7x--6.11x speedup on GB200 GPUs.
+The current limitation is that the number of context and generation instances is fixed at deployment time; dynamic scaling is under development [@trtllm2024disagg].
+
+### Quantization {#sec-trtllm-quantization}
+
+TensorRT-LLM's quantization support reflects its NVIDIA-first philosophy -- it provides deep integration with NVIDIA's quantization formats and hardware features rather than broad third-party method support.
+
+**Weight quantization** covers FP4/NVFP4 (Blackwell-only, with native support and optimized kernels), FP8 (Hopper and Blackwell, with automatic conversion via Transformer Engine), INT4, and INT8 [@nvidia2024trtllm; @trtllm2024releasenotes].
+**Mixed precision quantization** is supported, with AutoQ for automated mixed-precision selection since v0.15.0.
+Block scaling (per-block scale factors) is available for improved accuracy at low precision [@nvidia2024trtllm].
+
+**Weight-activation quantization** includes W4A8 (INT4 weights, FP8 activations) with CUTLASS kernels on Ada Lovelace, and MXFP8xMXFP4 added in v1.0 [@trtllm2024releasenotes].
+
+**GPTQ** (INT8, added in v0.15.0), **AWQ** (INT4), and **SmoothQuant** (TensorRT-native INT8, added in v0.15.0) are all supported [@trtllm2024releasenotes; @nvidia2024trtllm].
+
+### Operational features {#sec-trtllm-operational}
+
+**Guided decoding** uses the XGrammar backend for grammar-based constrained generation, supporting JSON schema, regular expressions, EBNF grammar, and structural tags.
+Integration with the overlap scheduler arrived in v1.0 and with speculative decoding in v1.1 [@nvidia2024trtllm; @trtllm2024releasenotes].
+
+**Multi-LoRA serving** supports dynamic LoRA loading per request with HuggingFace and NeMo format compatibility.
+FP8 base model with FP16/BF16 LoRA adapters has been supported since v0.11.0, MoE model LoRA since v0.12.0, and PyTorch backend LoRA with adapter eviction since v1.0 [@trtllm2024releasenotes; @nvidia2024trtllm].
+
+**Multimodal support** covers a broad range of vision-language models including LLaVA-NeXT, Qwen2-VL, Llama 3.2 Vision, and Mistral Small 3.1 VLM, plus visual generation models like FLUX and Wan 2.1/2.2 for image and video [@nvidia2024trtllm; @trtllm2024releasenotes].
+
+**Sparse attention** support is available for structured sparsity patterns including Native Sparse Attention (NSA) and Skip Softmax Attention, which approximates attention for long-context inference acceleration [@nvidia2024trtllm].
+
+**Monitoring** is less standardized than vLLM's Prometheus endpoint or SGLang's 40+ metric categories.
+The KV Cache Event API provides real-time tracking of cache state changes for monitoring and routing decisions, and per-request stats are available in the PyTorch workflow since v0.20.0.
+The `trtllm-bench` benchmarking tool supports streaming with TTFT and ITL metrics since v0.10.0 [@trtllm2024releasenotes; @trtllm2024kvcachereuse].
+
+**Hardware support** is NVIDIA-only.
+This is the fundamental tradeoff: TensorRT-LLM doesn't run on AMD, Intel, or any other hardware, but it can exploit NVIDIA-specific features -- Hopper's FP8 tensor cores, Blackwell's FP4 support, NVLink topology-aware communication -- more deeply than frameworks that target multiple backends.
 
 ---
 

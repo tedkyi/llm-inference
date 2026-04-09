@@ -1,35 +1,34 @@
 # Request Compute, Memory, and Latency Bottlenecks {#sec-request}
 
-The previous chapter tackled scheduling --- how to keep the GPU busy by managing how requests are handled.
+The previous chapter tackled scheduling, addressing how to keep the GPU busy by managing how requests are handled.
 This chapter examines the efficiency with which individual requests are handled.
-The first two sections address memory-bandwidth bottlenecks at the kernel level -- optimizations that apply to both prefill and decode.
-The remaining sections target the sequential decoding constraint, exploring techniques that generate multiple tokens per step or amortize the cost of each one.
+The first two sections address memory-bandwidth bottlenecks at the hardware execution level.
+The middle sections cover efficient use and reuse of the KV cache.
+And the remaining sections target the sequential decoding constraint, exploring techniques that can generate multiple tokens per step.
 
 ## Memory-Aware Attention Kernels {#sec-attention-kernels}
 
 ### Why standard attention wastes bandwidth
 
-To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from @sec-bottleneck-framework that the GPU has small, fast on-chip registers and SRAM, and a large, slow off-chip HBM. 
-The standard implementation of self-attention is depicted in @fig-std-attn-hbm and works roughly like this:
+To understand why attention is expensive in practice, you need to think about where data lives during computation. Recall from @sec-bottleneck-framework that the GPU has small, fast, on-chip registers and SRAM, and a large, slow off-chip HBM. 
+The straightforward implementation of self-attention is depicted in @fig-std-attn-hbm and the memory access is as follows:
 
 ![Memory access pattern for a straightforward implementation of self-attention](images/std_attn_hbm.svg){#fig-std-attn-hbm .lightbox}
 
-1. Read the $Q$ and $K$ tensors, each shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** --- reminder, this would be **(B, [H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** with batched processing but we're avoiding the clutter of repeatedly listing the batch dimension.
+1. Read the $Q$ and $K$ tensors, each shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** --- reminder, this would be **(B, [H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** with batched processing, but we're avoiding the clutter of repeatedly listing the batch dimension.
 2. Compute the score matrix $\text{Scores} = QK^T$ and write $\text{Scores}$, shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**, to HBM.
 3. Read $\text{Scores}$ shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** back from HBM.
 4. Apply SoftMax to get the attention weights and write $\text{Attn}$, also shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**, to HBM.
-5. Read $\text{Attn}$ shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** back from HBM, compute the weighted values $\text{Weighted Values} = \text{Attn}V$.
-6. Write the weighted values, shaped **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, back to HBM
+5. Read $\text{Attn}$ shaped **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** back from HBM, read the $V$ tensor shaped **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, and compute the weighted values $\text{Weighted Values} = \text{Attn}V$.
+6. Write the weighted values, shaped **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, to HBM
 
 The read of $Q$ and $K$ at the beginning needs to happen in some form, and the writing of the weighted values also needs to happen at the end.
 But the writing and reading back of the **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** $\text{Scores}$ and $\text{Attn}$ tensors in the middle wastes bandwidth, especially as **[S]{.dim-s}** gets large.
 For a sequence of length 4,096, the score matrix alone is $4096 \times 4096 = 16.7$ million entries per head.
-The actual computations of the matrix multiplications and softmax are fast.
-What's slow is the round-trip to HBM for these intermediate results.
-
-This is a textbook example of a memory-bandwidth-bound operation.
-The GPU spends most of its time waiting for data to move to and from HBM, not doing arithmetic.
-And the problem scales quadratically with sequence length --- double the sequence length and you quadruple the intermediate memory traffic.
+The actual computations of the matrix multiplications and softmax are necessary, fixed costs.
+The round-trip to HBM for these intermediate results is slow and wastes HBM memory.
+This problem scales quadratically with sequence length --- double the sequence length and you quadruple the HBM usage and intermediate memory traffic.
+This is why this implementation of attention causes GPU out of memory errors for long sequences.
 
 It's worth noting that even a single matmul like $\text{Scores} = QK^T$ doesn't happen as one monolithic operation.
 The $Q$ and $K$ matrices are far too large to fit in SRAM, so the GPU kernel **tiles** the computation.
@@ -37,76 +36,66 @@ Consider $Q$ with shape **([S]{.dim-s}, $\dimdk{d_K}$)** and $K^T$ with shape **
 A standard tiled matmul loops over row-blocks of $Q$ (groups of query positions) and column-blocks of $K^T$ (groups of key positions).
 For each pair, the kernel loads a block of $Q$ rows and a block of $K^T$ columns into SRAM, computes their partial product, and writes the result into the corresponding tile of $\text{Scores}$ in HBM.
 Since $d_K$ is small (typically 64 or 128), the inner dimension often fits in a single pass.
-But the outer dimensions don't: each block of $Q$ rows is re-read from HBM once for every column-block of $K^T$, and each column-block of $K^T$ is re-read for every row-block of $Q$.
+But the outer dimension doesn't: each column-block of $K^T$ may be re-read for every row-block of $Q$.
 This means the total HBM reads exceed the theoretical minimum of reading each matrix exactly once --- the GPU re-reads portions of $Q$ and $K$ multiple times to tile through the computation.
 But that extra read traffic is modest and scales with **[S]{.dim-s}**, not $\dims{S}^2$.
-The real waste in standard attention isn't within any single matmul --- it's the round-trips *between* operations: writing the **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** $\text{Scores}$ matrix to HBM just so softmax can read it back, then writing the attention weights just so the next matmul can read them.
+The real waste in this simple attention implementation is the round-trips between operations: writing the **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** $\text{Scores}$ matrix to HBM just so softmax can read it back, then writing the attention weights just so the next matmul can read them.
 
 ### FlashAttention
 
-**FlashAttention** [@dao2022flashattention] solves this by never materializing the full attention matrix in HBM.
+**FlashAttention** [@dao2022flashattention] solves this memory problem by never materializing the full attention matrix in HBM.
 If we had enough SRAM, we could store these attention matrices there, and we would avoid the round trip to HBM, but we don't.
-The core idea with FlashAttention is **tiling**: break the $Q$, $K$, and $V$ matrices into small blocks that fit in SRAM, then compute the attention output block by block, keeping all intermediate results on-chip.
+The core idea with FlashAttention is once again **tiling**: break the $Q$, $K$, and $V$ matrices into small blocks that fit in SRAM, then compute the attention output block by block, keeping all intermediate results on-chip.
+The key change is combining enough steps into a single kernel that processes one block of $K$ and $V$ against all blocks of $Q$ before moving on.
+Once a given portion of the weighted values is fully computed for a given block of $K$ and $V$, this portion of the attention scores and weights are not needed anymore, so there's no need to write them to HBM, and they are discarded.
 
 The algorithm works in two nested loops.
 The outer loop iterates over blocks of $K$ and $V$.
 The inner loop iterates over blocks of $Q$.
-For each pair of blocks, the kernel computes the local attention scores, applies a local softmax, and accumulates the weighted sum -- all in SRAM.
+For each pair of blocks, the kernel computes the local attention scores, applies a local softmax, and accumulates the weighted sum, all in SRAM.
 The tricky part is that softmax requires the maximum and sum over the full row of scores, not just the current block.
 FlashAttention handles this with an **online softmax** technique that maintains running statistics and corrects the accumulated output as new blocks are processed.
-
-```{=html}
-<!-- Figure: FlashAttention tiling
-ASCII art sketch:
-
-  Q (S x d)          K^T (d x S)          V (S x d)
-  +--------+         +--------+           +--------+
-  | Block  | ---- -> |        |           |        |
-  | Q_i    |    x    | K_j^T  |  ----- -> | V_j    |
-  +--------+         +--------+           +--------+
-       |                  |                    |
-       +------ all in SRAM, no HBM write -----+
-                          |
-                    accumulate O_i
-                   (update running max, sum)
-
-  HBM reads:  Q, K, V  (each read once)     = O(S·d) per head
-  HBM writes: O         (written once)       = O(S·d) per head
-  Never materialized: S, P                   = saves O(S²) HBM traffic
--->
-```
 
 ![FlashAttention keeps all intermediate results on-chip --- only two HBM transfers instead of six](images/flash_attn_hbm.svg){#fig-flash-attention .lightbox}
 
 The result is depicted in @fig-flash-attention.
-HBM traffic drops from $O(S^2)$ to $O(\dims{\text{S}} \cdot \dimdk{d_K})$ for the attention matrix, where $\dimdk{d_K}$ is the head dimension (typically 64 or 128).
-For a 4K sequence with $\dimdk{d_K}=128$, that's a reduction from 16.7 million elements to about 524K elements -- roughly a 32x reduction in memory traffic for the attention intermediates.
+For large values of **[S]{.dim-s}**, HBM traffic drops from $O(\dims{\text{S}}^2)$ to $O(\dims{\text{S}} \cdot \dimdk{d_K})$ for the attention matrix, where $\dimdk{d_K}$ is the head dimension (typically 64 or 128).
+For a 4K sequence with $\dimdk{d_K}=128$, that's a reduction from 16.7 million elements to about 524K elements, roughly a 32x reduction in memory traffic for the attention intermediates.
 
-Here's the counterintuitive part: FlashAttention actually performs *more* FLOPs than standard attention.
+Here's a counterintuitive detail: FlashAttention actually performs *more* FLOPs than standard attention.
 The online softmax rescaling adds extra multiply-accumulate operations.
-But wall-clock time drops substantially because the bottleneck was never the arithmetic -- it was the HBM traffic.
+But wall-clock time drops substantially because the bottleneck was never the arithmetic --- it was the HBM traffic.
 By trading a small increase in compute for a large decrease in memory movement, FlashAttention lands in a much better spot on the roofline.
+(FlashAttention also has optimizations for model training that are outside the scope of our inference discussion.)
 
-FlashAttention applies to both prefill and decode.
-During prefill, the sequence length **[S]{.dim-s}** is large (the full prompt), so the $O(\dims{\text{S}}^2)$ savings are dramatic.
-During decode, **[S]{.dim-s}** is just 1 for the query (the new token), but the key and value sequences span the entire context, so the tiled approach still avoids unnecessary intermediate writes.
+FlashAttention's tiling is most effective during prefill, where the sequence length **[S]{.dim-s}** is large (the full prompt) and the $O(\dims{\text{S}}^2)$ memory traffic savings are dramatic.
+During decode, however, the query dimension is just 1 (the new token).
+FlashAttention parallelizes over batch size and query length, so with a single-token query, most of the GPU's streaming multiprocessors sit idle --- there simply aren't enough blocks of work to fill the machine.
+
+This gap motivated a family of dedicated decode-phase attention kernels.
+**Flash-Decoding** [@dao2023flashdecoding_orig] added a new parallelization dimension: splitting the KV sequence across thread blocks, with a lightweight reduction kernel to rescale and combine partial results.
+This keeps the on-chip memory benefits of FlashAttention while fully utilizing the GPU even at small batch sizes, delivering up to 8x speedups for long contexts.
+**FlashDecoding++** [@dao2023flashdecoding] further improved on this with asynchronous softmax (avoiding a global synchronization barrier) and better handling of the flat GEMM shapes that arise during decode.
+More recently, **FlashMLA** [@deepseek2025flashmla] provides optimized decode kernels for DeepSeek's Multi-head Latent Attention, and **FlashInfer** [@ye2025flashinfer] offers a unified kernel library covering prefill, decode, and append with support for paged KV caches and attention variants like GQA.
 
 ### FlashAttention v1, v2, v3, and v4
 
 The original FlashAttention [@dao2022flashattention] established the tiling approach. Subsequent versions improved the implementation substantially:
 
-**FlashAttention-2** restructured the algorithm to improve GPU parallelism.
+**FlashAttention-2** [@dao2023flashattention2] restructured the algorithm to improve GPU parallelism.
 The key change was swapping the inner and outer loops -- iterating over $Q$ blocks in the outer loop and $K/V$ blocks in the inner loop.
 This reduced the amount of shared memory communication between warps (groups of 32 threads that execute together on the GPU) and improved occupancy on modern GPUs.
 The result was roughly a 2x speedup over v1.
 
-**FlashAttention-3** targeted the H100 specifically, exploiting its new hardware features.
+**FlashAttention-3** [@shah2024flashattention3] targeted the H100 specifically, exploiting its new hardware features.
 It introduced **warp specialization** -- dedicating some warps to data loading while others perform computation, overlapping memory access and arithmetic within the same kernel.
 It also leveraged the H100's FP8 tensor cores and hardware-assisted asynchronous memory operations.
 These changes pushed FlashAttention closer to the theoretical peak throughput on H100 hardware.
+**FlashAttention-4** [@dao2025flashattention4] continues this hardware-specific approach for the Blackwell B200, achieving up to 1,605 TFLOPS and 71% hardware utilization.
 
-The progression across versions illustrates a broader principle: writing a correct tiled attention kernel is one thing, but extracting maximum performance from a specific GPU architecture requires deep hardware-aware engineering.
-This is why FlashAttention has become a de facto standard rather than something every team reimplements.
+The progression across versions illustrates a broader principle: writing a correct tiled attention kernel is highly beneficial, and extracting maximum performance from a specific GPU architecture can lead to further gains.
+Many other attention kernels have been written.
+One worth mentioning is **FlexAttention** [@he2024flexattention], which provides a flexible framework in PyTorch for implementing various attention algorithms (dense, sparse, low-rank) without having to implement new kernels from scratch for every use case.
 
 ::: callout-note
 FlashAttention handles the tiling of attention computation within a single GPU.
@@ -141,16 +130,16 @@ Across 80+ layers in a large model, these small savings add up to a meaningful r
 
 We introduced CUDA graphs briefly in @sec-bottleneck-framework. Here's the full picture.
 
-During decode, the GPU executes the same sequence of kernels at every step -- the same transformer layers in the same order with the same shapes (for a given batch size).
+During decode, the GPU executes the same sequence of kernels at every step --- the same transformer layers in the same order with the same shapes (for a given batch size).
 But the CPU doesn't know that.
 At each step, it launches each kernel individually, waits for the GPU to be ready, sends the launch command, and moves on to the next kernel.
 Each launch takes roughly 5--10 microseconds, which doesn't sound like much, but a single decode step through a large model might involve hundreds of kernel launches.
-At 5 $\mu$s each, that's hundreds of microseconds of pure overhead -- time the GPU spends idle waiting for the CPU to tell it what to do next.
+At 5 $\mu$s each, that's hundreds of microseconds per token of pure overhead --- time the GPU spends idle waiting for the CPU to tell it what to do next.
 
 A **CUDA graph** captures a fixed sequence of kernel launches into a single replayable object.
 You run the decode step once in "capture mode," which records every kernel launch, memory copy, and synchronization point.
 Then on subsequent steps, you replay the entire graph with a single command.
-The CPU issues one launch instead of hundreds, and the GPU executes the full sequence without waiting.
+The CPU issues one launch instead of many, and the GPU executes the full sequence without waiting.
 
 The main limitation is that CUDA graphs are static.
 The captured graph assumes fixed tensor shapes and memory addresses.
@@ -162,11 +151,11 @@ Serving frameworks handle this with a small pool of pre-captured graphs for comm
 Rather than manually fusing kernels, you can let a compiler do it.
 **Computation graph compilers** analyze the full model graph, identify fusion opportunities, optimize memory layouts, and emit optimized GPU code.
 
-**`torch.compile`** in PyTorch traces the model's computation graph and applies a series of optimizations including operator fusion, memory planning, and code generation through backends like Triton.
+**`torch.compile`** in PyTorch traces the model's computation graph and applies a series of optimizations including operator fusion, memory planning, and code generation through backends like Triton [@tillet2019triton].
 For inference workloads, it can deliver significant speedups with minimal code changes.
 
-**TensorRT-LLM** takes a more aggressive approach.
-It converts the model into NVIDIA's TensorRT format, which applies extensive graph-level optimizations -- layer fusion, precision calibration (auto-selecting FP16 or FP8 for each operation), kernel auto-tuning, and memory-efficient execution planning.
+**TensorRT-LLM** [@nvidia2024trtllm] takes a more aggressive approach.
+It converts the model into NVIDIA's TensorRT format, which applies extensive graph-level optimizations --- layer fusion, precision calibration (auto-selecting FP16 or FP8 for each operation), kernel auto-tuning, and memory-efficient execution planning.
 The compilation step takes longer, but the resulting engine is heavily optimized for the specific model and GPU.
 
 The tradeoff is flexibility versus performance.
@@ -183,28 +172,33 @@ This section covers the core techniques for reducing KV cache memory pressure.
 
 ### KV cache memory formula
 
-For a model with **[L]{.dim-l}** layers, $n_{kv}$ KV heads per layer, and head dimension $\dimdk{d_K}$, each token adds the following to the KV cache:
+For a model with **[L]{.dim-l}** layers, $\dimhkv{H_{KV}}$ KV heads per layer, and head dimension $\dimdk{d_K}$, each token adds the following to the KV cache:
 
-$$\text{bytes per token} = 2 \times \diml{\text{L}} \times n_{kv} \times \dimdk{d_K} \times b_{\text{dtype}}$$
+$$\text{bytes per token} = 2 \times \diml{\text{L}} \times \dimhkv{H_{KV}} \times \dimdk{d_K} \times b$$
 
-The factor of 2 accounts for both keys and values. $b_{\text{dtype}}$ is the bytes per element (2 for FP16/BF16, 1 for FP8/INT8).
+The factor of 2 accounts for both keys and values. $b$ is the bytes per element (2 for FP16/BF16, 1 for FP8/INT8).
 
-For a concrete example, consider a 70B parameter model with [L]{.dim-l} = 80 layers, $n_{kv} = 8$ GQA heads (see @sec-efficient-attention), $\dimdk{d_K} = 128$, stored in FP16:
+For a concrete example, consider a 70B parameter model with [L]{.dim-l} = 80 layers, $\dimhkv{H_{KV}} = 8$ GQA heads (see @sec-efficient-attention), $\dimdk{d_K} = 128$, stored in FP16:
 
-$$\text{bytes per token} = 2 \times \diml{\text{L}} \times n_{kv} \times \dimdk{d_K} \times b_{\text{dtype}}$$
-On an 80 GB GPU that's already holding 35 GB of model weights (a 70B model in INT4), you're already over budget.
-
-This arithmetic is why KV cache management is critical.
-Every technique in this section -- paging, quantization, compression, and eviction -- is aimed at fitting more requests into the same memory budget.
+$$\text{bytes per token} = 2 \times 80 \times 8 \times 128 \times 2 = 32,768 \text{ bytes}$$
+On an 80 GB GPU that's already holding 35 GB of model weights (a 70B model in INT4), you're consuming another MB for about every 30 tokens per request.
+The techniques in this section -- paging, quantization, compression, and eviction -- deal with how we can fit more requests into the same memory budget.
 
 ### PagedAttention
 
 In a naive implementation, you allocate a contiguous block of GPU memory for each request's KV cache sized for the maximum possible sequence length.
-This wastes memory in three ways, illustrated in @fig-kv-waste: **reserved** slots held for tokens that haven't been generated yet, **internal fragmentation** (allocated slots that will never be used because the sequence won't reach the maximum length), and **external fragmentation** (gaps between allocations that are too small to be useful).
+This wastes memory in three ways, illustrated in @fig-kv-waste: 
+
+- **reserved** slots are those held for tokens that will be, but haven't been generated yet, 
+- **internal fragmentation** is slots allocated that will never be used because the sequence won't reach the maximum length, and 
+- **external fragmentation**  is gaps between allocations that are too small to be useful (which arise if requests have varying lengths)
 
 ![Memory waste with contiguous KV cache allocation. Each request pre-allocates for the maximum sequence length, leaving most of the memory unused.](images/kv_waste.svg){#fig-kv-waste .lightbox}
 
-**PagedAttention** [@kwon2023vllm], introduced in vLLM, borrows the virtual memory model from operating systems.
+This naive approach is good in that it avoids out of memory errors for requests that get the initial allocation, it guarantees contiguous memory for each request's KV cache, and it's simple to implement.
+But the **PagedAttention** paper [@kwon2023vllm] found that combined wasted memory could be as high as 80%.
+
+PagedAttention, which was introduced in vLLM, borrows the virtual memory model from operating systems to solve the wasted memory problem.
 Instead of one big contiguous allocation per request, the KV cache is divided into fixed-size **pages** (also called blocks), typically holding 16 or 32 tokens each.
 A request's KV cache is a linked list of pages that can be scattered anywhere in GPU memory.
 The same requests from @fig-kv-waste are shown in @fig-paged-attention with a paged memory model.
@@ -213,34 +207,35 @@ The same requests from @fig-kv-waste are shown in @fig-paged-attention with a pa
 
 The benefits are significant:
 
-- **Near-zero fragmentation**: the only wasted space is the partial last page of each request. With 16-token pages, average waste is 8 tokens per request -- negligible compared to the old approach of reserving memory for the maximum sequence length.
-- **Dynamic allocation**: pages are allocated on demand as the sequence grows, so a short request doesn't tie up memory it will never use.
+- **Near-zero fragmentation**: no external fragmentation, and the only internal fragmentation is the partial last page of each request. With 16-token pages, average waste is 8 tokens per request --- negligible compared to the old approach of reserving memory for the maximum sequence length.
+- **Dynamic allocation**: pages are allocated on demand as the sequence grows, so a short request doesn't tie up memory it will never use, and a long generation doesn't hold reserved memory for long periods.
 - **Sharing**: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. 
 The combination of paged attention and ragged batching (discussed in @sec-ragged-batching) is a beautiful solution that reduces both KV cache memory usage and memory reads.
 @Fig-ragged-shared-prefix shows the elegance and large savings when you combine the two, and is worth reviewing again here.
-- **Fine-grained preemption**: if the scheduler needs to free memory (@sec-request-scheduling), it can evict individual pages rather than killing an entire request. Pages can be swapped to CPU memory and swapped back later.
+- **Fine-grained preemption**: if the scheduler needs to free memory (@sec-request-scheduling), pages for an evicted request can be reallocated individually, rather than killing the entire request. 
+vLLM uses this optimistic strategy with recomputation, finding that when the request is resumed, most of the needed pages are often still in memory, avoiding much of the recomputation cost.
 
 PagedAttention has become the standard approach for KV cache memory management.
-Nearly every major serving framework -- vLLM, SGLang, TensorRT-LLM -- uses some variant of it.
+Nearly every major serving framework, including vLLM, SGLang, and TensorRT-LLM, uses some variant of it.
 
 ### KV cache quantization
 
-The KV cache formula above assumed FP16 storage.
+The KV cache formula above assumed 2 bytes per key/value using FP16 storage.
 If you store keys and values in INT8 or FP8 instead, you immediately halve the memory per token.
 For our 70B model example, that drops per-request KV cache memory from 1.28 GB to 640 MB at 4K sequence length.
 
-KV cache quantization is separate from weight quantization (@sec-quantization).
+KV cache quantization is separate from model weight quantization (@sec-quantization).
 The model weights can be in one precision while the KV cache is stored in another.
-In practice, many deployments run model weights in INT4 or FP8 while keeping the KV cache in FP8 or INT8 -- different components have different sensitivity to precision loss.
+In practice, many deployments that run model weights in INT4 keep the KV cache in FP8 or INT8, because these different components have different sensitivity to precision loss.
 
-The quality impact is generally small.
+The quality impact of KV cache quantization is generally small.
 Keys and values are intermediate activations, not learned parameters, and small quantization errors in individual KV entries tend to average out across the many entries involved in an attention computation.
-The tradeoff is straightforward: half the memory for a small and often negligible reduction in output quality.
+The tradeoff is straightforward: reduced memory for a small and often negligible reduction in output quality.
 
 One research paper garnering a lot of interest is **TurboQuant** [@zandieh2025turboquant].
-Rather than simply choosing a new datatype, they use techniques like rotations and vector quantization to compress entries.
+Rather than simply choosing a new datatype, they use techniques like random rotations to support quantization to lower bit depths.
 They report success squeezing entries down to 3.5 bits without hurting LLM performance.
-Given that decoding is bandwidth bound, reductions in KV cache size provide close to linear speedups.
+Interest is high because decoding being bandwidth bound means that reductions in KV cache size provide close to linear speedups to TPOT and throughput.
 
 ### KV cache compression
 
@@ -248,14 +243,15 @@ Rather than quantizing individual elements, you can compress the KV cache using 
 The idea is to store a compressed version of the keys and values that uses fewer dimensions, then reconstruct the full representation when needed for attention.
 
 **Multi-Head Latent Attention (MLA)**, introduced in DeepSeek-V2 [@liu2024deepseekv2], is the most prominent example.
-Instead of caching separate key and value tensors for each head, MLA compresses them into a single low-rank latent representation.
-This can reduce KV cache size by 5--10x compared to standard multi-head attention, at the cost of additional compute to decompress during attention.
+As was mentioned in @sec-efficient-attention, instead of caching separate key and value tensors for each head, MLA compresses them into a single low-rank latent representation.
+This can reduce KV cache size by 5--10x compared to standard multi-head attention, at the cost of additional compute to decompress during attention (and there are operation fusion techniques to mostly eliminate the overhead).
 The key difference from the attention architecture changes covered in @sec-efficient-attention (like GQA and MQA) is that MLA achieves compression without reducing the number of effective attention heads -- it maintains full representational capacity while storing less data.
 
 ### Selective KV cache and token eviction
 
 Not all tokens in the context are equally important for generating the next token.
 In many attention patterns, a small fraction of tokens receive the vast majority of attention weight, while most tokens contribute very little.
+If you can identify tokens that never receive significant attention, you can remove them from the KV cache without impacting the attention mechanism.
 This observation motivates **selective KV cache** strategies that drop or compress low-importance entries.
 
 **Keyformer** [@ribar2024keyformer] identifies important tokens based on accumulated attention scores.
@@ -269,7 +265,6 @@ This approach avoids the quality risk of post-hoc eviction because the model is 
 The general tradeoff with token eviction is that it reduces memory but introduces risk.
 If the eviction policy drops a token that turns out to be important for a later generation step, the output quality degrades.
 Conservative eviction (keeping more tokens) is safer but saves less memory.
-The most robust approach -- as NSA demonstrates -- is to build the sparsity into the model during training rather than bolting it on at inference time.
 
 
 ## Prompt and Prefix Caching {#sec-prefix-caching}
@@ -279,10 +274,10 @@ The most robust approach -- as NSA demonstrates -- is to build the sparsity into
 In many real-world deployments, a large fraction of requests share the same prefix.
 A chatbot application might prepend a 2,000-token system prompt to every user message.
 A RAG pipeline might prefix retrieved context that is identical across multiple queries.
-A coding assistant might include the same repository-level context for every completion request.
+A coding assistant might include the same repository-level context for many completion requests.
 
-Without caching, the system runs prefill on those 2,000 shared tokens for every single request -- computing the same key-value pairs over and over.
-If you're serving 100 requests per second, that's 200,000 tokens of redundant prefill per second.
+Without caching, the system runs prefill on those 2,000 shared tokens for every single request, computing the same key-value pairs over and over.
+If you're serving 100 requests per second, that's potentially 200,000 tokens of redundant prefill per second.
 The wasted compute shows up directly as higher TTFT and lower throughput.
 
 ### RadixAttention
@@ -294,7 +289,7 @@ An example radix tree is shown in @fig-radix-attention.
 ![Radix attention: an example radix tree with several different prompts and responses sharing different common prefixes.](images/radix_attention.svg){#fig-radix-attention .lightbox}
 
 When a new request arrives, the system walks the radix tree matching its token sequence.
-If the first 2,048 tokens match a cached prefix, those KV entries are reused directly -- no prefill needed for them.
+If the first 2,048 tokens match a cached prefix, those KV entries are reused directly --- no prefill needed for them.
 The system only runs prefill on the remaining tokens that diverge from the cached prefix.
 For a request with a 2,000-token system prompt and a 200-token user message, this cuts prefill work by roughly 90%.
 
@@ -310,12 +305,13 @@ When prefix caching is enabled, a provider hashes the prefix tokens and looks up
 If found, the cached entries are reused and the customer pays reduced cost for the cached portion.
 
 This is a win for both sides: the user gets faster TTFT and lower cost, and the provider avoids redundant compute.
-The effectiveness depends on how much prefix overlap exists in the workload -- applications with long, stable system prompts benefit enormously, while applications with unique prompts for every request see little benefit.
+The effectiveness depends on how much prefix overlap exists in the workload.
+Applications with long, stable system prompts benefit enormously, while applications with unique prompts for every request see little benefit.
 
 ### Implementation dependencies
 
-Prefix caching depends heavily on the paged KV cache from @sec-kv-cache.
-In the PagedAttention model, the shared prefix pages are simply referenced by multiple requests through their page tables.
+Prefix caching can be implemented very efficiently with the paged KV cache from @sec-kv-cache.
+In the PagedAttention model, the physical pages for the shared prefix are simply referenced by multiple requests through their page tables.
 The pages themselves are stored once in GPU memory, and a reference count tracks how many requests are using each page.
 When the last request using a shared prefix completes, the pages can be freed or kept for future reuse based on an eviction policy (typically LRU).
 
@@ -331,26 +327,30 @@ Standard decoding produces one token per forward pass, and each token depends on
 For a 500-token response, that's 500 sequential forward passes through the entire model.
 Even if each pass is perfectly optimized, you're still bound by the serial dependency chain.
 
-This section covers techniques that break or amortize that sequential constraint -- generating multiple tokens per model invocation.
+This section covers techniques that break or amortize that sequential constraint, generating multiple tokens per model invocation.
 
 ### The core idea of speculative decoding
 
-**Speculative decoding** [@leviathan2023speculative; @chen2023speculative] is based on a simple but powerful observation: verifying a sequence of tokens is cheaper than generating them one at a time.
+**Speculative decoding** [@leviathan2023speculative; @chen2023speculative] is based on a simple but powerful observation: verifying a sequence of multiple tokens is cheaper than generating them one at a time.
 
 Here's the setup.
-You have a large **target model** -- the model you actually want to sample from -- and a small, fast **draft model**.
+You have a large **target model** --- the main model you actually want to generate from --- and a small, fast **draft model**.
 The draft model generates $k$ candidate tokens autoregressively (cheap, because the draft model is small).
 Then the target model processes all $k$ candidates in a single forward pass, checking whether it would have generated the same tokens.
 Accepted tokens are kept.
 The first rejected token is resampled from the target model's distribution.
+Draft tokens after the first rejection cannot be used because they have diverged from the target model's distribution, so they are discarded.
 Then the cycle repeats.
+
+In the best case, all $k$ draft tokens are accepted, and you get $k + 1$ tokens from one target model forward pass.
+In the worst case, the first draft token is rejected, and you get just 1 token from that target model forward pass.
 A comparison of standard decoding and speculative decoding is shown in @fig-speculative-decoding.
 
-![Speculative decoding](images/speculative_decoding.svg){#fig-speculative-decoding .lightbox}
+![Speculative decoding showing a sequence of four tokens that are generated in only two forward passes of the target model. In the first pass, two tokens from the draft model are accepted, and resampling generates a third token. In the second pass, the worst case scenario is illustrated. No tokens are accepted, which means that only the one resampled token is kept from this forward pass.](images/speculative_decoding.svg){#fig-speculative-decoding .lightbox}
 
-The reason this works is the asymmetry between generation and verification.
+The reason speculative decoding works is the asymmetry between generation and verification.
 Generating $k$ tokens with the target model requires $k$ sequential forward passes.
-But *verifying* $k$ tokens requires just one forward pass, because you can feed all $k$ tokens as input and check them all in parallel -- the same way prefill processes multiple tokens at once.
+But *verifying* $k$ tokens requires just one forward pass, because you can feed all $k$ tokens as input and check them all in parallel, in the same way prefill processes multiple tokens at once.
 The early related work on this idea is Blockwise Parallel Decoding [@stern2018blockwise].
 
 ### Acceptance rate and expected speedup
@@ -374,8 +374,9 @@ The denominator accounts for the cost of the $k$ draft passes (each costing $1/c
 For $c = 10$ (the draft model is 10x faster), $k = 4$, and $\alpha = 0.8$, the speedup is roughly $3.4 / 1.4 \approx 2.4\text{x}$.
 
 A crucial property of speculative decoding is that it produces *exactly* the same distribution as the target model.
+This is not a heuristic or an approximation.
 The acceptance/rejection mechanism is designed so that the output distribution is identical to what you'd get from running the target model autoregressively.
-This is not an approximation -- it's a mathematically exact speedup.
+The speculative decoding paper goes into the details of how rejection sampling is used to ensure the exact statistical distribution is preserved.
 
 ### Tree-based speculative decoding
 
@@ -391,16 +392,16 @@ But since the verification step is typically memory-bandwidth-bound (it's essent
 
 ### Inference with reference
 
-**Inference with reference** [@yang2023inference] is a specialized form of speculative decoding where the "draft" comes from an existing text -- a retrieved document, a cached previous response, or template text.
+**Inference with reference** [@yang2023inference] is a specialized form of speculative decoding where the "draft" comes from an existing text, which could be a retrieved document, a cached previous response, or template text.
 If the target model's likely output overlaps significantly with the reference text, you can propose long spans of reference tokens as candidates and verify them in a single forward pass.
 
-This works especially well for tasks like text editing, summarization (where the output may quote the input), or regenerating a cached response with minor modifications.
-The acceptance rate can be very high -- often above 0.95 for close matches -- making this one of the most efficient speculative decoding variants when it applies.
+This works especially well for tasks like text editing, abstractive summarization (where the output may quote the input), or regenerating a cached response with minor modifications.
+The acceptance rate can be very high --- often above 0.95 --- making this one of the most efficient speculative decoding variants when it applies.
 
 ### Speculative speculative decoding
 
 Standard speculative decoding has a subtle inefficiency: the draft model must wait for the target model to complete verification before it can start drafting the next batch of tokens.
-This is because the draft model needs to know which tokens were accepted so it can condition on the correct prefix.
+This is because the draft model needs to know which tokens were accepted so it can start with the correct prefix.
 
 ```{=html}
 <!--
@@ -408,30 +409,33 @@ This is because the draft model needs to know which tokens were accepted so it c
 --->
 ```
 
-**Speculative speculative decoding** [@mamou2025specspec] eliminates this dependency.
+**Speculative speculative decoding** [@mamou2025specspec] eliminates this sequential dependency.
 The draft model speculatively starts generating the next batch of candidates *before* the target model finishes verifying the current batch.
 It does this by assuming all current draft tokens will be accepted and conditioning on that optimistic prefix.
-If some tokens are rejected, the speculative draft work is discarded and redone -- but when acceptance rates are high, the speculation pays off, and the draft and target models can operate in a pipelined fashion with better hardware utilization.
+If some tokens are rejected, the speculative draft work is discarded and redone, but when acceptance rates are high, the early generation pays off, and the draft and target models can operate in a pipelined fashion with better hardware utilization.
 
 ### When speculative decoding helps vs. hurts
 
 Speculative decoding is not a universal win. Several factors determine whether it helps:
 
-**Temperature**: at low temperatures (greedy or near-greedy sampling), the draft model's predictions are more likely to match the target model, giving higher acceptance rates.
+**Temperature**: at low temperatures (greedy or near-greedy sampling), the draft model's predictions are more likely to match the target model's sampled tokens, giving higher acceptance rates.
 At high temperatures, the target model's distribution is more spread out, making it harder for the draft to guess correctly.
 Speculative decoding works best for deterministic tasks like code generation and factual Q&A.
 
 **Draft model quality**: a better draft model means higher acceptance rates and more tokens per cycle.
-But better draft models are also larger and slower, which cuts into the speedup.
+But usually, better draft models are also larger and slower, which cuts into the speedup.
 There's a sweet spot where the draft model is good enough to maintain high acceptance rates but small enough to be much faster than the target.
 
 **Batch size**: this is the most important practical consideration.
-Speculative decoding's benefit comes from replacing sequential target-model forward passes with one parallel verification pass.
-But in high-throughput serving with large batch sizes, the target model's forward passes are already efficient -- the GPU is well-utilized because it's processing many requests at once.
-Adding draft model overhead on top of an already-efficient pipeline can actually hurt throughput.
+Speculative decoding's benefit comes from replacing sequential target model forward passes with one parallel verification pass.
+But in high-throughput serving with large batch sizes, the target model's forward passes may have high MFU already, meaning that verification can slow down the forward passes.
+Adding draft model on top of a high MFU pipeline provides less benefit and can actually hurt throughput.
 Speculative decoding shines in low-batch-size, latency-sensitive scenarios.
 
 ### Multi-token prediction
+
+Speculative decoding uses a separate draft model to propose candidates.
+**Multi-token prediction (MTP)** methods take a different approach to speculative decoding: they generate multiple future tokens using the base model itself, without any auxiliary model.
 
 ![Multi-token prediction with $k=3$ predictions for each token position](images/multi_token_prediction.svg){#fig-multi-token-prediction .lightbox}
 
@@ -441,72 +445,72 @@ During training, all heads are trained simultaneously with a shared loss.
 A comparison of standard decoding and multi-token prediction is shown in @fig-multi-token-prediction.
 
 At inference time, the auxiliary heads generate candidate tokens for positions beyond the next token.
-These candidates are then verified -- either through additional forward passes or by treating them as draft tokens in a speculative decoding framework.
+These candidates are then verified by treating them as draft tokens in a speculative decoding framework.
 When the candidates are accepted, the model has effectively generated multiple tokens from a single forward pass through the main body of the network.
 
 DeepSeek-V3 uses MTP with two prediction heads, and Meta's Llama architecture has explored similar approaches.
-The key advantage of MTP over external draft models (covered below) is that the draft candidates come from the model itself, so they tend to have high acceptance rates.
-The cost is a modest increase in model size and training complexity from the auxiliary heads.
+The key advantage of MTP over external draft models (covered above) is that the draft candidates come from the model itself, so they tend to have high acceptance rates.
+One cost is a modest increase in model size, which is usually negligible.
+The primary barrier to widespread adoption is the added training complexity from the auxiliary heads.
+
+### Medusa
+
+**Medusa** [@cai2024medusa] allows you to do MTP with a pre-trained base model that wasn't trained for MTP.
+It adds multiple lightweight decoding heads to an ordinary base model.
+The base model has the standard one head that predicts the next token.
+Medusa adds $k$ additional heads, where head $i$ predicts the token $i+1$ positions ahead.
+These heads are small (typically just a single linear layer or a small MLP) and can be inexpensively trained on top of the frozen base model.
+
+At inference time, all $k+1$ heads produce predictions simultaneously from the same hidden state.
+The candidates from all heads are organized into a tree structure and verified using the tree-based attention approach described earlier.
+The longest accepted path through the tree gives the output.
+
+Medusa has a practical advantage over standard speculative decoding with a separate draft model, since there's no need to run a separate model.
+The additional compute for the lightweight heads is small compared to the main model's forward pass.
+The disadvantage is that the heads need to be trained for each specific base model, adding a fine-tuning process before the model can be used.
 
 
 ## Parallel Decoding {#sec-parallel}
-
-Speculative decoding uses a separate draft model (or separate heads) to propose candidates.
-**Parallel decoding** methods take a different approach: they generate multiple future tokens using the base model itself, without any auxiliary model.
 
 ### Lookahead decoding
 
 **Lookahead decoding** [@fu2024lookahead] reformulates autoregressive generation as a fixed-point problem.
 Instead of generating tokens one at a time, it maintains a window of **W** future token positions, initialized with guesses.
 Then it iteratively refines all positions in parallel using **Jacobi iteration**: at each step, every position computes what its token should be given the current values of all other positions.
-When the sequence converges -- that is, when a contiguous run of positions doesn't change between iterations -- those tokens are accepted.
+When the sequence converges --- that is, when a contiguous run of positions doesn't change between iterations --- those tokens are accepted.
 
 The intuition is that many tokens in a sequence are relatively predictable given their context.
 Common phrases, syntactic patterns, and function words often converge quickly.
-The tokens that take many iterations to converge are the "surprising" ones -- the genuinely creative or informative tokens.
+The tokens that take many iterations to converge are the "surprising" ones --- the genuinely creative or informative tokens.
 
 Lookahead decoding requires no draft model, no extra parameters, and no changes to the base model.
 The tradeoff is that each Jacobi iteration involves a forward pass over **W** token positions, which is more expensive than a single-token decode step.
 The method wins when enough tokens converge quickly to offset the cost of processing the wider window.
 
-### Medusa
-
-**Medusa** [@cai2024medusa] adds multiple lightweight **decoding heads** to the base model.
-The standard model has one head that predicts the next token.
-Medusa adds $k$ additional heads, where head $i$ predicts the token $i+1$ positions ahead.
-These heads are small (typically just a single linear layer or a small MLP) and are trained on top of the frozen base model.
-
-At inference time, all $k+1$ heads produce predictions simultaneously from the same hidden state.
-The candidates from all heads are organized into a tree structure and verified using the tree-based attention approach described in @sec-speculative.
-The longest accepted path through the tree gives the output.
-
-Medusa has a practical advantage over speculative decoding with a separate draft model: since the heads share the base model's forward pass, there's no need to run a separate model.
-The additional compute for the lightweight heads is small compared to the main model's forward pass.
-The disadvantage is that the heads need to be trained for each specific base model, adding a fine-tuning step.
-
 ### Tree-based verification as a unifying framework
 
 Looking across the techniques in these last two sections, a common pattern emerges.
-Multi-token prediction, speculative decoding with a draft tree, Medusa, and even lookahead decoding all follow the same high-level structure:
+Speculative decoding with a draft tree, multi-token prediction, and even lookahead decoding all follow the same high-level structure:
 
 1. **Propose**: generate multiple candidate tokens using some cheap mechanism (draft model, auxiliary heads, Jacobi iteration, or reference text)
 2. **Organize**: arrange candidates into a tree (or chain) of possible continuations
-3. **Verify**: run the target model on the full tree in a single forward pass, using the causal mask to check all candidates in parallel
+3. **Verify**: run the target model on the full tree in a single forward pass, using a custom causal mask to check all candidates in parallel
 4. **Accept**: take the longest prefix (or longest path through the tree) where the target model agrees with the proposals
 
-The differences between techniques lie entirely in step 1 -- how candidates are generated.
-The verification and acceptance steps are the same across all methods.
-This unifying view makes it easier to reason about the tradeoffs: the quality and cost of the proposal mechanism determine the acceptance rate and overhead, while the verification step is always a single forward pass whose cost depends on the total number of candidate tokens.
+The main differences between techniques lie in step 1 --- how candidates are generated.
+The verification and acceptance steps are similar across all methods.
+This unifying view makes it easier to reason about the tradeoffs: the quality and cost of the proposal mechanism determine the acceptance rate and overhead, while the verification step is a single forward pass whose cost depends on the total number of candidate tokens.
+And all this works because the one-token-at-a-time autoregressive process is not a fundamental constraint, just a convenient way to structure generation.
 
-This also explains why these techniques interact with batch size the same way.
-The verification step is essentially a small prefill -- it processes multiple tokens in parallel.
+This unifying view also explains why these techniques interact with batch size the same way.
+The verification step is essentially a small prefill --- it processes multiple tokens in parallel.
 At large batch sizes, the GPU is already busy with many requests, so the marginal cost of the extra verification tokens is higher relative to the benefit.
 At small batch sizes, the GPU has spare capacity, and the extra tokens come nearly for free.
 
 ---
 
-The techniques in this chapter operate at the level of individual requests -- optimizing attention kernels, managing KV cache memory, and breaking the sequential decoding constraint.
-In @sec-scaling, we'll move up a level and consider what happens when a single GPU isn't enough: how to distribute the model across multiple devices while keeping communication overhead manageable.
+The techniques in this chapter operate at the level of individual requests --- optimizing attention kernels, managing KV cache memory, and breaking the sequential decoding constraint.
+In the next chapter, we will consider what happens when a single GPU isn't enough: how to distribute the model across multiple devices while keeping communication overhead manageable.
 
 
 ## Further Reading {#sec-further-request}
@@ -518,7 +522,7 @@ FlashAttention-3 [@shah2024flashattention3] targets Hopper-generation GPUs speci
 Tri Dao's blog posts accompanying these papers are also worth reading for accessible explanations of the algorithms.
 
 **KV cache management.** The PagedAttention paper [@kwon2023vllm] is the key reference for understanding KV cache fragmentation and the virtual-memory solution.
-The paper's insight -- that contiguous pre-allocation wastes 60-80% of KV cache memory in practice -- motivates the entire paged approach.
+The paper's insight --- that contiguous pre-allocation wastes 60-80% of KV cache memory in practice --- motivates the entire paged approach.
 For KV cache compression through token eviction, Keyformer [@ribar2024keyformer] introduces score-based key token selection, and NSA [@yuan2025nsa] combines sparse attention with compressed inter-block summaries.
 
 **Prefix caching.** SGLang's RadixAttention [@zheng2023sglang] generalized prefix caching from simple exact-match lookups to a radix-tree-based system that automatically identifies and shares common prefixes across requests.

@@ -967,18 +967,31 @@ The frameworks surveyed here each represent a different set of answers to these 
 
 ## Further Reading {#sec-further-production}
 
-**Framework documentation.** Each of the major frameworks has comprehensive documentation that goes well beyond what we've covered here.
+**Multi-LoRA serving.**
+The original LoRA paper [@hu2021lora] explains the low-rank adaptation technique and why the adapter weights are small enough to swap efficiently.
+For serving multiple adapters simultaneously, the S-LoRA paper [@sheng2023slora] introduces the idea of a unified base model with dynamically loaded adapters, including a custom CUDA kernel for batched LoRA computation across requests using different adapters.
+Punica [@chen2024punica] takes a similar approach with a focus on the GPU kernel design for multi-adapter batching.
+For a practical walkthrough of deploying one base model with many adapters, the Hugging Face blog post "TGI Multi-LoRA: Deploy Once, Serve 30 Models" [@thomas2024multilora] shows the end-to-end process with real adapter switching.
+
+**Disaggregated serving.**
+The DistServe paper [@zhong2024distserve] introduced the case for separating prefill and decode onto different GPU pools, but the idea has evolved rapidly since then.
+"Disaggregated Inference: 18 Months Later" [@chen2025disaggretro], a retrospective from the DistServe authors, documents how disaggregation went from a research prototype to an industry-standard pattern adopted by NVIDIA Dynamo, vLLM, SGLang, and others, and explores emerging directions like attention-FFN disaggregation.
+
+**Multi-model routing.**
+Quality-tier routing --- sending easy requests to a small model and hard ones to a large model --- can dramatically reduce cost.
+The RouteLLM blog post [@ong2024routellm] describes a framework of trained routers that achieve up to 85% cost reduction while maintaining 95% of GPT-4 quality, with open-source router weights and evaluation code.
+
+**Benchmarking.**
+If you're evaluating frameworks for a specific deployment, LLMPerf [@ray2024llmperf] provides standardized benchmarking scripts that measure the metrics from @sec-metrics across different frameworks and hardware configurations.
+For understanding how to interpret benchmark results and avoid common pitfalls, the Anyscale metrics blog post [@anyscale2024metrics] is a practical companion.
+
+**System design.**
+For the broader context of how LLM serving fits into production ML systems, @miao2023efficient surveys the full stack from model optimization through serving infrastructure.
+For fleet-level scheduling across multiple model replicas, @wu2023fast covers how to route requests across heterogeneous hardware to maximize goodput under latency constraints.
+
+**Framework documentation.** 
+Each of the major frameworks has comprehensive documentation that goes beyond what we've covered here.
+Here again are links to their main documentation sites.
 The vLLM docs [@vllm2024docs] include guides on configuring PagedAttention parameters, enabling speculative decoding, and tuning scheduler policies.
 The TensorRT-LLM docs [@nvidia2024trtllm] cover the compilation pipeline and how to exploit FP8 and custom kernels on NVIDIA hardware.
 SGLang's docs [@sglang2024docs] are particularly useful for understanding the RadixAttention cache and the structured generation programming model.
-DeepSpeed-Inference [@deepspeed2024docs] covers multi-node deployment and NVMe offloading.
-
-**Multi-LoRA serving.** The original LoRA paper [@hu2021lora] explains the low-rank adaptation technique and why the adapter weights are small enough to swap efficiently.
-For serving multiple LoRA adapters simultaneously, the S-LoRA paper [@sheng2023slora] introduces the idea of a unified base model with dynamically loaded adapters, including a custom CUDA kernel for batched LoRA computation across requests using different adapters.
-Punica [@chen2024punica] takes a similar approach with a focus on the GPU kernel design for multi-adapter batching.
-
-**Benchmarking.** If you're evaluating frameworks for a specific deployment, LLMPerf [@ray2024llmperf] provides standardized benchmarking scripts that measure the metrics from @sec-metrics across different frameworks and hardware configurations.
-For understanding how to interpret benchmark results and avoid common pitfalls, the Anyscale metrics blog post [@anyscale2024metrics] is a practical companion.
-
-**System design.** For the broader context of how LLM serving fits into production ML systems, @miao2023efficient surveys the full stack from model optimization through serving infrastructure.
-For fleet-level scheduling across multiple model replicas, @wu2023fast covers how to route requests across heterogeneous hardware to maximize goodput under latency constraints.

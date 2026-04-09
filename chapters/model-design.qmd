@@ -319,17 +319,29 @@ That's where we turn next in @sec-scheduling.
 
 ## Further Reading {#sec-further-model-design}
 
-Quantization is a deep field with a large body of work.
-The GPTQ [@frantar2022gptq] and AWQ [@lin2023awq] papers are essential reading if you want to understand the mechanics of post-training weight quantization beyond the overview given here.
-GPTQ's use of approximate second-order information to minimize quantization error is elegant, and AWQ's insight that activation-aware scaling protects the most important weights is a useful design pattern that shows up in other contexts.
-SmoothQuant [@xiao2023smoothquant] is the key reference for weight-activation quantization, particularly its technique of migrating quantization difficulty from activations to weights.
-For an earlier take on INT8 inference that pioneered mixed-precision decomposition, see @dettmers2022llmint8.
-The most popular quantization library is `bitsandbytes` [@dettmers2021bitsandbytes], also by Tim Dettmers.
+For intuitive explanations of quantization:
 
-For a comprehensive survey of quantization methods applied to LLMs, @zhu2024quantization covers the full taxonomy, from uniform to non-uniform quantization, weight-only to weight-activation, and post-training to quantization-aware training, with empirical comparisons across model sizes.
+- Maarten Grootendorst's "A Visual Guide to Quantization" [@grootendorst2024quantization] walks through symmetric and asymmetric quantization, per-tensor vs. per-channel granularity, and formats like GGUF with over 50 custom diagrams.
+It's one of the best visual introductions to the topic.
+- Tim Dettmers' blog post "LLM.int8() and Emergent Features" [@dettmers2022outliers] explains *why* naive INT8 quantization breaks down at scale: large transformers develop outlier activation channels that are orders of magnitude larger than the rest.
+The post provides the intuition behind the mixed-precision decomposition that addresses this, which is useful background for understanding SmoothQuant and similar techniques.
+Dettmers is also the author of the `bitsandbytes` library [@dettmers2021bitsandbytes], the most widely used quantization library in the Hugging Face ecosystem.
+- The Hugging Face Quantization Concept Guide [@hf2024quantization] is a practical reference for choosing between quantization backends (GPTQ, AWQ, bitsandbytes, and others) in the Hugging Face ecosystem, with guidance on when each approach is appropriate.
 
-On the attention architecture side, the progression from standard multi-head attention to MQA [@shazeer2019mqa], GQA [@ainslie2023gqa], and MLA [@liu2024deepseekv2] is well documented in the original papers.
-Shazeer's MQA paper is particularly worth reading because it clearly explains the inference motivation --- reducing KV cache bandwidth --- rather than just reporting accuracy numbers.
-The Llama 3 paper [@grattafiori2024llama3] provides a good case study of GQA adopted in a production-grade model, with ablations showing the quality-efficiency tradeoff.
+On pruning, two papers go well beyond the overview in this chapter.
+SparseGPT [@frantar2023sparsegpt] showed that models up to 176B parameters can be pruned to 50--60% sparsity in a single pass with minimal quality loss, and that the pruning pattern can be constrained to NVIDIA's 2:4 structured format for hardware acceleration.
+Wanda [@sun2024wanda] simplifies things further: it prunes based on the product of weight magnitude and input activation norm, achieving competitive results without any retraining and at a fraction of SparseGPT's computational cost.
+For the hardware side of sparsity, NVIDIA's blog post on accelerating inference with Ampere Sparse Tensor Cores [@nvidia2021sparsity] explains the 2:4 structured sparsity format, the train-prune-fine-tune workflow, and the performance gains achievable through TensorRT.
 
-For knowledge distillation applied to LLMs specifically, @gu2024minillm covers the challenges of distilling autoregressive language models, including the mismatch between training-time and inference-time token distributions that makes naive distillation less effective for generative models.
+For a deeper understanding of Multi-head Latent Attention beyond its brief treatment here, Eryk Banatt's "Understanding Multi-Head Latent Attention" [@banatt2025mla] is a clear technical walkthrough of the low-rank KV compression, the decoupled rotary position embedding trick, and how MLA compares to GQA in practice.
+
+On tokenization, @tao2024vocabulary establishes scaling laws relating optimal vocabulary size to compute budget, showing that most current LLMs have undersized vocabularies --- Llama 2's 32K vocabulary should have been roughly 7x larger for its model size, according to their analysis.
+This provides theoretical grounding for the vocabulary-size discussion in this chapter.
+
+For knowledge distillation applied to LLMs, @xu2024distillsurvey is the most comprehensive recent survey, covering the full taxonomy from white-box distillation (where student models train on the teacher's logits) to black-box distillation (where they learn from the teacher's generated outputs), along with domain-specific and skill-specific distillation techniques.
+
+For broader surveys that cover multiple topics from this chapter:
+
+- @wan2024efficient is the most comprehensive survey of LLM efficiency techniques, covering quantization, pruning, distillation, and efficient architectures from model-centric, data-centric, and framework-centric perspectives.
+It is accompanied by an actively maintained GitHub repository that tracks new papers.
+- NVIDIA's "Mastering LLM Techniques: Inference Optimization" [@nvidia2023mastering] provides a practitioner-oriented overview that covers quantization, KV cache optimization, batching, and model parallelism in a single article, making it a useful starting point for someone new to the field.

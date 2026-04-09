@@ -359,18 +359,21 @@ The next chapter (@sec-production) will discuss how all of these techniques come
 
 ## Further Reading {#sec-further-scaling}
 
-**Tensor parallelism.** Megatron-LM [@shoeybi2019megatron] is the foundational paper for tensor parallelism in transformers.
-It introduces the column-parallel and row-parallel linear layer decompositions used by essentially every inference framework today.
-The follow-up paper [@narayanan2021pipeline] extends the analysis to combined tensor and pipeline parallelism, with a clear treatment of how communication costs scale with model size and parallelism degree.
-Both papers are written from a training perspective, but the forward-pass partitioning is identical for inference.
+**Overviews of parallelism strategies.**
+Lilian Weng's "How to Train Really Large Models on Many GPUs?" [@weng2021trainlarge] is the most widely recommended introduction to all the parallelism strategies covered in this chapter.
+It covers data, tensor, pipeline, and expert parallelism with clear diagrams.
+The writing is from a training perspective, but the forward-pass mechanics are identical for inference.
+The Hugging Face documentation on parallelism methods [@hf2024parallelism] is a good practical companion, with a decision table for choosing a strategy based on your hardware setup.
 
-**Pipeline parallelism.** GPipe [@huang2019gpipe] introduced micro-batching to reduce the pipeline bubble.
-While the original context is training, the concept of splitting a model into stages across devices and using micro-batches to keep all stages busy applies directly to inference.
-For inference specifically, the pipeline parallelism discussion in @pope2022scaling provides a good analysis of how bubble fraction and inter-stage latency affect throughput and per-token latency.
+**The hardware perspective.**
+"How to Scale Your Model" [@austin2025scaling], an online book from the JAX team at Google DeepMind, approaches parallelism from the hardware up.
+It starts with GPU and TPU architecture, works through the roofline model, and then explains each parallelism strategy in terms of the communication costs they impose on different interconnects.
+The chapter on how to parallelize a transformer for training is especially relevant.
 
-**Sequence and context parallelism.** Ring attention [@li2021ring] and DistFlashAttn [@li2023distflashattn] extend the FlashAttention tiling strategy across multiple devices, enabling attention over sequences that are too long to fit in a single GPU's memory.
-DeepSpeed Ulysses [@jacobs2023ulysses] takes a different approach, partitioning along the head dimension rather than the sequence dimension.
-@korthikanti2023sp covers NVIDIA's sequence parallelism technique, which partitions the non-tensor-parallel regions (LayerNorm, dropout) across devices to reduce activation memory.
+**Scaling inference specifically.**
+@pope2022scaling is one of the best analyses of how parallelism strategies interact with the unique characteristics of inference -- the distinction between prefill and decode, the impact of batch size on communication-to-compute ratio, and the tradeoffs between latency and throughput.
+For a more recent and practical treatment, Meta's engineering blog post on scaling LLM inference [@zhao2025metascaling] covers how they combine tensor, context, and expert parallelism in production, including their work on context parallelism for million-token sequences.
 
-**Multi-node inference.** The NVIDIA DGX H100 architecture whitepaper [@nvidia2023dgxh100] is useful for understanding the topology and bandwidth hierarchy of a modern multi-GPU node.
-For multi-node deployment patterns, the AlpaServe paper [@li2023alpaserve] explores how to automatically determine parallelism strategies across heterogeneous clusters, balancing latency constraints against hardware utilization.
+**Mixture of Experts.**
+The Hugging Face blog post "Mixture of Experts Explained" [@sanseviero2023moe] provides an accessible introduction to MoE architectures, including the routing mechanism, load balancing challenges, and how expert parallelism fits into the picture.
+For the systems-level challenges of serving MoE models at scale, the AlpaServe paper [@li2023alpaserve] explores how to automatically determine parallelism strategies across heterogeneous clusters, balancing latency constraints against hardware utilization.

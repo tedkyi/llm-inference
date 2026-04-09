@@ -425,16 +425,17 @@ In the next chapter, we'll turn to techniques that operate on individual request
 
 ## Further Reading {#sec-further-scheduling}
 
-The Orca paper [@yu2022orca] is the foundational reference for continuous batching.
-It introduced iteration-level scheduling --- the idea that the scheduler should make decisions at every decode step rather than waiting for an entire batch to complete.
-The system design is clean, and the evaluation clearly shows the throughput gains over static batching.
+For accessible introductions to batching strategies:
+The Anyscale blog post [@anyscale2024batching] is the most widely-shared visual explainer of continuous batching. It walks through static vs. continuous batching with clear diagrams and shows where the 23x throughput claim comes from.
+The original vLLM blog post [@vllm2023blog] introduces PagedAttention with accessible visual explanations of KV cache memory fragmentation and how OS-style paging solves it --- a good companion to the academic paper.
 
-Sarathi [@agrawal2023sarathi] introduced chunked prefill and the idea of piggybacking decode tokens onto prefill chunks to keep the GPU busy during long prefills.
-The paper includes a clear analysis of how unchunked prefills create latency bubbles for co-scheduled decode requests, and how chunk sizing trades off between prefill throughput and decode latency stability.
+Several papers extend the scheduling ideas in this chapter in important directions.
+Sarathi-Serve [@agrawal2024sarathiserve] builds on the original Sarathi chunked prefill work, adding stall-free scheduling that eliminates decode stalls even in pipeline-parallel deployments --- an important consideration for multi-GPU serving that we don't cover here.
+FastServe [@wu2023fastserve] proposes a skip-join multi-level feedback queue scheduler that uses input length information to assign requests to priority queues, a more principled approach to preemptive scheduling than the simple priority levels discussed in this chapter.
+DeepSpeed-FastGen [@holmes2024deepspeedfastgen] introduces Dynamic SplitFuse, an approach closely related to chunked prefill that decomposes prefill requests and composes them with decode tokens to maintain consistent forward pass sizes, with a detailed performance analysis on Microsoft's DeepSpeed infrastructure.
 
-DistServe [@zhong2024distserve] takes the opposite approach to managing the prefill-decode tension: rather than interleaving them on the same GPU, it disaggregates them onto separate hardware.
-The paper's key contribution is showing that the optimal hardware configuration for prefill (maximize compute) is fundamentally different from decode (maximize memory bandwidth), and that separating them improves goodput.
-Splitwise [@patel2024splitwise] independently explored a similar disaggregation idea, with additional analysis of how to balance capacity between prefill and decode pools as workload mix changes.
+On disaggregated serving, Splitwise [@patel2024splitwise] independently explored prefill-decode disaggregation around the same time as DistServe, with additional analysis of how to balance capacity between prefill and decode pools as workload mix changes.
+Mooncake [@qin2024mooncake] describes Moonshot AI's production disaggregated system, which treats the KV cache as the first-class scheduling resource and manages it through a distributed cache pool --- a concrete example of how disaggregation works at scale with real traffic.
 
-For a broader treatment of how request scheduling interacts with memory management and SLA compliance, the vLLM paper [@kwon2023vllm] covers not just PagedAttention but also the preemption and swap policies that sit on top of the memory allocator.
-The scheduling policy discussion in sections 4-5 of that paper complements the treatment here.
+For scheduling beyond single-instance serving, Llumnix [@sun2024llumnix] introduces live migration of requests and their KV caches between model instances, enabling dynamic rescheduling, load balancing, and memory defragmentation across a serving cluster.
+It's a useful reference for anyone thinking about scheduling at the cluster level rather than the single-GPU level.

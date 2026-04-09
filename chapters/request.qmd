@@ -515,22 +515,22 @@ In the next chapter, we will consider what happens when a single GPU isn't enoug
 
 ## Further Reading {#sec-further-request}
 
-**Attention kernels.** The FlashAttention series of papers [@dao2022flashattention; @dao2023flashattention2; @shah2024flashattention3] is essential reading for understanding how IO-aware algorithm design can outperform naive implementations even when the naive version does fewer FLOPs.
-The original FlashAttention paper is notable for its clear presentation of the tiling strategy and the online softmax trick.
-FlashAttention-2 [@dao2023flashattention2] improves parallelism across the sequence dimension and reduces non-matmul FLOPs.
-FlashAttention-3 [@shah2024flashattention3] targets Hopper-generation GPUs specifically, exploiting asynchronous memory transfers and FP8 computation.
-Tri Dao's blog posts accompanying these papers are also worth reading for accessible explanations of the algorithms.
+**Attention kernels.**
+Tri Dao's blog post accompanying the FlashAttention-3 paper [@dao2024flash3blog] is more accessible than the papers themselves and gives a clear walkthrough of how tiling, asynchronous memory transfers, and FP8 computation work together on Hopper hardware.
+It's a good starting point before diving into the academic papers.
 
-**KV cache management.** The PagedAttention paper [@kwon2023vllm] is the key reference for understanding KV cache fragmentation and the virtual-memory solution.
-The paper's insight --- that contiguous pre-allocation wastes 60-80% of KV cache memory in practice --- motivates the entire paged approach.
-For KV cache compression through token eviction, Keyformer [@ribar2024keyformer] introduces score-based key token selection, and NSA [@yuan2025nsa] combines sparse attention with compressed inter-block summaries.
+**Kernel-level optimizations.**
+For a practical look at how CUDA graphs reduce kernel-launch overhead in LLM decode loops, NVIDIA's blog post on optimizing llama.cpp with CUDA graphs [@nvidia2024cudagraphs] walks through the implementation and reports concrete latency improvements.
 
-**Prefix caching.** SGLang's RadixAttention [@zheng2023sglang] generalized prefix caching from simple exact-match lookups to a radix-tree-based system that automatically identifies and shares common prefixes across requests.
-The paper is worth reading both for the caching mechanism and for its treatment of multi-call LLM programs, which create particularly large prefix-sharing opportunities.
+**KV cache compression.**
+The chapter covers PagedAttention for memory management and touches on KV cache quantization and token eviction.
+For readers interested in going deeper on these topics, several papers push the frontier of KV cache compression.
+KIVI [@liu2024kivi] shows that keys and values have different distribution properties and should be quantized differently --- per-channel for keys, per-token for values --- achieving 2-bit KV cache quantization with minimal quality loss.
+H2O [@zhang2023h2o] formalizes the observation that a small fraction of tokens dominate attention scores and proposes a "heavy-hitter" eviction policy that retains these tokens plus recent tokens, with theoretical guarantees on approximation quality.
+SnapKV [@li2024snapkv] takes a different approach, using an observation window at the end of the prompt to identify which KV positions each attention head consistently focuses on, then compressing the cache before generation begins.
+This is a fast-moving area; for a continuously updated survey of KV cache optimization techniques --- compression, merging, quantization, budget allocation, and cross-layer sharing --- the "Awesome-LLM-KV-Cache" repository^[https://github.com/Zefan-Cai/Awesome-LLM-KV-Cache] is a useful index.
 
-**Speculative decoding.** The two foundational papers -- @leviathan2023speculative and @chen2023speculative -- were developed independently and published almost simultaneously.
-Both prove that speculative decoding preserves the target model's output distribution exactly, which is a surprising and important property.
-Leviathan et al. provide a cleaner theoretical treatment, while Chen et al. (from DeepMind) include more practical implementation details.
-For tree-based speculative decoding, @cai2024medusa extends the idea with multiple lightweight decoding heads and tree-structured verification.
-@stern2018blockwise is an earlier precursor that explored the same idea of draft-then-verify in the context of machine translation.
-For lookahead decoding as an alternative that requires no draft model, see @fu2024lookahead.
+**Speculative decoding.**
+For an accessible introduction, the PyTorch blog's "A Hitchhiker's Guide to Speculative Decoding" [@pytorch2024specguide] walks through draft-verify mechanics with diagrams and practical implementation guidance.
+For a retrospective from the original authors on how speculative decoding has been deployed in production at Google --- including AI Overviews in Search --- see @google2024specretrospective.
+For a comprehensive academic treatment, @xia2024specsurvey surveys the full landscape of speculative decoding methods, organizing them by drafter selection strategy and verification approach, with comparative benchmarks.

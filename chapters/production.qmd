@@ -333,7 +333,7 @@ The selection logic follows GPU compute capability [@vllm2024attention]:
 - **FlashAttention-3** is the default on Hopper (SM90) GPUs. It exploits Hopper-specific features -- warp specialization, FP8 tensor cores, asynchronous memory operations -- and is essential for V1's mixed prefill/decode batching where batch composition is highly dynamic.
 - **FlashAttention-4** is the default on Blackwell (SM100+) GPUs.
 - **FlashInfer** provides a unified API that abstracts over multiple kernel implementations and JIT-compiles CUDA kernels for the target architecture. It serves as the primary backend on NVIDIA HGX B200 systems [@vllm2024attention].
-- **Triton attention** is implemented entirely in Triton and carries no external kernel dependencies [@vllm2026triton]. The same source code runs on NVIDIA, AMD, and Intel GPUs, making it the cross-platform fallback when FlashAttention or FlashInfer are unavailable.
+- **Triton attention** is implemented entirely in Triton [@tillet2019triton] and carries no external kernel dependencies [@vllm2026triton]. The same source code runs on NVIDIA, AMD, and Intel GPUs, making it the cross-platform fallback when FlashAttention or FlashInfer are unavailable.
 
 Beyond attention kernel selection, vLLM applies **kernel fusion** through custom `torch.compile` Inductor passes that rewrite the computation graph rather than modifying model code [@vllm2024fusions].
 The specific fusions include:
@@ -612,7 +612,7 @@ SGLang supports several speculative decoding methods (@sec-speculative), with a 
 **EAGLE-2 and EAGLE-3** are the primary methods, using tree-structured speculative decoding with branching controlled by `--speculative-eagle-topk`.
 EAGLE-2 uses a draft model to evaluate branch probability and dynamically stops expansion of unlikely branches; after expansion, reranking selects the top `--speculative-num-draft-tokens` final nodes for verification.
 EAGLE-3 removes the feature prediction objective, incorporates low and mid-layer features, and is trained on-policy.
-The performance difference is significant: on LLaMA-3.1-8B with an H100, EAGLE-2 achieves 244 tokens/s (54% improvement over baseline), while EAGLE-3 reaches 373 tokens/s (136% improvement over baseline 158 tokens/s).
+The performance difference is significant: on LLaMA-3.1-8B with an H100, EAGLE-2 achieves 244 tokens/s (54% improvement over baseline), while EAGLE-3 reaches 373 tokens/s (136% improvement over baseline of 158 tokens/s).
 SGLang also supports EAGLE-2 combined with **FR-Spec**, which uses a truncated high-frequency vocabulary to reduce lm_head overhead, configured via `--speculative-token-map` [@sglang2024docs].
 
 SGLang provides **SpecForge**, its own training framework for EAGLE draft models -- making it one of the few serving frameworks that includes tooling for the draft model training side, not just inference.
@@ -722,7 +722,7 @@ It implements five load balancing policies: `random`, `round_robin`, `power_of_t
 The cache-aware policy is particularly interesting: it routes requests to the instance most likely to have relevant prefix cache entries in its radix tree, achieving up to 1.9x throughput increase with a 3.8x higher cache hit rate compared to cache-oblivious routing [@sglang2024v04].
 Cache-aware tuning parameters include `--cache-threshold`, `--balance-abs-threshold`, `--balance-rel-threshold`, and `--eviction-interval-secs` [@sglang2024docs].
 
-For reliability, the Model Gateway provides circuit breakers (four states: closed, open, half-open, closed), exponential backoff retries with jitter (retryable status codes: 408, 429, 500, 502, 503, 504), API key authentication, and TLS/mTLS [@sglang2024docs].
+For reliability, the Model Gateway provides circuit breakers (three states: closed, open, half-open), exponential backoff retries with jitter (retryable status codes: 408, 429, 500, 502, 503, 504), API key authentication, and TLS/mTLS [@sglang2024docs].
 
 **Monitoring.**
 The Model Gateway exposes over 40 Prometheus metrics across HTTP (requests_total, request_duration_seconds, rate_limit_total), router (ttft_seconds, tpot_seconds, generation_duration_seconds), worker (pool_size, connections_active, health_checks_total), and circuit breaker categories, with duration histogram buckets from 1ms to 240s.

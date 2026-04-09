@@ -15,7 +15,7 @@ We'll start by understanding the communication fabric, then work through each pa
 
 Before we can reason about the cost of distributing work, we need to know how fast data moves between devices.
 The answer varies enormously depending on which devices are talking to each other.
-@fig-interconnect shows the different communication paths between GPUs in a cluster of two nodes, each with 8 H100 GPUs, and the typical bandwidths for each path.
+@fig-interconnect shows the different communication paths between GPUs in a cluster of two nodes, each with eight H100 GPUs, and the typical bandwidths for each path.
 
 ![Intra-node and inter-node connections](images/interconnect.svg){#fig-interconnect .lightbox}
 
@@ -288,12 +288,12 @@ With all the parallelism strategies laid out, let's compare their communication 
 
 | Strategy | Collective op | Ops per layer | Communication volume per op | Best interconnect |
 |:-----------|:-----------|:-----------|:------------------------|:-----------|
-| TP | All-reduce | 2 | $2 \times \frac{T-1}{T} \times d \times b$ bytes | NVLink |
-| PP | Point-to-point | 1 | $d \times b$ bytes (activation) | Network OK |
+| TP | All-reduce | 2 | $2 \times \frac{T-1}{T} \times \dimd{D} \times B$ bytes | NVLink |
+| PP | Point-to-point | 1 | $\dimd{D} \times B$ bytes (activation) | Network OK |
 | EP | All-to-all | 2 | Routing-dependent; \~$\frac{T-1}{T}$ of tokens | NVLink or network |
-| CP/SP | Ring-pass or all-to-all | **T** or 2 | $O(S/T \times d)$ per step | NVLink |
+| CP/SP | Ring-pass or all-to-all | **T** or 2 | $O((\dims{S}/T) \times \dimd{D})$ per step | NVLink |
 
-: Communication patterns and costs for each parallelism strategy. **T** = number of devices, $d$ = model dimension, $b$ = batch size in tokens, $S$ = sequence length. {#tbl-parallelism-methods .striped}
+: Communication patterns and costs for each parallelism strategy. **T** = number of devices, **[D]{.dim-d}** = model dimension, **B** = batch size in tokens, **[S]{.dim-s}** = sequence length. {#tbl-parallelism-methods .striped}
 
 The key observation is that **TP is the most communication-hungry** strategy, requiring two all-reduce operations per layer.
 This is why TP is confined to within a single node over NVLink.

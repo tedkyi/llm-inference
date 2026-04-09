@@ -122,7 +122,7 @@ Whether batch or streaming, completion steps are like ingestion in that they are
 
 ### Where the time goes
 
-Of the five stages above, the vast majority of compute and memory bandwidth is consumed by prefill and decode.
+Of the four stages above, the vast majority of compute and memory bandwidth is consumed by prefill and decode.
 Ingestion and completion are fast operations on CPU that together account for a tiny fraction of request latency.
 Note that we are excluding queueing time from ingestion for now, treating that as a fixed cost associated with workload.
 Queueing time can be long for a system under heavy load, and various techniques associated with scheduling are discussed in @sec-scheduling.
@@ -234,7 +234,7 @@ This means that most of the techniques covered in this book that improve through
 The picture gets more nuanced when you factor in different hardware devices (each with different cost and performance profiles), different precision formats, and the amortized cost of hardware across many workloads.
 But as a first approximation, optimizing for throughput is optimizing for cost.
 
-While cost per token is often measured in aggregate, it can also be useful to break out cost betweeen input and output tokens, or between prefill and decode.
+While cost per token is often measured in aggregate, it can also be useful to break out cost between input and output tokens, or between prefill and decode.
 In fact, major providers usually charge separately for input and output tokens, reflecting the different costs for prefill and decode compute.
 
 ### Hardware utilization metrics
@@ -687,7 +687,7 @@ The FLOPs scale linearly with $B$:
 
 $$\text{FLOPs}_{\text{batch}} \approx 2 \times P \times B$$
 
-But the weight data read stays constant at $P \times b_w$ bytes (where $b_w$ is bytes per weight).
+But the weight data read stays constant at $P \times b$ bytes (where $b$ is bytes per weight).
 The arithmetic intensity for the weight multiplications becomes:
 
 $$\text{AI}_{\text{batch}} = \frac{2 \times P \times B}{P \times b} = \frac{2B}{b}$$

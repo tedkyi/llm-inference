@@ -1,6 +1,6 @@
 # Scheduling Bottlenecks {#sec-scheduling}
 
-The previous chapter focused on making the model itself smaller and faster, such as fewer parameters, lower precision, ormore efficient attention mechanisms.
+The previous chapter focused on making the model itself smaller and faster, such as fewer parameters, lower precision, or more efficient attention mechanisms.
 Those techniques change what gets computed.
 This chapter drills into how requests flow through the system.
 Even with a well-optimized model, a naive scheduler can leave the GPU sitting idle while requests wait in line, waste compute on padding tokens that contribute nothing, or let a single long prefill block dozens of shorter requests from making progress.
@@ -163,7 +163,7 @@ It has a weakness in that long prefills still block the entire GPU.
 In our example workload, we see this happening at time steps 1, 3, 5, and 9.
 At time step 1, new prefills can't start until Request A's prefill finishes.
 At time steps 3, 5, and 9, additional decode steps can't start until the prefills for Requests B, C, D, and E finish.
-(Note that for static and dynmic batching, we showed all requests having equal prefill times, but in reality, there would also be a version of this problem where long prefills block the GPU from starting new work.)
+(Note that for static and dynamic batching, we showed all requests having equal prefill times, but in reality, there would also be a version of this problem where long prefills block the GPU from starting new work.)
 
 The throughput improvement from continuous batching can be substantial.
 Under workloads with high variance in output length, continuous batching can improve throughput by 2-3x or more compared to static batching, simply by keeping batch slots occupied with useful work.
@@ -214,7 +214,7 @@ The prefill chunk is compute-heavy and the decode step is bandwidth-heavy, so co
 In the best case, the memory transfer of the decode step is overlapped with the compute of the prefill chunk, so the GPU doesn't take much longer to complete the combined iteration than it would to do the prefill chunk alone.
 
 The chunk size is a tuning parameter.
-Smaller chunks mean smoother decode progress but an increase the number of iterations needed to complete the prefill, adding overhead from additional kernel launches and attention computations across chunk boundaries.
+Smaller chunks mean smoother decode progress but an increase in the number of iterations needed to complete the prefill, adding overhead from additional kernel launches and attention computations across chunk boundaries.
 Larger chunks reduce this overhead but create longer pauses in decode progress and increase TPOT.
 In practice, chunk sizes of 256--2,048 tokens are common, depending on the model size, the capability of the GPU (or other hardware accelerator), and the latency sensitivity of the workload.
 In this range, the decode memory latency and the prefill compute time are well balanced.
@@ -354,7 +354,7 @@ When the request resumes, the blocks are swapped back.
 This preserves the work already done, and the request picks up exactly where it left off without any recomputation.
 The cost is the time to transfer data over the PCIe bus.
 For a KV cache of several hundred megabytes, a swap to CPU memory at PCIe Gen5 speeds (~64 GB/s) takes a few milliseconds.
-This is may be acceptable, but the PCIe bandwidth is shared with other transfers, so could take longer.
+This may be acceptable, but the PCIe bandwidth is shared with other transfers, so the transfer could take longer.
 
 **Recomputation** takes a simpler but more expensive approach: discard the preempted request's KV cache entirely.
 When the request resumes, the system reruns prefill from scratch to rebuild the KV cache.

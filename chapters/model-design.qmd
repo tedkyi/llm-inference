@@ -205,12 +205,12 @@ Quantization offers a more predictable quality-performance tradeoff and is easie
 ## Efficient Attention Architectures {#sec-efficient-attention}
 
 The sections above are post-training techniques you can apply to an existing model.
-This section covers architecture choices made during model design that affect inference inference efficiency from the start.
+This section covers architecture choices made during model design that affect inference efficiency from the start.
 
 FFN layers account for roughly two-thirds of a typical transformer's parameters, but they operate independently on each token.
 Their cost scales only linearly with sequence length, and they are straightforward to parallelize.
 In addition, GPUs are highly optimized for dense matrix multiplications, so FFNs can be executed very efficiently.
-The MoE architecture discussed in @sec-ffn is one architectural approach that reduces the FFN inferencecost by activating only a subset of FFN experts per token.
+The MoE architecture discussed in @sec-ffn is one architectural approach that reduces the FFN inference cost by activating only a subset of FFN experts per token.
 
 Attention is the more interesting bottleneck.
 Its KV cache grows with sequence length, creating a per-request memory cost that directly limits concurrency.
@@ -277,7 +277,7 @@ Because sliding window attention and attention alternatives hurt generation qual
 For now, these KV cache optimizations are still needed.
 :::
 
-### Parllelizing computation
+### Parallelizing computation
 
 ![Parallel attention and MLP blocks](images/parallel_block.svg){#fig-parallel-block .lightbox}
 

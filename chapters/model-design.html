@@ -289,7 +289,7 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#reducing-kv-cache-size" id="toc-reducing-kv-cache-size" class="nav-link" data-scroll-target="#reducing-kv-cache-size">Reducing KV cache size</a></li>
   <li><a href="#reducing-attention-compute" id="toc-reducing-attention-compute" class="nav-link" data-scroll-target="#reducing-attention-compute">Reducing attention compute</a></li>
-  <li><a href="#parllelizing-computation" id="toc-parllelizing-computation" class="nav-link" data-scroll-target="#parllelizing-computation">Parllelizing computation</a></li>
+  <li><a href="#parallelizing-computation" id="toc-parallelizing-computation" class="nav-link" data-scroll-target="#parallelizing-computation">Parallelizing computation</a></li>
   </ul></li>
   <li><a href="#sec-tokenization" id="toc-sec-tokenization" class="nav-link" data-scroll-target="#sec-tokenization"><span class="header-section-number">4.5</span> Tokenization and Vocabulary Effects</a></li>
   <li><a href="#sec-summary-model-design" id="toc-sec-summary-model-design" class="nav-link" data-scroll-target="#sec-summary-model-design"><span class="header-section-number">4.6</span> Summary</a></li>
@@ -501,8 +501,8 @@ Note
 </section>
 <section id="sec-efficient-attention" class="level2" data-number="4.4">
 <h2 data-number="4.4" class="anchored" data-anchor-id="sec-efficient-attention"><span class="header-section-number">4.4</span> Efficient Attention Architectures</h2>
-<p>The sections above are post-training techniques you can apply to an existing model. This section covers architecture choices made during model design that affect inference inference efficiency from the start.</p>
-<p>FFN layers account for roughly two-thirds of a typical transformer’s parameters, but they operate independently on each token. Their cost scales only linearly with sequence length, and they are straightforward to parallelize. In addition, GPUs are highly optimized for dense matrix multiplications, so FFNs can be executed very efficiently. The MoE architecture discussed in <a href="decoder-only-llm.html#sec-ffn" class="quarto-xref"><span>Section 2.6</span></a> is one architectural approach that reduces the FFN inferencecost by activating only a subset of FFN experts per token.</p>
+<p>The sections above are post-training techniques you can apply to an existing model. This section covers architecture choices made during model design that affect inference efficiency from the start.</p>
+<p>FFN layers account for roughly two-thirds of a typical transformer’s parameters, but they operate independently on each token. Their cost scales only linearly with sequence length, and they are straightforward to parallelize. In addition, GPUs are highly optimized for dense matrix multiplications, so FFNs can be executed very efficiently. The MoE architecture discussed in <a href="decoder-only-llm.html#sec-ffn" class="quarto-xref"><span>Section 2.6</span></a> is one architectural approach that reduces the FFN inference cost by activating only a subset of FFN experts per token.</p>
 <p>Attention is the more interesting bottleneck. Its KV cache grows with sequence length, creating a per-request memory cost that directly limits concurrency. For long sequences, the quadratic cost of full attention also becomes significant during prefill. This makes attention the primary target for architectural optimization.</p>
 <section id="reducing-kv-cache-size" class="level3">
 <h3 class="anchored" data-anchor-id="reducing-kv-cache-size">Reducing KV cache size</h3>
@@ -561,8 +561,8 @@ Note
 </div>
 </div>
 </section>
-<section id="parllelizing-computation" class="level3">
-<h3 class="anchored" data-anchor-id="parllelizing-computation">Parllelizing computation</h3>
+<section id="parallelizing-computation" class="level3">
+<h3 class="anchored" data-anchor-id="parallelizing-computation">Parallelizing computation</h3>
 <div id="fig-parallel-block" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-parallel-block-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">

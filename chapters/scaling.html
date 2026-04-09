@@ -348,7 +348,7 @@ window.Quarto = {
 <p>We’ll start by understanding the communication fabric, then work through each parallelism strategy, and finish by analyzing when communication becomes the bottleneck.</p>
 <section id="sec-interconnects" class="level2" data-number="7.1">
 <h2 data-number="7.1" class="anchored" data-anchor-id="sec-interconnects"><span class="header-section-number">7.1</span> Interconnects and Multi-GPU Topology</h2>
-<p>Before we can reason about the cost of distributing work, we need to know how fast data moves between devices. The answer varies enormously depending on which devices are talking to each other. <a href="#fig-interconnect" class="quarto-xref">Figure&nbsp;<span>7.1</span></a> shows the different communication paths between GPUs in a cluster of two nodes, each with 8 H100 GPUs, and the typical bandwidths for each path.</p>
+<p>Before we can reason about the cost of distributing work, we need to know how fast data moves between devices. The answer varies enormously depending on which devices are talking to each other. <a href="#fig-interconnect" class="quarto-xref">Figure&nbsp;<span>7.1</span></a> shows the different communication paths between GPUs in a cluster of two nodes, each with eight H100 GPUs, and the typical bandwidths for each path.</p>
 <div id="fig-interconnect" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-interconnect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -607,7 +607,7 @@ Figure&nbsp;7.6: Ring attention calculation
 <div id="tbl-parallelism-methods" class="striped quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-parallelism-methods-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;7.2: Communication patterns and costs for each parallelism strategy. <strong>T</strong> = number of devices, <span class="math inline">\(d\)</span> = model dimension, <span class="math inline">\(b\)</span> = batch size in tokens, <span class="math inline">\(S\)</span> = sequence length.
+Table&nbsp;7.2: Communication patterns and costs for each parallelism strategy. <strong>T</strong> = number of devices, <strong><span class="dim-d">D</span></strong> = model dimension, <strong>B</strong> = batch size in tokens, <strong><span class="dim-s">S</span></strong> = sequence length.
 </figcaption>
 <div aria-describedby="tbl-parallelism-methods-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="table-striped caption-top table">
@@ -632,14 +632,14 @@ Table&nbsp;7.2: Communication patterns and costs for each parallelism strategy. 
 <td style="text-align: left;">TP</td>
 <td style="text-align: left;">All-reduce</td>
 <td style="text-align: left;">2</td>
-<td style="text-align: left;"><span class="math inline">\(2 \times \frac{T-1}{T} \times d \times b\)</span> bytes</td>
+<td style="text-align: left;"><span class="math inline">\(2 \times \frac{T-1}{T} \times \textcolor{#1E40AF}{D} \times B\)</span> bytes</td>
 <td style="text-align: left;">NVLink</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">PP</td>
 <td style="text-align: left;">Point-to-point</td>
 <td style="text-align: left;">1</td>
-<td style="text-align: left;"><span class="math inline">\(d \times b\)</span> bytes (activation)</td>
+<td style="text-align: left;"><span class="math inline">\(\textcolor{#1E40AF}{D} \times B\)</span> bytes (activation)</td>
 <td style="text-align: left;">Network OK</td>
 </tr>
 <tr class="odd">
@@ -653,7 +653,7 @@ Table&nbsp;7.2: Communication patterns and costs for each parallelism strategy. 
 <td style="text-align: left;">CP/SP</td>
 <td style="text-align: left;">Ring-pass or all-to-all</td>
 <td style="text-align: left;"><strong>T</strong> or 2</td>
-<td style="text-align: left;"><span class="math inline">\(O(S/T \times d)\)</span> per step</td>
+<td style="text-align: left;"><span class="math inline">\(O((\textcolor{#DC2626}{S}/T) \times \textcolor{#1E40AF}{D})\)</span> per step</td>
 <td style="text-align: left;">NVLink</td>
 </tr>
 </tbody>

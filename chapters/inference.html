@@ -402,7 +402,7 @@ Note
 </section>
 <section id="where-the-time-goes" class="level3">
 <h3 class="anchored" data-anchor-id="where-the-time-goes">Where the time goes</h3>
-<p>Of the five stages above, the vast majority of compute and memory bandwidth is consumed by prefill and decode. Ingestion and completion are fast operations on CPU that together account for a tiny fraction of request latency. Note that we are excluding queueing time from ingestion for now, treating that as a fixed cost associated with workload. Queueing time can be long for a system under heavy load, and various techniques associated with scheduling are discussed in <a href="scheduling.html" class="quarto-xref"><span>Chapter 5</span></a>. Aside from scheduling, most of the techniques covered in this book target prefill and decode, because that’s where the time goes and where the greatest opportunity for improvement lies.</p>
+<p>Of the four stages above, the vast majority of compute and memory bandwidth is consumed by prefill and decode. Ingestion and completion are fast operations on CPU that together account for a tiny fraction of request latency. Note that we are excluding queueing time from ingestion for now, treating that as a fixed cost associated with workload. Queueing time can be long for a system under heavy load, and various techniques associated with scheduling are discussed in <a href="scheduling.html" class="quarto-xref"><span>Chapter 5</span></a>. Aside from scheduling, most of the techniques covered in this book target prefill and decode, because that’s where the time goes and where the greatest opportunity for improvement lies.</p>
 </section>
 <section id="two-fundamentally-different-regimes" class="level3">
 <h3 class="anchored" data-anchor-id="two-fundamentally-different-regimes">Two fundamentally different regimes</h3>
@@ -464,7 +464,7 @@ Figure&nbsp;3.3: Throughput-latency curve showing how throughput gains diminish 
 <h3 class="anchored" data-anchor-id="cost-efficiency">Cost efficiency</h3>
 <p>At scale, inference cost is often a key optimization target. <strong>Cost per token</strong> measures how much it costs in dollars (or GPU-hours) to generate output tokens. It’s roughly inversely proportional to throughput — if you double your throughput on the same hardware, you halve your cost per token. This means that most of the techniques covered in this book that improve throughput will reduce cost.</p>
 <p>The picture gets more nuanced when you factor in different hardware devices (each with different cost and performance profiles), different precision formats, and the amortized cost of hardware across many workloads. But as a first approximation, optimizing for throughput is optimizing for cost.</p>
-<p>While cost per token is often measured in aggregate, it can also be useful to break out cost betweeen input and output tokens, or between prefill and decode. In fact, major providers usually charge separately for input and output tokens, reflecting the different costs for prefill and decode compute.</p>
+<p>While cost per token is often measured in aggregate, it can also be useful to break out cost between input and output tokens, or between prefill and decode. In fact, major providers usually charge separately for input and output tokens, reflecting the different costs for prefill and decode compute.</p>
 </section>
 <section id="hardware-utilization-metrics" class="level3">
 <h3 class="anchored" data-anchor-id="hardware-utilization-metrics">Hardware utilization metrics</h3>
@@ -765,7 +765,7 @@ Note
 <p>So far, we’ve analyzed decode with batch size 1 — a single request in isolation. This is the worst case for GPU utilization. The key insight is that <strong>batching multiple requests together improves arithmetic intensity</strong> by amortizing the weight reads across more tokens.</p>
 <p>When you batch <span class="math inline">\(B\)</span> requests together, each decode step processes <span class="math inline">\(B\)</span> tokens instead of 1. The model weights are read once and applied to all <span class="math inline">\(B\)</span> tokens. The FLOPs scale linearly with <span class="math inline">\(B\)</span>:</p>
 <p><span class="math display">\[\text{FLOPs}_{\text{batch}} \approx 2 \times P \times B\]</span></p>
-<p>But the weight data read stays constant at <span class="math inline">\(P \times b_w\)</span> bytes (where <span class="math inline">\(b_w\)</span> is bytes per weight). The arithmetic intensity for the weight multiplications becomes:</p>
+<p>But the weight data read stays constant at <span class="math inline">\(P \times b\)</span> bytes (where <span class="math inline">\(b\)</span> is bytes per weight). The arithmetic intensity for the weight multiplications becomes:</p>
 <p><span class="math display">\[\text{AI}_{\text{batch}} = \frac{2 \times P \times B}{P \times b} = \frac{2B}{b}\]</span></p>
 <p>For FP16 weights (<span class="math inline">\(b = 2\)</span>), we end up with <span class="math inline">\(\text{AI}_{\text{batch}} = B \text{ FLOP/byte}\)</span>.</p>
 <table class="caption-top table">

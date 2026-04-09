@@ -590,15 +590,29 @@ Figure&nbsp;4.4: Parallel attention and MLP blocks
 </section>
 <section id="sec-further-model-design" class="level2" data-number="4.7">
 <h2 data-number="4.7" class="anchored" data-anchor-id="sec-further-model-design"><span class="header-section-number">4.7</span> Further Reading</h2>
-<p>Quantization is a deep field with a large body of work. The GPTQ <span class="citation" data-cites="frantar2022gptq">(<a href="references.html#ref-frantar2022gptq" role="doc-biblioref">Frantar et al. 2022</a>)</span> and AWQ <span class="citation" data-cites="lin2023awq">(<a href="references.html#ref-lin2023awq" role="doc-biblioref">Lin et al. 2023</a>)</span> papers are essential reading if you want to understand the mechanics of post-training weight quantization beyond the overview given here. GPTQ’s use of approximate second-order information to minimize quantization error is elegant, and AWQ’s insight that activation-aware scaling protects the most important weights is a useful design pattern that shows up in other contexts. SmoothQuant <span class="citation" data-cites="xiao2023smoothquant">(<a href="references.html#ref-xiao2023smoothquant" role="doc-biblioref">Xiao et al. 2023</a>)</span> is the key reference for weight-activation quantization, particularly its technique of migrating quantization difficulty from activations to weights. For an earlier take on INT8 inference that pioneered mixed-precision decomposition, see <span class="citation" data-cites="dettmers2022llmint8">Dettmers et al. (<a href="references.html#ref-dettmers2022llmint8" role="doc-biblioref">2022</a>)</span>. The most popular quantization library is <code>bitsandbytes</code> <span class="citation" data-cites="dettmers2021bitsandbytes">(<a href="references.html#ref-dettmers2021bitsandbytes" role="doc-biblioref"><span class="nocase">Dettmers et al.</span> 2021</a>)</span>, also by Tim Dettmers.</p>
-<p>For a comprehensive survey of quantization methods applied to LLMs, <span class="citation" data-cites="zhu2024quantization">Zhu et al. (<a href="references.html#ref-zhu2024quantization" role="doc-biblioref">2024</a>)</span> covers the full taxonomy, from uniform to non-uniform quantization, weight-only to weight-activation, and post-training to quantization-aware training, with empirical comparisons across model sizes.</p>
-<p>On the attention architecture side, the progression from standard multi-head attention to MQA <span class="citation" data-cites="shazeer2019mqa">(<a href="references.html#ref-shazeer2019mqa" role="doc-biblioref">Shazeer 2019</a>)</span>, GQA <span class="citation" data-cites="ainslie2023gqa">(<a href="references.html#ref-ainslie2023gqa" role="doc-biblioref">Ainslie et al. 2023</a>)</span>, and MLA <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024</a>)</span> is well documented in the original papers. Shazeer’s MQA paper is particularly worth reading because it clearly explains the inference motivation — reducing KV cache bandwidth — rather than just reporting accuracy numbers. The Llama 3 paper <span class="citation" data-cites="grattafiori2024llama3">(<a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span> provides a good case study of GQA adopted in a production-grade model, with ablations showing the quality-efficiency tradeoff.</p>
-<p>For knowledge distillation applied to LLMs specifically, <span class="citation" data-cites="gu2024minillm">Gu et al. (<a href="references.html#ref-gu2024minillm" role="doc-biblioref">2024</a>)</span> covers the challenges of distilling autoregressive language models, including the mismatch between training-time and inference-time token distributions that makes naive distillation less effective for generative models.</p>
+<p>For intuitive explanations of quantization:</p>
+<ul>
+<li>Maarten Grootendorst’s “A Visual Guide to Quantization” <span class="citation" data-cites="grootendorst2024quantization">(<a href="references.html#ref-grootendorst2024quantization" role="doc-biblioref">Grootendorst 2024</a>)</span> walks through symmetric and asymmetric quantization, per-tensor vs.&nbsp;per-channel granularity, and formats like GGUF with over 50 custom diagrams. It’s one of the best visual introductions to the topic.</li>
+<li>Tim Dettmers’ blog post “LLM.int8() and Emergent Features” <span class="citation" data-cites="dettmers2022outliers">(<a href="references.html#ref-dettmers2022outliers" role="doc-biblioref">Dettmers 2022</a>)</span> explains <em>why</em> naive INT8 quantization breaks down at scale: large transformers develop outlier activation channels that are orders of magnitude larger than the rest. The post provides the intuition behind the mixed-precision decomposition that addresses this, which is useful background for understanding SmoothQuant and similar techniques. Dettmers is also the author of the <code>bitsandbytes</code> library <span class="citation" data-cites="dettmers2021bitsandbytes">(<a href="references.html#ref-dettmers2021bitsandbytes" role="doc-biblioref"><span class="nocase">Dettmers et al.</span> 2021</a>)</span>, the most widely used quantization library in the Hugging Face ecosystem.</li>
+<li>The Hugging Face Quantization Concept Guide <span class="citation" data-cites="hf2024quantization">(<a href="references.html#ref-hf2024quantization" role="doc-biblioref">Hugging Face 2024</a>)</span> is a practical reference for choosing between quantization backends (GPTQ, AWQ, bitsandbytes, and others) in the Hugging Face ecosystem, with guidance on when each approach is appropriate.</li>
+</ul>
+<p>On pruning, two papers go well beyond the overview in this chapter. SparseGPT <span class="citation" data-cites="frantar2023sparsegpt">(<a href="references.html#ref-frantar2023sparsegpt" role="doc-biblioref">Frantar and Alistarh 2023</a>)</span> showed that models up to 176B parameters can be pruned to 50–60% sparsity in a single pass with minimal quality loss, and that the pruning pattern can be constrained to NVIDIA’s 2:4 structured format for hardware acceleration. Wanda <span class="citation" data-cites="sun2024wanda">(<a href="references.html#ref-sun2024wanda" role="doc-biblioref">Sun et al. 2024</a>)</span> simplifies things further: it prunes based on the product of weight magnitude and input activation norm, achieving competitive results without any retraining and at a fraction of SparseGPT’s computational cost. For the hardware side of sparsity, NVIDIA’s blog post on accelerating inference with Ampere Sparse Tensor Cores <span class="citation" data-cites="nvidia2021sparsity">(<a href="references.html#ref-nvidia2021sparsity" role="doc-biblioref">NVIDIA 2021</a>)</span> explains the 2:4 structured sparsity format, the train-prune-fine-tune workflow, and the performance gains achievable through TensorRT.</p>
+<p>For a deeper understanding of Multi-head Latent Attention beyond its brief treatment here, Eryk Banatt’s “Understanding Multi-Head Latent Attention” <span class="citation" data-cites="banatt2025mla">(<a href="references.html#ref-banatt2025mla" role="doc-biblioref">Banatt 2025</a>)</span> is a clear technical walkthrough of the low-rank KV compression, the decoupled rotary position embedding trick, and how MLA compares to GQA in practice.</p>
+<p>On tokenization, <span class="citation" data-cites="tao2024vocabulary">Tao et al. (<a href="references.html#ref-tao2024vocabulary" role="doc-biblioref">2024</a>)</span> establishes scaling laws relating optimal vocabulary size to compute budget, showing that most current LLMs have undersized vocabularies — Llama 2’s 32K vocabulary should have been roughly 7x larger for its model size, according to their analysis. This provides theoretical grounding for the vocabulary-size discussion in this chapter.</p>
+<p>For knowledge distillation applied to LLMs, <span class="citation" data-cites="xu2024distillsurvey">Xu et al. (<a href="references.html#ref-xu2024distillsurvey" role="doc-biblioref">2024</a>)</span> is the most comprehensive recent survey, covering the full taxonomy from white-box distillation (where student models train on the teacher’s logits) to black-box distillation (where they learn from the teacher’s generated outputs), along with domain-specific and skill-specific distillation techniques.</p>
+<p>For broader surveys that cover multiple topics from this chapter:</p>
+<ul>
+<li><span class="citation" data-cites="wan2024efficient">Wan et al. (<a href="references.html#ref-wan2024efficient" role="doc-biblioref">2024</a>)</span> is the most comprehensive survey of LLM efficiency techniques, covering quantization, pruning, distillation, and efficient architectures from model-centric, data-centric, and framework-centric perspectives. It is accompanied by an actively maintained GitHub repository that tracks new papers.</li>
+<li>NVIDIA’s “Mastering LLM Techniques: Inference Optimization” <span class="citation" data-cites="nvidia2023mastering">(<a href="references.html#ref-nvidia2023mastering" role="doc-biblioref">Verma and Vaidya 2023</a>)</span> provides a practitioner-oriented overview that covers quantization, KV cache optimization, batching, and model parallelism in a single article, making it a useful starting point for someone new to the field.</li>
+</ul>
 
 
 <div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
 <div id="ref-ainslie2023gqa" class="csl-entry" role="listitem">
 Ainslie, Joshua, James Lee-Thorp, Michiel de Jong, Yury Zemlyanskiy, Federico Lebrón, and Sumit Sanghai. 2023. <span>“<span>GQA</span>: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints.”</span> <em>arXiv Preprint arXiv:2305.13245</em>. <a href="https://arxiv.org/abs/2305.13245">https://arxiv.org/abs/2305.13245</a>.
+</div>
+<div id="ref-banatt2025mla" class="csl-entry" role="listitem">
+Banatt, Eryk. 2025. <span>“Understanding Multi-Head Latent Attention.”</span> <a href="https://planetbanatt.net/articles/mla.html">https://planetbanatt.net/articles/mla.html</a>.
 </div>
 <div id="ref-beltagy2020longformer" class="csl-entry" role="listitem">
 Beltagy, Iz, Matthew E. Peters, and Arman Cohan. 2020. <span>“Longformer: The Long-Document Transformer.”</span> <em>arXiv Preprint arXiv:2004.05150</em>. <a href="https://arxiv.org/abs/2004.05150">https://arxiv.org/abs/2004.05150</a>.
@@ -612,20 +626,23 @@ Brandon, William, Mayank Mishra, Aniruddha Nrusimha, Rameswar Panda, and Jonatha
 <div id="ref-dettmers2021bitsandbytes" class="csl-entry" role="listitem">
 <span class="nocase">Dettmers, Tim et al.</span> 2021. <span>“Bitsandbytes: Accessible Large Language Models via k-Bit Quantization for <span>PyTorch</span>.”</span> <a href="https://github.com/bitsandbytes-foundation/bitsandbytes">https://github.com/bitsandbytes-foundation/bitsandbytes</a>.
 </div>
-<div id="ref-dettmers2022llmint8" class="csl-entry" role="listitem">
-Dettmers, Tim, Mike Lewis, Younes Belkada, and Luke Zettlemoyer. 2022. <span>“<span class="nocase">LLM.int8()</span>: 8-Bit Matrix Multiplication for Transformers at Scale.”</span> <em>arXiv Preprint arXiv:2208.07339</em>. <a href="https://arxiv.org/abs/2208.07339">https://arxiv.org/abs/2208.07339</a>.
+<div id="ref-dettmers2022outliers" class="csl-entry" role="listitem">
+Dettmers, Tim. 2022. <span>“<span class="nocase">LLM.int8()</span> and Emergent Features.”</span> <a href="https://timdettmers.com/2022/08/17/llm-int8-and-emergent-features/">https://timdettmers.com/2022/08/17/llm-int8-and-emergent-features/</a>.
+</div>
+<div id="ref-frantar2023sparsegpt" class="csl-entry" role="listitem">
+Frantar, Elias, and Dan Alistarh. 2023. <span>“<span>SparseGPT</span>: Massive Language Models Can Be Accurately Pruned in One-Shot.”</span> <em>Proceedings of the 40th International Conference on Machine Learning</em>. <a href="https://arxiv.org/abs/2301.00774">https://arxiv.org/abs/2301.00774</a>.
 </div>
 <div id="ref-frantar2022gptq" class="csl-entry" role="listitem">
 Frantar, Elias, Saleh Ashkboos, Torsten Hoefler, and Dan Alistarh. 2022. <span>“<span>GPTQ</span>: Accurate Post-Training Quantization for Generative Pre-Trained Transformers.”</span> <em>arXiv Preprint arXiv:2210.17323</em>. <a href="https://arxiv.org/abs/2210.17323">https://arxiv.org/abs/2210.17323</a>.
 </div>
-<div id="ref-grattafiori2024llama3" class="csl-entry" role="listitem">
-<span class="nocase">Grattafiori, Aaron, Abhimanyu Dubey, Abhinav Jauhri, et al.</span> 2024. <span>“The <span>Llama 3</span> Herd of Models.”</span> <em>arXiv Preprint arXiv:2407.21783</em>. <a href="https://arxiv.org/abs/2407.21783">https://arxiv.org/abs/2407.21783</a>.
-</div>
-<div id="ref-gu2024minillm" class="csl-entry" role="listitem">
-Gu, Yuxian, Li Dong, Furu Wei, and Minlie Huang. 2024. <span>“<span>MiniLLM</span>: On-Policy Distillation of Large Language Models.”</span> <em>arXiv Preprint arXiv:2306.08543</em>. <a href="https://arxiv.org/abs/2306.08543">https://arxiv.org/abs/2306.08543</a>.
+<div id="ref-grootendorst2024quantization" class="csl-entry" role="listitem">
+Grootendorst, Maarten. 2024. <span>“A Visual Guide to Quantization.”</span> <a href="https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization">https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization</a>.
 </div>
 <div id="ref-hinton2015distilling" class="csl-entry" role="listitem">
 Hinton, Geoffrey, Oriol Vinyals, and Jeff Dean. 2015. <span>“Distilling the Knowledge in a Neural Network.”</span> <em>arXiv Preprint arXiv:1503.02531</em>. <a href="https://arxiv.org/abs/1503.02531">https://arxiv.org/abs/1503.02531</a>.
+</div>
+<div id="ref-hf2024quantization" class="csl-entry" role="listitem">
+Hugging Face. 2024. <span>“Quantization Concept Guide.”</span> <a href="https://huggingface.co/docs/transformers/en/quantization/concept_guide">https://huggingface.co/docs/transformers/en/quantization/concept_guide</a>.
 </div>
 <div id="ref-lin2023awq" class="csl-entry" role="listitem">
 Lin, Ji, Jiaming Tang, Haotian Tang, et al. 2023. <span>“<span>AWQ</span>: Activation-Aware Weight Quantization for <span>LLM</span> Compression and Acceleration.”</span> <em>arXiv Preprint arXiv:2306.00978</em>. <a href="https://arxiv.org/abs/2306.00978">https://arxiv.org/abs/2306.00978</a>.
@@ -633,17 +650,32 @@ Lin, Ji, Jiaming Tang, Haotian Tang, et al. 2023. <span>“<span>AWQ</span>: Act
 <div id="ref-liu2024deepseekv2" class="csl-entry" role="listitem">
 <span class="nocase">Liu, Aixin et al.</span> 2024. <span>“<span>DeepSeek-V2</span>: A Strong, Economical, and Efficient Mixture-of-Experts Language Model.”</span> <em>arXiv Preprint arXiv:2405.04434</em>. <a href="https://arxiv.org/abs/2405.04434">https://arxiv.org/abs/2405.04434</a>.
 </div>
+<div id="ref-nvidia2021sparsity" class="csl-entry" role="listitem">
+NVIDIA. 2021. <span>“Accelerating Inference with Sparsity Using the <span>NVIDIA</span> <span>Ampere</span> Architecture and <span>NVIDIA</span> <span>TensorRT</span>.”</span> <a href="https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/">https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/</a>.
+</div>
 <div id="ref-shazeer2019mqa" class="csl-entry" role="listitem">
 Shazeer, Noam. 2019. <span>“Fast Transformer Decoding: One Write-Head Is All You Need.”</span> <em>arXiv Preprint arXiv:1911.02150</em>. <a href="https://arxiv.org/abs/1911.02150">https://arxiv.org/abs/1911.02150</a>.
+</div>
+<div id="ref-sun2024wanda" class="csl-entry" role="listitem">
+Sun, Mingjie, Zhuang Liu, Anna Bair, and J. Zico Kolter. 2024. <span>“A Simple and Effective Pruning Approach for Large Language Models.”</span> <em>International Conference on Learning Representations</em>. <a href="https://arxiv.org/abs/2306.11695">https://arxiv.org/abs/2306.11695</a>.
+</div>
+<div id="ref-tao2024vocabulary" class="csl-entry" role="listitem">
+Tao, Chaofan, Qian Jia, Longxu Dou, et al. 2024. <span>“Scaling Laws with Vocabulary: Larger Models Deserve Larger Vocabularies.”</span> <em>Advances in Neural Information Processing Systems</em>. <a href="https://arxiv.org/abs/2407.13623">https://arxiv.org/abs/2407.13623</a>.
 </div>
 <div id="ref-vaswani2017attention" class="csl-entry" role="listitem">
 Vaswani, Ashish, Noam Shazeer, Niki Parmar, et al. 2017. <span>“Attention Is All You Need.”</span> <em>arXiv Preprint arXiv:1706.03762</em>. <a href="https://arxiv.org/abs/1706.03762">https://arxiv.org/abs/1706.03762</a>.
 </div>
+<div id="ref-nvidia2023mastering" class="csl-entry" role="listitem">
+Verma, Shashank, and Neal Vaidya. 2023. <span>“Mastering <span>LLM</span> Techniques: Inference Optimization.”</span> <a href="https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/">https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/</a>.
+</div>
+<div id="ref-wan2024efficient" class="csl-entry" role="listitem">
+Wan, Zhongwei, Xin Wang, Che Liu, et al. 2024. <span>“Efficient Large Language Models: A Survey.”</span> <em>Transactions on Machine Learning Research</em>. <a href="https://arxiv.org/abs/2312.03863">https://arxiv.org/abs/2312.03863</a>.
+</div>
 <div id="ref-xiao2023smoothquant" class="csl-entry" role="listitem">
 Xiao, Guangxuan, Ji Lin, Mickael Seznec, Hao Wu, Julien Demouth, and Song Han. 2023. <span>“<span>SmoothQuant</span>: Accurate and Efficient Post-Training Quantization for Large Language Models.”</span> <em>arXiv Preprint arXiv:2211.10438</em>. <a href="https://arxiv.org/abs/2211.10438">https://arxiv.org/abs/2211.10438</a>.
 </div>
-<div id="ref-zhu2024quantization" class="csl-entry" role="listitem">
-Zhu, Xunyu, Jian Li, Yong Liu, Can Ma, and Weiping Wang. 2024. <span>“A Survey on Model Compression for Large Language Models.”</span> <em>arXiv Preprint arXiv:2308.07633</em>. <a href="https://arxiv.org/abs/2308.07633">https://arxiv.org/abs/2308.07633</a>.
+<div id="ref-xu2024distillsurvey" class="csl-entry" role="listitem">
+Xu, Xiaohan, Ming Li, Chongyang Tao, et al. 2024. <span>“A Survey on Knowledge Distillation of Large Language Models.”</span> <em>arXiv Preprint arXiv:2402.13116</em>. <a href="https://arxiv.org/abs/2402.13116">https://arxiv.org/abs/2402.13116</a>.
 </div>
 </div>
 </section>

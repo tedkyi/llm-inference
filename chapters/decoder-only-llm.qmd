@@ -545,10 +545,16 @@ Even though the decoder-only variant drops half the architecture, the core ideas
 For intuitive explanations of the transformer architecture:
 
 - Jay Alammar's "The Illustrated Transformer" [@alammar2018illustrated] is considered a classic for explaining the original transformer architecture, with many beautiful diagrams.
+- 3Blue1Brown's deep learning series [@sanderson2024attention] provides what may be the clearest visual explanation of attention and the transformer architecture available anywhere. Grant Sanderson's animations build the mechanism step by step, making the matrix operations and information flow genuinely intuitive.
 - "The Annotated Transformer" [@rush2018annotated] walks you through Python code to understand the original transformer architecture, and is incredibly well written.
 - Peter Bloem's "Transformers from Scratch" [@bloem2019transformers] builds the architecture from first principles with clear diagrams.
 - Lilian Weng's "The Transformer Family Version 2.0" [@weng2023transformer] offers a more technical treatment, surveying transformer variants including the attention alternatives mentioned in @sec-self-attention.
 - Andrej Karpathy's "Let's build GPT: from scratch, in code" [@karpathy2023gpt] walks through a complete implementation in about two hours.
+
+For interactive visualizations that let you explore the architecture hands-on:
+
+- Brendan Bycroft's "LLM Visualization" [@bycroft2023llmviz] is a 3D interactive walkthrough of GPT-style inference that lets you trace data flow down to every add and multiply. It is an excellent companion to the tensor data flow diagrams in this chapter.
+- "Transformer Explainer" [@cho2024transformerexplainer] from Georgia Tech runs a live GPT-2 model directly in the browser. It uses Sankey-style diagrams showing how data flows through embeddings, attention heads, and transformer blocks, and lets you type in your own text and watch the model predict the next token in real time.
 
 For the specific architectural choices used in LLMs, the Llama papers [@touvron2023llama; @touvron2023llama2; @grattafiori2024llama3] are a good reference because they clearly document the model dimensions and design decisions (SwiGLU, RoPE, GQA).
 The PaLM paper [@chowdhery2022palm] provides a thorough analysis of scaling behavior that motivates the decoder-only design.

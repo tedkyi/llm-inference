@@ -516,11 +516,13 @@ In the next chapter, we will consider what happens when a single GPU isn't enoug
 ## Further Reading {#sec-further-request}
 
 **Attention kernels.**
-Tri Dao's blog post accompanying the FlashAttention-3 paper [@dao2024flash3blog] is more accessible than the papers themselves and gives a clear walkthrough of how tiling, asynchronous memory transfers, and FP8 computation work together on Hopper hardware.
-It's a good starting point before diving into the academic papers.
+Aleksa Gordić's "ELI5: FlashAttention" [@gordic2023eli5flash] builds up the FlashAttention algorithm from first principles, starting with vanilla attention and addressing its inefficiencies one by one.
+It's one of the most widely recommended explainers for building intuition about why tiling and IO-awareness matter.
+For readers who want to go deeper into hardware-specific optimizations, Tri Dao's blog post accompanying FlashAttention-3 [@dao2024flash3blog] walks through how asynchronous memory transfers and FP8 computation work together on Hopper GPUs.
 
 **Kernel-level optimizations.**
-For a practical look at how CUDA graphs reduce kernel-launch overhead in LLM decode loops, NVIDIA's blog post on optimizing llama.cpp with CUDA graphs [@nvidia2024cudagraphs] walks through the implementation and reports concrete latency improvements.
+NVIDIA's "Mastering LLM Techniques: Inference Optimization" [@nvidia2023mastering] is a broad overview covering kernel fusion, quantization, and parallelism strategies, and is one of the most-referenced introductions to the topic.
+For a more focused look at how CUDA graphs reduce kernel-launch overhead in LLM decode loops specifically, NVIDIA's blog post on optimizing llama.cpp [@nvidia2024cudagraphs] walks through the implementation and reports concrete latency improvements.
 
 **KV cache compression.**
 The chapter covers PagedAttention for memory management and touches on KV cache quantization and token eviction.
@@ -529,6 +531,10 @@ KIVI [@liu2024kivi] shows that keys and values have different distribution prope
 H2O [@zhang2023h2o] formalizes the observation that a small fraction of tokens dominate attention scores and proposes a "heavy-hitter" eviction policy that retains these tokens plus recent tokens, with theoretical guarantees on approximation quality.
 SnapKV [@li2024snapkv] takes a different approach, using an observation window at the end of the prompt to identify which KV positions each attention head consistently focuses on, then compressing the cache before generation begins.
 This is a fast-moving area; for a continuously updated survey of KV cache optimization techniques --- compression, merging, quantization, budget allocation, and cross-layer sharing --- the "Awesome-LLM-KV-Cache" repository^[https://github.com/Zefan-Cai/Awesome-LLM-KV-Cache] is a useful index.
+
+**Prefix caching.**
+The LMSYS blog post introducing SGLang and RadixAttention [@lmsys2024radixattn] is the best visual explanation of how a radix tree enables automatic, fine-grained KV cache reuse across requests.
+It illustrates four common sharing patterns in LLM workloads and walks through the tree operations step by step with an LRU eviction policy.
 
 **Speculative decoding.**
 For an accessible introduction, the PyTorch blog's "A Hitchhiker's Guide to Speculative Decoding" [@pytorch2024specguide] walks through draft-verify mechanics with diagrams and practical implementation guidance.

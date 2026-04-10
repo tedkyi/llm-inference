@@ -431,11 +431,14 @@ The original vLLM blog post [@vllm2023blog] introduces PagedAttention with acces
 
 Several papers extend the scheduling ideas in this chapter in important directions.
 Sarathi-Serve [@agrawal2024sarathiserve] builds on the original Sarathi chunked prefill work, adding stall-free scheduling that eliminates decode stalls even in pipeline-parallel deployments --- an important consideration for multi-GPU serving that we don't cover here.
+For a more accessible treatment of chunked prefill with diagrams and benchmarks, NVIDIA's blog post on chunked prefill in TensorRT-LLM [@nvidia2024chunkedprefill] walks through the concept and its impact on GPU utilization.
 FastServe [@wu2023fastserve] proposes a skip-join multi-level feedback queue scheduler that uses input length information to assign requests to priority queues, a more principled approach to preemptive scheduling than the simple priority levels discussed in this chapter.
-DeepSpeed-FastGen [@holmes2024deepspeedfastgen] introduces Dynamic SplitFuse, an approach closely related to chunked prefill that decomposes prefill requests and composes them with decode tokens to maintain consistent forward pass sizes, with a detailed performance analysis on Microsoft's DeepSpeed infrastructure.
+DeepSpeed-FastGen [@holmes2024deepspeedfastgen] introduces Dynamic SplitFuse, an approach closely related to chunked prefill that decomposes prefill requests and composes them with decode tokens to maintain consistent forward pass sizes.
+The DeepSpeed team's blog post [@deepspeed2023fastgenblog] explains the approach with clear diagrams contrasting SplitFuse with other batching strategies.
 
 On disaggregated serving, Splitwise [@patel2024splitwise] independently explored prefill-decode disaggregation around the same time as DistServe, with additional analysis of how to balance capacity between prefill and decode pools as workload mix changes.
 Mooncake [@qin2024mooncake] describes Moonshot AI's production disaggregated system, which treats the KV cache as the first-class scheduling resource and manages it through a distributed cache pool --- a concrete example of how disaggregation works at scale with real traffic.
+For a retrospective on how disaggregation went from research prototype to industry standard across nearly every major serving framework, "Disaggregated Inference: 18 Months Later" [@chen2025disaggretro] traces the adoption arc and explores emerging directions like attention-FFN disaggregation.
 
 For scheduling beyond single-instance serving, Llumnix [@sun2024llumnix] introduces live migration of requests and their KV caches between model instances, enabling dynamic rescheduling, load balancing, and memory defragmentation across a serving cluster.
 It's a useful reference for anyone thinking about scheduling at the cluster level rather than the single-GPU level.

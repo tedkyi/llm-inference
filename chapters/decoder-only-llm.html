@@ -744,10 +744,16 @@ Figure&nbsp;2.14: Data flow of weights and activations in an MoE MLP layer. This
 <p>For intuitive explanations of the transformer architecture:</p>
 <ul>
 <li>Jay Alammar’s “The Illustrated Transformer” <span class="citation" data-cites="alammar2018illustrated">(<a href="references.html#ref-alammar2018illustrated" role="doc-biblioref">Alammar 2018</a>)</span> is considered a classic for explaining the original transformer architecture, with many beautiful diagrams.</li>
+<li>3Blue1Brown’s deep learning series <span class="citation" data-cites="sanderson2024attention">(<a href="references.html#ref-sanderson2024attention" role="doc-biblioref">Sanderson 2024</a>)</span> provides what may be the clearest visual explanation of attention and the transformer architecture available anywhere. Grant Sanderson’s animations build the mechanism step by step, making the matrix operations and information flow genuinely intuitive.</li>
 <li>“The Annotated Transformer” <span class="citation" data-cites="rush2018annotated">(<a href="references.html#ref-rush2018annotated" role="doc-biblioref">Rush 2018</a>)</span> walks you through Python code to understand the original transformer architecture, and is incredibly well written.</li>
 <li>Peter Bloem’s “Transformers from Scratch” <span class="citation" data-cites="bloem2019transformers">(<a href="references.html#ref-bloem2019transformers" role="doc-biblioref">Bloem 2019</a>)</span> builds the architecture from first principles with clear diagrams.</li>
 <li>Lilian Weng’s “The Transformer Family Version 2.0” <span class="citation" data-cites="weng2023transformer">(<a href="references.html#ref-weng2023transformer" role="doc-biblioref">Weng 2023</a>)</span> offers a more technical treatment, surveying transformer variants including the attention alternatives mentioned in <a href="#sec-self-attention" class="quarto-xref"><span>Section 2.4</span></a>.</li>
 <li>Andrej Karpathy’s “Let’s build GPT: from scratch, in code” <span class="citation" data-cites="karpathy2023gpt">(<a href="references.html#ref-karpathy2023gpt" role="doc-biblioref">Karpathy 2023</a>)</span> walks through a complete implementation in about two hours.</li>
+</ul>
+<p>For interactive visualizations that let you explore the architecture hands-on:</p>
+<ul>
+<li>Brendan Bycroft’s “LLM Visualization” <span class="citation" data-cites="bycroft2023llmviz">(<a href="references.html#ref-bycroft2023llmviz" role="doc-biblioref">Bycroft 2023</a>)</span> is a 3D interactive walkthrough of GPT-style inference that lets you trace data flow down to every add and multiply. It is an excellent companion to the tensor data flow diagrams in this chapter.</li>
+<li>“Transformer Explainer” <span class="citation" data-cites="cho2024transformerexplainer">(<a href="references.html#ref-cho2024transformerexplainer" role="doc-biblioref">Cho et al. 2024</a>)</span> from Georgia Tech runs a live GPT-2 model directly in the browser. It uses Sankey-style diagrams showing how data flows through embeddings, attention heads, and transformer blocks, and lets you type in your own text and watch the model predict the next token in real time.</li>
 </ul>
 <p>For the specific architectural choices used in LLMs, the Llama papers <span class="citation" data-cites="touvron2023llama touvron2023llama2 grattafiori2024llama3">(<a href="references.html#ref-touvron2023llama" role="doc-biblioref"><span class="nocase">Touvron, Lavril, et al.</span> 2023</a>; <a href="references.html#ref-touvron2023llama2" role="doc-biblioref"><span class="nocase">Touvron, Martin, et al.</span> 2023</a>; <a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span> are a good reference because they clearly document the model dimensions and design decisions (SwiGLU, RoPE, GQA). The PaLM paper <span class="citation" data-cites="chowdhery2022palm">(<a href="references.html#ref-chowdhery2022palm" role="doc-biblioref"><span class="nocase">Chowdhery et al.</span> 2022</a>)</span> provides a thorough analysis of scaling behavior that motivates the decoder-only design. For more modern LLMs, Sebastian Raschka does a brilliant job covering all of the different architectures. A good starting point for his writings is “LLM Architecture Gallery” <span class="citation" data-cites="raschka2025gallery">(<a href="references.html#ref-raschka2025gallery" role="doc-biblioref">Raschka 2025</a>)</span>.</p>
 <p>The MQA <span class="citation" data-cites="shazeer2019mqa">(<a href="references.html#ref-shazeer2019mqa" role="doc-biblioref">Shazeer 2019</a>)</span> and GQA <span class="citation" data-cites="ainslie2023gqa">(<a href="references.html#ref-ainslie2023gqa" role="doc-biblioref">Ainslie et al. 2023</a>)</span> attention variants are covered in <a href="model-design.html#sec-efficient-attention" class="quarto-xref"><span>Section 4.4</span></a>. FlashAttention <span class="citation" data-cites="dao2022flashattention">(<a href="references.html#ref-dao2022flashattention" role="doc-biblioref">Dao et al. 2022</a>)</span> is covered in <a href="request.html#sec-attention-kernels" class="quarto-xref"><span>Section 6.1</span></a>.</p>
@@ -765,6 +771,12 @@ Ba, Jimmy Lei, Jamie Ryan Kiros, and Geoffrey E. Hinton. 2016. <span>“Layer No
 </div>
 <div id="ref-bloem2019transformers" class="csl-entry" role="listitem">
 Bloem, Peter. 2019. <span>“Transformers from Scratch.”</span> <a href="https://peterbloem.nl/blog/transformers">https://peterbloem.nl/blog/transformers</a>.
+</div>
+<div id="ref-bycroft2023llmviz" class="csl-entry" role="listitem">
+Bycroft, Brendan. 2023. <span>“<span>LLM</span> Visualization.”</span> <a href="https://bbycroft.net/llm">https://bbycroft.net/llm</a>.
+</div>
+<div id="ref-cho2024transformerexplainer" class="csl-entry" role="listitem">
+Cho, Aeree, Grace C. Kim, Alexander Karpekov, et al. 2024. <span>“Transformer Explainer: Interactive Learning of Text-Generative Models.”</span> <a href="https://poloclub.github.io/transformer-explainer/">https://poloclub.github.io/transformer-explainer/</a>.
 </div>
 <div id="ref-chowdhery2022palm" class="csl-entry" role="listitem">
 <span class="nocase">Chowdhery, Aakanksha, Sharan Narang, Jacob Devlin, et al.</span> 2022. <span>“<span>PaLM</span>: Scaling Language Modeling with Pathways.”</span> <em>arXiv Preprint arXiv:2204.02311</em>. <a href="https://arxiv.org/abs/2204.02311">https://arxiv.org/abs/2204.02311</a>.
@@ -807,6 +819,9 @@ Raschka, Sebastian. 2025. <span>“<span>LLM</span> Architecture Gallery.”</sp
 </div>
 <div id="ref-rush2018annotated" class="csl-entry" role="listitem">
 Rush, Alexander. 2018. <span>“The Annotated Transformer.”</span> <a href="https://nlp.seas.harvard.edu/annotated-transformer/">https://nlp.seas.harvard.edu/annotated-transformer/</a>.
+</div>
+<div id="ref-sanderson2024attention" class="csl-entry" role="listitem">
+Sanderson, Grant. 2024. <span>“Attention in Transformers, Visually Explained.”</span> <a href="https://www.3blue1brown.com/lessons/attention">https://www.3blue1brown.com/lessons/attention</a>.
 </div>
 <div id="ref-shazeer2019mqa" class="csl-entry" role="listitem">
 Shazeer, Noam. 2019. <span>“Fast Transformer Decoding: One Write-Head Is All You Need.”</span> <em>arXiv Preprint arXiv:1911.02150</em>. <a href="https://arxiv.org/abs/1911.02150">https://arxiv.org/abs/1911.02150</a>.

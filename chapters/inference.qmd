@@ -801,10 +801,12 @@ They also cover the effects of multi-query attention, different parallelism stra
 For an accessible walkthrough of counting parameters and FLOPs in transformer models, Kipply's "Transformer Inference Arithmetic" [@kipply2023arithmetic] is an excellent companion to this chapter.
 It works through the same kinds of calculations we've done here -- parameter counts, memory footprints, FLOPs per layer -- with clear explanations of where each number comes from.
 
-For a broader survey of LLM inference techniques and how they fit together, @miao2023efficient covers the full landscape from model compression through serving system design.
+For a broader survey of LLM inference techniques and how they fit together, @yuan2024llmviewer covers the full landscape from model compression through serving system design, with the distinguishing feature of using roofline analysis to explain why each technique helps.
+Their framework makes it concrete why LLM decoding is memory-bound and what each optimization actually changes about the bottleneck.
 It's a useful map of the territory before diving into the detailed treatments in the chapters that follow.
 
 The roofline model was introduced by @williams2009roofline and remains one of the clearest frameworks for reasoning about hardware bottlenecks.
 Their original paper uses CPU examples, but the model applies directly to GPUs -- the key insight is the same: compare arithmetic intensity against the ridge point to determine whether you're compute-bound or bandwidth-bound.
+For an accessible, visual walkthrough of the roofline model in a GPU context, the Modal GPU Glossary [@modal2024gpuglossary] covers roofline analysis, arithmetic intensity, and memory bandwidth with clear explanations of how each concept maps to modern GPU hardware.
 
 A comprehensive, in-depth treatment of hardware performance is in "How to Scale Your Model" [@austin2025scaling]. This book primarily focuses on TPUs, with one specific chapter on GPUs. All of the concepts apply to whatever hardware you have.

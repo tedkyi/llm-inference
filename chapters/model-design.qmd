@@ -328,20 +328,23 @@ The post provides the intuition behind the mixed-precision decomposition that ad
 Dettmers is also the author of the `bitsandbytes` library [@dettmers2021bitsandbytes], the most widely used quantization library in the Hugging Face ecosystem.
 - The Hugging Face Quantization Concept Guide [@hf2024quantization] is a practical reference for choosing between quantization backends (GPTQ, AWQ, bitsandbytes, and others) in the Hugging Face ecosystem, with guidance on when each approach is appropriate.
 
-On pruning, two papers go well beyond the overview in this chapter.
-SparseGPT [@frantar2023sparsegpt] showed that models up to 176B parameters can be pruned to 50--60% sparsity in a single pass with minimal quality loss, and that the pruning pattern can be constrained to NVIDIA's 2:4 structured format for hardware acceleration.
+On pruning, Shaw and Goin's "SparseGPT: Remove 100 Billion Parameters for Free" [@shaw2023sparsegpt] is an accessible introduction to how one-shot pruning works in practice, showing that OPT-175B can be pruned to 50% sparsity on a single GPU in about four hours.
+For the technical details behind this, the SparseGPT paper [@frantar2023sparsegpt] describes how approximate second-order information guides the pruning decisions, and how the pruning pattern can be constrained to NVIDIA's 2:4 structured format for hardware acceleration.
 Wanda [@sun2024wanda] simplifies things further: it prunes based on the product of weight magnitude and input activation norm, achieving competitive results without any retraining and at a fraction of SparseGPT's computational cost.
 For the hardware side of sparsity, NVIDIA's blog post on accelerating inference with Ampere Sparse Tensor Cores [@nvidia2021sparsity] explains the 2:4 structured sparsity format, the train-prune-fine-tune workflow, and the performance gains achievable through TensorRT.
 
-For a deeper understanding of Multi-head Latent Attention beyond its brief treatment here, Eryk Banatt's "Understanding Multi-Head Latent Attention" [@banatt2025mla] is a clear technical walkthrough of the low-rank KV compression, the decoupled rotary position embedding trick, and how MLA compares to GQA in practice.
+On efficient attention architectures, Sebastian Raschka's "A Visual Guide to Attention Variants in Modern LLMs" [@raschka2026attention] covers MHA, GQA, MLA, sliding window attention, and several newer variants side by side with clear diagrams, making it a good companion to the brief treatment of these architectures in this chapter.
+For a deeper understanding of Multi-head Latent Attention specifically, Eryk Banatt's "Understanding Multi-Head Latent Attention" [@banatt2025mla] is a detailed technical walkthrough of the low-rank KV compression, the decoupled rotary position embedding trick, and how MLA compares to GQA in practice.
 
 On tokenization, @tao2024vocabulary establishes scaling laws relating optimal vocabulary size to compute budget, showing that most current LLMs have undersized vocabularies --- Llama 2's 32K vocabulary should have been roughly 7x larger for its model size, according to their analysis.
 This provides theoretical grounding for the vocabulary-size discussion in this chapter.
 
-For knowledge distillation applied to LLMs, @xu2024distillsurvey is the most comprehensive recent survey, covering the full taxonomy from white-box distillation (where student models train on the teacher's logits) to black-box distillation (where they learn from the teacher's generated outputs), along with domain-specific and skill-specific distillation techniques.
+For knowledge distillation applied to LLMs, Snorkel AI's "LLM Distillation Demystified" [@casey2024distillation] is a practitioner-oriented guide covering distillation approaches and when to use them.
+For a more comprehensive treatment, @xu2024distillsurvey surveys the full taxonomy from white-box distillation (where student models train on the teacher's logits) to black-box distillation (where they learn from the teacher's generated outputs), along with domain-specific and skill-specific distillation techniques.
 
 For broader surveys that cover multiple topics from this chapter:
 
-- @wan2024efficient is the most comprehensive survey of LLM efficiency techniques, covering quantization, pruning, distillation, and efficient architectures from model-centric, data-centric, and framework-centric perspectives.
+- Lilian Weng's "Large Transformer Model Inference Optimization" [@weng2023inference] is one of the most widely cited blog posts on the topic, covering quantization, pruning, distillation, and architectural optimizations in a single thorough reference.
+- @wan2024efficient is the most comprehensive academic survey of LLM efficiency techniques, covering quantization, pruning, distillation, and efficient architectures from model-centric, data-centric, and framework-centric perspectives.
 It is accompanied by an actively maintained GitHub repository that tracks new papers.
 - NVIDIA's "Mastering LLM Techniques: Inference Optimization" [@nvidia2023mastering] provides a practitioner-oriented overview that covers quantization, KV cache optimization, batching, and model parallelism in a single article, making it a useful starting point for someone new to the field.

@@ -158,8 +158,9 @@ window.Quarto = {
     <div class="pt-lg-2 mt-2 text-left sidebar-header">
     <div class="sidebar-title mb-0 py-0">
       <a href="../">LLM Inference Illustrated</a> 
-        <div class="sidebar-tools-main">
+        <div class="sidebar-tools-main tools-wide">
     <a href="https://github.com/tedkyi/llm-inference/" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <a href="../LLM-Inference-Illustrated.pdf" title="Download PDF" class="quarto-navigation-tool px-1" aria-label="Download PDF"><i class="bi bi-file-pdf"></i></a>
     <div class="dropdown">
       <a href="" title="Share" id="quarto-navigation-tool-dropdown-0" class="quarto-navigation-tool dropdown-toggle px-1" data-bs-toggle="dropdown" aria-expanded="false" role="link" aria-label="Share"><i class="bi bi-share"></i></a>
       <ul class="dropdown-menu" aria-labelledby="quarto-navigation-tool-dropdown-0">
@@ -309,6 +310,7 @@ window.Quarto = {
   <li><a href="#sec-communication-cost" id="toc-sec-communication-cost" class="nav-link" data-scroll-target="#sec-communication-cost"><span class="header-section-number">7.7</span> Communication Cost Analysis</a>
   <ul class="collapse">
   <li><a href="#combined-tp-pp" id="toc-combined-tp-pp" class="nav-link" data-scroll-target="#combined-tp-pp">Combined TP + PP</a></li>
+  <li><a href="#combining-ep-with-other-strategies" id="toc-combining-ep-with-other-strategies" class="nav-link" data-scroll-target="#combining-ep-with-other-strategies">Combining EP with other strategies</a></li>
   <li><a href="#communication-bound-regime" id="toc-communication-bound-regime" class="nav-link" data-scroll-target="#communication-bound-regime">Communication-bound regime</a></li>
   </ul></li>
   <li><a href="#sec-multi-node" id="toc-sec-multi-node" class="nav-link" data-scroll-target="#sec-multi-node"><span class="header-section-number">7.8</span> Multi-Node Inference</a>
@@ -343,7 +345,7 @@ window.Quarto = {
 </header>
 
 
-<p>Everything we’ve covered so far in this book operates on a single GPU. That works fine for smaller models, but the largest LLMs today — with hundreds of billions of parameters — simply don’t fit in the memory of a single device. Even when a model does fit, you may want to spread the work across multiple GPUs. This chapter is about how to do that.</p>
+<p>Everything we’ve covered so far in this book operates on a single GPU. That works fine for smaller models, but the largest LLMs today — with hundreds of billions of parameters or more — simply don’t fit in the memory of a single device. Even when a model does fit, you may want to spread the work across multiple GPUs. This chapter is about how to do that.</p>
 <p>The parallelism techniques used for inference are mostly the same ones developed for training. The good news is that they’re easier to implement for inference, because they only have to deal with the forward pass — no activations to store for backpropagation, no gradient calculations, and no optimizer state. The core challenge here is that every time we split work across devices, we introduce communication overhead between devices, and that communication can be much slower than communication within one device.</p>
 <p>We’ll start by understanding the communication fabric, then work through each parallelism strategy, and finish by analyzing when communication becomes the bottleneck.</p>
 <section id="sec-interconnects" class="level2" data-number="7.1">
@@ -366,14 +368,14 @@ Figure&nbsp;7.1: Intra-node and inter-node connections
 </section>
 <section id="pcie" class="level3">
 <h3 class="anchored" data-anchor-id="pcie">PCIe</h3>
-<p><strong>PCIe</strong> (Peripheral Component Interconnect Express) is the general-purpose interconnect between the CPU and all attached devices, including GPUs. PCIe Gen5 x16 provides about 128 GB/s of bidirectional bandwidth – roughly 7x slower than NVLink. PCIe is used for CPU-GPU data transfers (loading input tokens, returning results) and as a fallback communication path between GPUs when NVLink isn’t available.</p>
-<p>For inference, PCIe bandwidth matters in two scenarios: KV cache offloading to CPU memory (discussed in <a href="scheduling.html" class="quarto-xref"><span>Chapter 5</span></a>), and consumer/workstation GPU setups that lack NVLink entirely. In those configurations, inter-GPU communication is bottlenecked at PCIe speeds, which severely limits the parallelism strategies that are practical.</p>
+<p><strong>PCIe</strong> (Peripheral Component Interconnect Express) is the general-purpose interconnect between the CPU and all attached devices, including GPUs. PCIe Gen5 x16 provides about 128 GB/s of bidirectional bandwidth, which we’ve noted is roughly 7x slower than NVLink. PCIe is used for CPU-GPU data transfers (loading input tokens, returning results) and as a fallback communication path between GPUs when NVLink isn’t available.</p>
+<p>For inference, PCIe bandwidth matters in two scenarios: KV cache offloading to CPU memory (discussed in <a href="scheduling.html#sec-request-scheduling" class="quarto-xref"><span>Section 5.4</span></a>), and consumer/workstation GPU setups that lack NVLink entirely. In those configurations, inter-GPU communication is bottlenecked at PCIe speeds, which severely limits the parallelism strategies that are practical.</p>
 </section>
 <section id="multi-node-networking" class="level3">
 <h3 class="anchored" data-anchor-id="multi-node-networking">Multi-node networking</h3>
 <p>When you need more GPUs than fit in a single node, communication moves to the network. The two dominant technologies are <strong>InfiniBand</strong> and <strong>RDMA over Converged Ethernet (RoCE)</strong>.</p>
 <p>NVIDIA’s HDR InfiniBand provides 200 Gb/s (25 GB/s) per port, and NDR doubles that to 400 Gb/s (50 GB/s) per port. With multiple ports bonded together, a node can achieve aggregate network bandwidth in the hundreds of GB/s – but this is still far below the 900 GB/s available over NVLink within the node. Network latency is also significantly higher: a few microseconds for InfiniBand versus roughly 100 nanoseconds for NVLink.</p>
-<p>This bandwidth gap is the fundamental reason why multi-node inference is hard. Strategies that require frequent all-to-all communication – like tensor parallelism – work beautifully within a node over NVLink but become impractical across nodes.</p>
+<p>This bandwidth gap is the fundamental reason why multi-node inference is hard. Strategies that require frequent all-to-all communication, like tensor parallelism, work beautifully within a node over NVLink but become impractical across nodes.</p>
 </section>
 <section id="bandwidth-comparison" class="level3">
 <h3 class="anchored" data-anchor-id="bandwidth-comparison">Bandwidth comparison</h3>
@@ -437,146 +439,169 @@ Table&nbsp;7.1: Interconnect bandwidth and latency comparison for common GPU inf
 </section>
 <section id="beyond-nvidia" class="level3">
 <h3 class="anchored" data-anchor-id="beyond-nvidia">Beyond NVIDIA</h3>
-<p>While this book focuses on NVIDIA GPUs, it’s worth noting the competitive landscape. <strong>AMD’s MI300X</strong> offers 192 GB of HBM3 memory – significantly more than the H100’s 80 GB – connected via AMD’s Infinity Fabric with bandwidth comparable to NVLink. <strong>Google’s TPU v4 and v5</strong> use a custom 3D torus interconnect (ICI) that provides high-bandwidth, low-latency communication between chips without needing an explicit switch fabric. <strong>AWS Inferentia</strong> and <strong>Trainium</strong> chips use NeuronLink for inter-chip communication. <strong>Cerebras</strong> takes a radically different approach with wafer-scale integration, eliminating inter-chip communication entirely within a single wafer. Each of these platforms has different communication characteristics, but the fundamental tradeoffs between computation, memory, and communication apply universally.</p>
+<p>While this book focuses on NVIDIA GPUs, it’s worth noting the competitive landscape. <strong>AMD’s MI300X</strong> offers 192 GB of HBM3 memory — significantly more than the H100’s 80 GB — connected via AMD’s Infinity Fabric with bandwidth comparable to NVLink. <strong>Google’s TPU v4 and v5</strong> use a custom 3D torus interconnect (ICI) that provides high-bandwidth, low-latency communication between chips without needing an explicit switch fabric. <strong>AWS Inferentia</strong> and <strong>Trainium</strong> chips use NeuronLink for inter-chip communication. <strong>Cerebras</strong> takes a radically different approach with wafer-scale integration, eliminating inter-chip communication entirely within a single wafer. Each of these platforms has different communication characteristics, but the fundamental tradeoffs between computation, memory, and communication apply universally.</p>
 </section>
 </section>
 <section id="sec-parallelism-overview" class="level2" data-number="7.2">
 <h2 data-number="7.2" class="anchored" data-anchor-id="sec-parallelism-overview"><span class="header-section-number">7.2</span> Parallelism Overview and Data Parallelism</h2>
 <p>There are several ways to distribute inference across multiple devices. Each strategy partitions a different dimension of the problem:</p>
 <ul>
-<li><strong>Data parallelism (DP)</strong>: replicate the entire model on each device; split requests across replicas</li>
-<li><strong>Tensor parallelism (TP)</strong>: split individual layers across devices</li>
-<li><strong>Pipeline parallelism (PP)</strong>: assign different layers to different devices</li>
-<li><strong>Expert parallelism (EP)</strong>: assign different MoE experts to different devices</li>
-<li><strong>Sequence/context parallelism (SP/CP)</strong>: split the sequence dimension across devices</li>
+<li><strong>Data parallelism (DP)</strong>: spreads the batch dimension across devices. The simple approach replicates the entire model on different devices, and then splits requests across replicas, with no communication between them.</li>
+<li><strong>Tensor parallelism (TP)</strong>: spreads the model dimension across devices. This involves splitting individual layers across devices.</li>
+<li><strong>Pipeline parallelism (PP)</strong>: assigns different layers to different devices</li>
+<li><strong>Expert parallelism (EP)</strong>: assigns different MoE experts to different devices</li>
+<li><strong>Sequence/context parallelism (SP/CP)</strong>: spreads the sequence dimension across devices. Care is required to maintain dependencies between tokens.</li>
 </ul>
-<p>In practice, production systems combine multiple strategies. A common pattern is TP within a node (where NVLink provides the bandwidth for frequent all-reduce operations) and PP across nodes (where only point-to-point activations need to cross the network).</p>
+<p>In practice, modern frameworks support, and production systems combine, multiple parallelism strategies. A common pattern is TP within a node (where NVLink provides the bandwidth for frequent all-reduce operations) and PP across nodes (where only point-to-point activations need to cross the network).</p>
 <section id="data-parallelism" class="level3">
 <h3 class="anchored" data-anchor-id="data-parallelism">Data Parallelism</h3>
-<p><strong>Data parallelism</strong> is the simplest approach: place a complete copy of the model on each GPU and route different requests to different replicas. There’s no communication between replicas during inference – each replica processes its requests independently.</p>
-<p>DP scales throughput linearly with the number of replicas. If one GPU can serve 50 tokens per second, eight GPUs can serve 400 tokens per second. However, DP does nothing for single-request latency, and it requires each device to have enough memory to hold the full model. For a 70B parameter model in FP16, that’s 140 GB of weights alone – already beyond the capacity of a single H100 (80 GB HBM3).</p>
+<p>Simple <strong>Data parallelism</strong> is the easiest approach: place a complete copy of the model on each GPU and route different requests to different replicas. There’s no communication between replicas during inference. Since there are no data dependencies between different requests, each replica processes its requests independently.</p>
+<p>Without any communication overhead, DP scales throughput linearly with the number of replicas. If one GPU can serve 50 tokens per second, eight GPUs can serve 400 tokens per second. However, DP does nothing for single-request latency, so throughput increases without reducing TPOT. When running DP as the only parallelism strategy, it requires each device to have enough memory to hold the full model. For a 70B parameter model in FP16, that’s 140 GB of weights, already beyond the capacity of a single H100 with 80 GB of HBM3.</p>
 <p>When the model fits on a single device, DP is the go-to strategy for scaling throughput. When it doesn’t, we need the techniques that follow.</p>
 </section>
 </section>
 <section id="sec-tensor-parallelism" class="level2" data-number="7.3">
 <h2 data-number="7.3" class="anchored" data-anchor-id="sec-tensor-parallelism"><span class="header-section-number">7.3</span> Tensor Parallelism (TP)</h2>
-<p><strong>Tensor parallelism</strong> splits individual weight matrices across devices, so each GPU computes a slice of every layer. This is the most communication-intensive parallelism strategy, but it directly reduces per-device memory and enables serving models that don’t fit on a single GPU.</p>
+<p><strong>Tensor parallelism</strong> splits data tensors and weight matrices across devices, so each GPU computes a slice of each layer. This is the most communication-intensive parallelism strategy, but it directly reduces per-device memory and enables serving models that don’t fit on a single GPU.</p>
 <section id="column-parallel-and-row-parallel-linear-layers" class="level3">
 <h3 class="anchored" data-anchor-id="column-parallel-and-row-parallel-linear-layers">Column-parallel and row-parallel linear layers</h3>
-<p>The core idea is to partition each linear layer’s weight matrix along either its columns or its rows.</p>
-<p>In a <strong>column-parallel</strong> linear layer, the weight matrix <span class="math inline">\(W\)</span> is split along the output dimension. If we have <strong>T</strong> GPUs, each GPU holds <span class="math inline">\(W_i\)</span> with shape <span class="math inline">\([d_{in}, d_{out}/T]\)</span>. Each GPU receives the full input activation <span class="math inline">\(x\)</span> and computes <span class="math inline">\(x W_i\)</span> locally, producing a partial output of shape <span class="math inline">\([d_{out}/T]\)</span>. No communication is needed yet – each GPU has an independent slice of the result.</p>
-<p>In a <strong>row-parallel</strong> linear layer, the weight matrix is split along the input dimension. Each GPU holds <span class="math inline">\(W_i\)</span> with shape <span class="math inline">\([d_{in}/T, d_{out}]\)</span> and receives only its slice of the input <span class="math inline">\(x_i\)</span>. Each GPU computes <span class="math inline">\(x_i W_i\)</span>, producing a partial result of the full output dimension. To get the correct output, we need an <strong>all-reduce</strong> operation to sum the partial results across all GPUs.</p>
-<p>The standard pattern is to pair column-parallel and row-parallel layers so that only one all-reduce is needed per pair. In a transformer block:</p>
+<p>The core idea is to partition each linear layer’s weight matrix along either its columns or its rows. For the following, assume we have <strong>T</strong> GPUs and a weight matrix <span class="math inline">\(W\)</span> of shape <strong>(<span class="math inline">\(d_{\text{in}}\)</span>, <span class="math inline">\(d_{\text{out}}\)</span>)</strong>. By splitting <span class="math inline">\(W\)</span> into <strong>T</strong> parts, we can distribute the storage requirement and computations involving <span class="math inline">\(W\)</span> across the GPUs. How we split <span class="math inline">\(W\)</span> determines the communication patterns.</p>
+<p>In a <strong>column-parallel</strong> linear layer, the weight matrix <span class="math inline">\(W\)</span> is split along the output dimension into <strong>T</strong> parts, each with <span class="math inline">\(d_{\text{out}}\)</span><strong>/T</strong> columns. Each GPU holds a subset of the weights <span class="math inline">\(W_i\)</span> with shape <strong>(<span class="math inline">\(d_{\text{in}}\)</span>, <span class="math inline">\(d_{\text{out}}\)</span>/T)</strong>. Each GPU receives the full input activation <span class="math inline">\(x\)</span> of shape <strong>(<span class="math inline">\(d_{\text{in}}\)</span>)</strong> and computes <span class="math inline">\(x W_i\)</span> locally, producing a partial output of shape <strong>(<span class="math inline">\(d_{\text{out}}\)</span>/T)</strong>. No communication is needed yet — each GPU has an independent slice of the result.</p>
+<div id="fig-tp-column" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-tp-column-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/tp_column.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;7.2: Column-parallel linear layer calculation for 2-way tensor parallelism with a W_{\text{Up}} matrix"><img src="images/tp_column.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-column-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.2: Column-parallel linear layer calculation for 2-way tensor parallelism with a <span class="math inline">\(W_{\text{Up}}\)</span> matrix
+</figcaption>
+</figure>
+</div>
+<p><a href="#fig-tp-column" class="quarto-xref">Figure&nbsp;<span>7.2</span></a> shows an example of a column-parallel linear layer with 2-way tensor parallelism, i.e.&nbsp;<strong>T</strong> = 2. The darker shaded portion of the weight matrix <span class="math inline">\(W_{\text{Up}}\)</span> shows the half that is stored on each GPU. When multiplied by the full input <span class="math inline">\(x\)</span>, each GPU produces a half-sized output, represented by the darker shaded portion of the output tensor.</p>
+<p>In a <strong>row-parallel</strong> linear layer, the weight matrix is split along the input dimension into <strong>T</strong> parts, each with <span class="math inline">\(d_{\text{in}}\)</span><strong>/T</strong> rows. Each GPU holds a subset of the weights <span class="math inline">\(W_i\)</span> with shape <strong>(<span class="math inline">\(d_{\text{in}}\)</span>/T, <span class="math inline">\(d_{\text{out}}\)</span>)</strong> and receives only its slice of the input <span class="math inline">\(x_i\)</span>, which is of shape <strong>(<span class="math inline">\(d_{\text{in}}\)</span>/T)</strong>. Each GPU computes <span class="math inline">\(x_i W_i\)</span>, producing a partial result. This partial result is the correct shape of <strong>(<span class="math inline">\(d_{\text{out}}\)</span>)</strong>, but it’s only a fraction of the correct value because it was computed with only part of the input. To get the correct output, we need an <strong>all-reduce</strong> operation to sum the partial results from all <strong>T</strong> GPUs.</p>
+<div id="fig-tp-row" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-tp-row-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="images/tp_row.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;7.3: Row-parallel linear layer calculation for 2-way tensor parallelism with a W_{\text{Down}} matrix"><img src="images/tp_row.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-row-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.3: Row-parallel linear layer calculation for 2-way tensor parallelism with a <span class="math inline">\(W_{\text{Down}}\)</span> matrix
+</figcaption>
+</figure>
+</div>
+<p><a href="#fig-tp-row" class="quarto-xref">Figure&nbsp;<span>7.3</span></a> shows an example of a row-parallel linear layer with tensor parallelism <strong>T</strong> = 2. The darker shaded portion of the weight matrix <span class="math inline">\(W_{\text{Down}}\)</span> shows the half that is stored on each GPU. When multiplied by the partial input called “Gated up proj,” each GPU produces a partial output represented by the dotted and dashed tensor. To get the full output, we need to sum the partial outputs from both GPUs using an all-reduce operation, which is a collective communication primitive that efficiently sums tensors across multiple devices.</p>
+<p>The standard pattern with tensor parallelism is to pair column-parallel and row-parallel layers so that only one all-reduce is needed per pair. In a transformer block:</p>
 <ol type="1">
-<li>The QKV projection and the MLP up-projection use column-parallel splits</li>
-<li>The attention output projection and the MLP down-projection use row-parallel splits</li>
+<li>The MLP up-projection and the QKV projection use column-parallel splits</li>
+<li>The MLP down-projection and the attention output projection use row-parallel splits</li>
 <li>An all-reduce follows each row-parallel layer</li>
 </ol>
-<p>This means each transformer layer requires <strong>two all-reduce operations</strong> – one after the attention block and one after the MLP block.</p>
+<p>This means each transformer layer (with both attention and MLP) requires <strong>two all-reduce operations</strong>, one after the attention block and one after the MLP block.</p>
 </section>
 <section id="gated-mlp-under-tp" class="level3">
 <h3 class="anchored" data-anchor-id="gated-mlp-under-tp">Gated MLP under TP</h3>
-<p>We start with the simpler FFN block and show attention next. <a href="#fig-tp-mlp" class="quarto-xref">Figure&nbsp;<span>7.2</span></a> shows what 2-way tensor parallelism looks like for the gated MLP, which is now the more common form of FFN.</p>
+<p>We start with the simpler FFN block and show attention next. <a href="#fig-tp-mlp" class="quarto-xref">Figure&nbsp;<span>7.4</span></a> shows what 2-way tensor parallelism looks like for the gated MLP, which is now the more common form of FFN.</p>
 <div id="fig-tp-mlp" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/tp_gated_mlp.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;7.2: Tensor parallel MLP calculation"><img src="images/tp_gated_mlp.svg" class="img-fluid figure-img"></a>
+<a href="images/tp_gated_mlp.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;7.4: 2-way tensor parallel gated MLP data flow. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half."><img src="images/tp_gated_mlp.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.2: Tensor parallel MLP calculation
+Figure&nbsp;7.4: 2-way tensor parallel gated MLP data flow. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.
 </figcaption>
 </figure>
 </div>
 </section>
 <section id="multi-head-attention-under-tp" class="level3">
 <h3 class="anchored" data-anchor-id="multi-head-attention-under-tp">Multi-head attention under TP</h3>
-<p>Attention is naturally suited to tensor parallelism because the heads are independent. With <strong><span class="dim-h">H</span></strong> attention heads split across <strong>T</strong> GPUs, each GPU handles <strong><span class="dim-h">H</span></strong>/<strong>T</strong> heads. The Q, K, and V projection matrices are split column-parallel by head, each GPU computes attention for its local heads, and the output projection is row-parallel with an all-reduce to combine results. This effect is depicted in <a href="#fig-tp-attn" class="quarto-xref">Figure&nbsp;<span>7.3</span></a> with 2-way tensor parallelism for the attention layer.</p>
+<p>Attention is naturally suited to tensor parallelism because the heads are independent. With <strong><span class="dim-h">H</span></strong> attention heads split across <strong>T</strong> GPUs, each GPU handles <strong><span class="dim-h">H</span></strong>/<strong>T</strong> heads. The Q, K, and V projection matrices are split column-parallel by head, each GPU computes attention for its local heads, and the output projection is row-parallel with an all-reduce to combine results. This effect is depicted in <a href="#fig-tp-attn" class="quarto-xref">Figure&nbsp;<span>7.5</span></a> with 2-way tensor parallelism for the attention layer.</p>
+<p>The <strong>KV cache</strong> is also sharded: each GPU only stores the K and V tensors for its local heads. With GQA or MQA (discussed in <a href="model-design.html#sec-efficient-attention" class="quarto-xref"><span>Section 4.4</span></a>), there are fewer KV heads than query heads, so the KV cache per device is even smaller. For example, with 8 KV head groups split across 8 GPUs with TP=8, each GPU holds just one KV head group — the minimum possible.</p>
 <div id="fig-tp-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/tp_attn.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-3" title="Figure&nbsp;7.3: Tensor parallel attention calculation"><img src="images/tp_attn.svg" class="img-fluid figure-img"></a>
+<a href="images/tp_attn.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;7.5: 2-way tensor parallel attention data flow. Only the darker shaded portions of weight and data tensors are stored on each GPU. In addition, only half of the KV cache (not shown) heads are stored on each GPU. This cuts the memory requirement in half."><img src="images/tp_attn.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tp-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.3: Tensor parallel attention calculation
+Figure&nbsp;7.5: 2-way tensor parallel attention data flow. Only the darker shaded portions of weight and data tensors are stored on each GPU. In addition, only half of the KV cache (not shown) heads are stored on each GPU. This cuts the memory requirement in half.
 </figcaption>
 </figure>
 </div>
-<p><strong>KV cache</strong> is also sharded: each GPU only stores the K and V tensors for its local heads. With GQA or MQA (discussed in <a href="model-design.html#sec-efficient-attention" class="quarto-xref"><span>Section 4.4</span></a>), there are fewer KV heads than query heads, so the KV cache per device is even smaller. For example, with 8 KV head groups split across 8 GPUs with TP=8, each GPU holds just one KV head group – the minimum possible.</p>
 </section>
 <section id="communication-cost" class="level3">
 <h3 class="anchored" data-anchor-id="communication-cost">Communication cost</h3>
 <p>The all-reduce operation sums tensors across all <strong>T</strong> GPUs. Using the ring all-reduce algorithm, the communication volume per all-reduce is approximately:</p>
 <p><span class="math display">\[V_{\text{all-reduce}} = 2 \times \frac{T-1}{T} \times \textcolor{#1E40AF}{D} \times \text{bytes\_per\_element}\]</span></p>
-<p>where the factor of 2 accounts for the reduce-scatter and all-gather phases. With two all-reduces per transformer layer and <strong><span class="dim-l">L</span></strong> layers, the total communication per forward pass is 2<strong><span class="dim-l">L</span></strong> all-reduce operations.</p>
-<p>For a 70B model with <strong><span class="dim-d">D</span></strong> = 8192 and TP=8 on H100 NVLink (900 GB/s), each all-reduce for a single-token decode step moves roughly 2 × 8192 × 2 bytes ≈ 32 KB. That completes in well under a microsecond – negligible. But for prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with <span class="math inline">\(b\)</span> and can start to matter.</p>
-<p>The key insight is that TP requires <strong>high-bandwidth, low-latency</strong> communication every layer, making it impractical across nodes where network bandwidth is 10-30x lower than NVLink.</p>
+<p>where the factor of 2 accounts for the reduce-scatter and all-gather phases. With two all-reduces per transformer layer and <strong><span class="dim-l">L</span></strong> layers, the total communication per forward pass is 2 × <strong><span class="dim-l">L</span></strong> all-reduce operations.</p>
+<p>For a 70B model with <strong><span class="dim-d">D</span></strong> = 8192 and TP=8 on H100 NVLink (900 GB/s), each all-reduce for a single-token decode step moves roughly 2 × 8192 × 2 bytes ≈ 32 KB. That completes in well under a microsecond, which is negligible. But for prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with sequence length and batch size, and it can start to matter.</p>
+<p>The key insight is that TP requires <strong>high-bandwidth, low-latency</strong> communication every layer, making it a costly slowdown across nodes where network bandwidth is 10-30x lower than NVLink.</p>
 </section>
 </section>
 <section id="sec-pipeline-parallelism" class="level2" data-number="7.4">
 <h2 data-number="7.4" class="anchored" data-anchor-id="sec-pipeline-parallelism"><span class="header-section-number">7.4</span> Pipeline Parallelism (PP)</h2>
-<p><strong>Pipeline parallelism</strong> takes a different approach: instead of splitting each layer across devices, it assigns entire layers to different devices. If you have 80 transformer layers and 4 GPUs, each GPU gets 20 consecutive layers. This is depicted in <a href="#fig-pipeline-parallelism" class="quarto-xref">Figure&nbsp;<span>7.4</span></a>.</p>
+<p><strong>Pipeline parallelism</strong> takes a different approach: instead of splitting each layer across devices, it assigns entire layers to different devices. If you have 80 transformer layers and 4 GPUs, each GPU gets 20 consecutive layers. This is depicted in <a href="#fig-pipeline-parallelism" class="quarto-xref">Figure&nbsp;<span>7.6</span></a>.</p>
 <div id="fig-pipeline-parallelism" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-pipeline-parallelism-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/pipeline_parallel.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-4" title="Figure&nbsp;7.4: Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs."><img src="images/pipeline_parallel.svg" class="img-fluid figure-img"></a>
+<a href="images/pipeline_parallel.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;7.6: Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs."><img src="images/pipeline_parallel.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pipeline-parallelism-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.4: Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs.
+Figure&nbsp;7.6: Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs.
 </figcaption>
 </figure>
 </div>
 <section id="how-it-works" class="level3">
 <h3 class="anchored" data-anchor-id="how-it-works">How it works</h3>
-<p>The forward pass flows through the pipeline stages sequentially. GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on. The communication pattern is simple point-to-point transfers between adjacent stages – no all-reduce needed.</p>
-<p>The activation tensor passed between stages has shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, which is much smaller than the all-reduce traffic in TP. This low communication volume makes PP well-suited for <strong>multi-node</strong> deployment, where network bandwidth is limited.</p>
+<p>The forward pass flows through the pipeline stages sequentially. GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on. The communication pattern is simple point-to-point transfers between adjacent stages — no all-reduce needed.</p>
+<p>With <strong>P</strong> pipeline stages, the activation tensor passed between stages has shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>, and it only happens <strong>P</strong> - 1 times, resulting in a much smaller volume of communication than the 2 × <strong>L</strong>{.dim-l} all-reduce operations in TP. This low communication volume makes PP better-suited for <strong>multi-node</strong> deployment, where network bandwidth is more limited.</p>
 </section>
 <section id="the-pipeline-bubble" class="level3">
 <h3 class="anchored" data-anchor-id="the-pipeline-bubble">The pipeline bubble</h3>
-<p>The downside of PP is the <strong>pipeline bubble</strong>. When processing a single request, only one stage is active at a time – the other stages sit idle, waiting for their turn. With <strong>P</strong> pipeline stages, the bubble fraction is roughly <span class="math inline">\((\text{P}-1)/\text{P}\)</span>. With 4 stages, 75% of the hardware is idle at any given moment.</p>
+<p>The downside of PP is the <strong>pipeline bubble</strong>. When processing a single request, only one stage is active at a time. The other stages sit idle, waiting for their turn. With <strong>P</strong> pipeline stages, the bubble fraction is roughly <span class="math inline">\((\text{P}-1)/\text{P}\)</span>. With 4 stages, 75% of the hardware is idle at any given moment.</p>
 <p><strong>Micro-batching</strong> is the standard solution. Instead of sending the entire batch through the pipeline, break it into smaller micro-batches. While Stage 1 processes micro-batch 2, Stage 0 can start processing micro-batch 3. With enough micro-batches in flight, all stages stay busy and the bubble shrinks.</p>
-<p>For inference, the bubble problem is less severe than in training for two reasons. First, during decode, each step generates just one token per request, so the pipeline latency per step is short. Second, with continuous batching (see <a href="scheduling.html" class="quarto-xref"><span>Chapter 5</span></a>), there are usually many concurrent requests to keep the pipeline full.</p>
-<p>However, PP does add latency to each decode step – the activation must travel through all stages sequentially. With <strong>P</strong> stages, the minimum latency for a single forward pass is <strong>P</strong> times the per-stage compute time, plus the communication time between stages. For latency-sensitive applications, this overhead can matter.</p>
+<p>For inference, the bubble problem is less severe than in training for two reasons. First, during decode, each step generates just one token per request, so the pipeline latency per step is short. Second, with continuous batching (<a href="scheduling.html#sec-batching" class="quarto-xref"><span>Section 5.1</span></a>), there are usually many concurrent requests to keep the pipeline full.</p>
+<p>However, PP does add latency to each decode step, since the activation must travel through all stages sequentially. With <strong>P</strong> stages, the minimum latency for a single forward pass is <strong>P</strong> times the per-stage compute time, plus the communication time between stages. For latency-sensitive applications, this overhead may be noticeable.</p>
 </section>
 </section>
 <section id="sec-expert-parallelism" class="level2" data-number="7.5">
 <h2 data-number="7.5" class="anchored" data-anchor-id="sec-expert-parallelism"><span class="header-section-number">7.5</span> Expert Parallelism (EP)</h2>
-<p>Mixture-of-Experts (MoE) models, like Mixtral, DeepSeek-V2, and many recent large models, replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts (typically 2) for each token. This dramatically reduces per-token compute, but it means the full set of expert weights must be in memory.</p>
+<p>Mixture-of-Experts (MoE) models, like Mixtral, DeepSeek-V2, and many recent large models, replace the dense MLP block with a set of expert MLPs, where a router selects a small number of experts for each token. This significantly reduces per-token compute, but it still requires the full set of expert weights to be in memory.</p>
 <p><strong>Expert parallelism</strong> assigns different experts to different GPUs. With 64 experts and 8 GPUs, each GPU holds 8 experts. When a token is routed to an expert on another GPU, the token’s activation must be sent to that GPU and the result sent back.</p>
+<section id="all-to-all-communication" class="level3">
+<h3 class="anchored" data-anchor-id="all-to-all-communication">All-to-all communication</h3>
+<p><a href="#fig-ep-mlp" class="quarto-xref">Figure&nbsp;<span>7.7</span></a> shows the data flow for expert parallelism. The communication pattern for EP is <strong>all-to-all</strong>: every GPU potentially needs to send tokens to every other GPU and receive results back. Each MoE layer requires two all-to-all operations — one to dispatch tokens to the correct experts, and one to collect results.</p>
+<p>The communication volume depends on the routing decisions, but in expectation, with <strong>T</strong> total GPUs, each GPU sends <span class="math inline">\((T-1)/T\)</span> of its tokens to other GPUs (since only <span class="math inline">\(1/T\)</span> of experts are local). For a model with many MoE layers, this all-to-all traffic adds up.</p>
 <div id="fig-ep-mlp" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ep-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/expert_parallel.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-5" title="Figure&nbsp;7.5: Expert parallel MLP calculation"><img src="images/expert_parallel.svg" class="img-fluid figure-img"></a>
+<a href="images/expert_parallel.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-7" title="Figure&nbsp;7.7: Expert parallel MLP data flow. All-to-all communication is required between GPUs for the dispatch and the collection of results."><img src="images/expert_parallel.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ep-mlp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.5: Expert parallel MLP calculation
+Figure&nbsp;7.7: Expert parallel MLP data flow. All-to-all communication is required between GPUs for the dispatch and the collection of results.
 </figcaption>
 </figure>
 </div>
-<section id="all-to-all-communication" class="level3">
-<h3 class="anchored" data-anchor-id="all-to-all-communication">All-to-all communication</h3>
-<p><a href="#fig-ep-mlp" class="quarto-xref">Figure&nbsp;<span>7.5</span></a> shows the data flow for expert parallelism. The communication pattern for EP is <strong>all-to-all</strong>: every GPU potentially needs to send tokens to every other GPU and receive results back. Each MoE layer requires two all-to-all operations – one to dispatch tokens to the correct experts, and one to collect results.</p>
-<p>The communication volume depends on the routing decisions, but in expectation, each GPU sends <span class="math inline">\((T-1)/T\)</span> of its tokens to other GPUs (since only <span class="math inline">\(1/T\)</span> of experts are local). For a model with many MoE layers – DeepSeek-V3 has MoE in every other transformer block – this all-to-all traffic adds up.</p>
 </section>
 <section id="load-balancing" class="level3">
 <h3 class="anchored" data-anchor-id="load-balancing">Load balancing</h3>
 <p>A practical challenge with EP is <strong>load imbalance</strong>. If the router sends most tokens to a few popular experts, the GPUs holding those experts become bottlenecks while others sit idle. Training-time auxiliary losses encourage balanced routing, but inference workloads may still exhibit skewed expert utilization. Some systems address this by placing popular experts on multiple GPUs (expert replication) or by capping the number of tokens each expert processes and dropping overflow tokens.</p>
+<p>Advanced routing strategies for EP try to colocate experts that are frequently co-activated on the same GPU, reducing the all-to-all communication. This is accomplished during training using techniques such as additional routing terms in the loss function <span class="citation" data-cites="liu2024deepseekv2">(<a href="references.html#ref-liu2024deepseekv2" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024a</a>)</span> and learnable bias weights in the routing network <span class="citation" data-cites="liu2024deepseekv3">(<a href="references.html#ref-liu2024deepseekv3" role="doc-biblioref"><span class="nocase">Liu et al.</span> 2024b</a>)</span>.</p>
 <p>EP pairs naturally with TP and PP. A common configuration for large MoE models is TP within a node for the attention layers and EP across nodes for the expert layers, since the all-to-all communication pattern of EP is more tolerant of network latency than the all-reduce pattern of TP.</p>
 </section>
 </section>
 <section id="sec-sequence-parallelism" class="level2" data-number="7.6">
 <h2 data-number="7.6" class="anchored" data-anchor-id="sec-sequence-parallelism"><span class="header-section-number">7.6</span> Context / Sequence Parallelism (CP/SP)</h2>
-<p>The parallelism strategies we’ve covered so far partition the model. <strong>Context parallelism</strong> (also called <strong>sequence parallelism</strong>) partitions the input sequence – splitting a long sequence of tokens across multiple GPUs so that each GPU processes a subsequence.</p>
+<p>The parallelism strategies we’ve covered so far partition the model. <strong>Context parallelism</strong> (also called <strong>sequence parallelism</strong>) partitions the input sequence, splitting a long sequence of tokens across multiple GPUs so that each GPU processes a subsequence.</p>
 <p>This is primarily useful during <strong>prefill</strong> of long contexts. If you’re processing a 128K-token prompt, the attention computation is <span class="math inline">\(O(\textcolor{#DC2626}{\text{S}}^2)\)</span> and the KV cache for that single request may not fit on one GPU. Splitting the sequence across 4 GPUs gives each one a 32K-token chunk to process.</p>
 <section id="ring-attention" class="level3">
 <h3 class="anchored" data-anchor-id="ring-attention">Ring attention</h3>
-<p><strong>Ring self-attention</strong> <span class="citation" data-cites="li2021ring">(<a href="references.html#ref-li2021ring" role="doc-biblioref">Li et al. 2021</a>)</span> arranges the GPUs in a logical ring. Each GPU starts with a local chunk of queries and an initial chunk of keys and values. Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks. After <strong>T</strong> steps (where <strong>T</strong> is the number of GPUs), every GPU has computed attention over the full sequence. This pattern is depicted in <a href="#fig-ring-attn" class="quarto-xref">Figure&nbsp;<span>7.6</span></a> for <strong>T</strong> = 4 GPUs.</p>
+<p><strong>Ring self-attention</strong> <span class="citation" data-cites="li2021ring">(<a href="references.html#ref-li2021ring" role="doc-biblioref">Li et al. 2021</a>)</span> arranges the GPUs in a logical ring. Each GPU starts with a local chunk of queries and an initial chunk of keys and values. Through a series of ring-pass steps, the K/V chunks rotate around the ring, and each GPU accumulates partial attention scores from all chunks. After <strong>T</strong> steps (where <strong>T</strong> is the number of GPUs), every GPU has computed attention over the full sequence. This pattern is depicted in <a href="#fig-ring-attn" class="quarto-xref">Figure&nbsp;<span>7.8</span></a> for <strong>T</strong> = 4 GPUs.</p>
 <div id="fig-ring-attn" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-ring-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="images/ring_attention.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-6" title="Figure&nbsp;7.6: Ring attention calculation"><img src="images/ring_attention.svg" class="img-fluid figure-img"></a>
+<a href="images/ring_attention.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-8" title="Figure&nbsp;7.8: Ring attention calculation"><img src="images/ring_attention.svg" class="img-fluid figure-img"></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ring-attn-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.6: Ring attention calculation
+Figure&nbsp;7.8: Ring attention calculation
 </figcaption>
 </figure>
 </div>
@@ -589,16 +614,16 @@ Figure&nbsp;7.6: Ring attention calculation
 </section>
 <section id="deepspeed-ulysses" class="level3">
 <h3 class="anchored" data-anchor-id="deepspeed-ulysses">DeepSpeed Ulysses</h3>
-<p><strong>DeepSpeed Ulysses</strong> <span class="citation" data-cites="jacobs2023ulysses">(<a href="references.html#ref-jacobs2023ulysses" role="doc-biblioref">Jacobs et al. 2023</a>)</span> takes a different approach. Instead of passing K/V chunks around a ring, it uses all-to-all communication to transpose the Q, K, and V tensors from a sequence-partitioned layout to a head-partitioned layout. Each GPU then computes full-sequence attention for its subset of heads – equivalent to tensor parallelism’s head-based split, but derived from a sequence-partitioned starting point. After attention, another all-to-all transposes back.</p>
+<p><strong>DeepSpeed Ulysses</strong> <span class="citation" data-cites="jacobs2023ulysses">(<a href="references.html#ref-jacobs2023ulysses" role="doc-biblioref">Jacobs et al. 2023</a>)</span> leverages the multi-head nature of attention. Instead of passing K/V chunks around a ring, it uses all-to-all communication to transpose the Q, K, and V tensors from a sequence-partitioned layout to a head-partitioned layout. Each GPU then computes full-sequence attention for its subset of heads, equivalent to tensor parallelism’s head-based split, but derived from a sequence-partitioned starting point. After attention, another all-to-all transposes back.</p>
 <p>The advantage of this approach is that each GPU computes standard FlashAttention on its local heads without the complexity of incremental partial-attention accumulation. The cost is two all-to-all operations per attention layer.</p>
 </section>
 <section id="flashdecoding" class="level3">
 <h3 class="anchored" data-anchor-id="flashdecoding">FlashDecoding</h3>
-<p><strong>FlashDecoding</strong> is worth mentioning here even though it operates within a single GPU. It parallelizes the attention computation across the KV sequence dimension – splitting the cached keys and values across multiple thread blocks that compute partial attention in parallel, then reducing the results. This addresses the problem that during decode, the single query token produces very little parallelism across the head dimension, leaving most of the GPU idle. FlashDecoding gives the GPU more work to do in parallel by splitting the “long” dimension – the cached sequence.</p>
+<p><strong>FlashDecoding</strong> is worth mentioning here even though it operates within a single GPU. It parallelizes the attention computation across the KV sequence dimension, splitting the cached keys and values across multiple thread blocks that compute partial attention in parallel, then reducing the results. This addresses the problem that during decode, the single query token produces very little parallelism across the head dimension, leaving most of the GPU idle. FlashDecoding gives the GPU more work to do in parallel by splitting the “long” dimension, which is the cached sequence.</p>
 </section>
 <section id="when-sequence-parallelism-helps" class="level3">
 <h3 class="anchored" data-anchor-id="when-sequence-parallelism-helps">When sequence parallelism helps</h3>
-<p>Context parallelism is most effective for <strong>long-context prefill</strong>, where the sequence length creates both a compute and memory bottleneck. For short-context decode – the common case for most serving workloads – the sequence dimension is short and there’s little benefit to splitting it further. The overhead of the extra communication typically outweighs any gains.</p>
+<p>Context parallelism is most effective for <strong>long-context prefill</strong>, where the sequence length creates both a compute and memory bottleneck. For short-context decode, the sequence dimension is short and there’s little benefit to splitting it further. The overhead of the extra communication typically outweighs any gains from utilizing multiple devices.</p>
 </section>
 </section>
 <section id="sec-communication-cost" class="level2" data-number="7.7">
@@ -661,32 +686,36 @@ Table&nbsp;7.2: Communication patterns and costs for each parallelism strategy. 
 </div>
 </figure>
 </div>
-<p>The key observation is that <strong>TP is the most communication-hungry</strong> strategy, requiring two all-reduce operations per layer. This is why TP is confined to within a single node over NVLink. PP has the lightest communication – just a single activation tensor between adjacent stages – making it the natural choice for spanning nodes.</p>
+<p>The key observation is that <strong>TP is the most communication-hungry</strong> strategy, requiring two all-reduce operations per layer. This is why TP is confined to within a single node over NVLink. PP has the lightest communication — just a single activation tensor between adjacent stages — making it the natural choice for spanning nodes.</p>
 <section id="combined-tp-pp" class="level3">
 <h3 class="anchored" data-anchor-id="combined-tp-pp">Combined TP + PP</h3>
 <p>The most common multi-node configuration is <strong>TP within a node, PP across nodes</strong>. For example, serving a 70B model on 2 nodes of 8 GPUs each: use TP=8 within each node (splitting layers across all 8 GPUs via NVLink), and PP=2 across the two nodes (first half of layers on node 1, second half on node 2). The frequent all-reduces stay on the fast NVLink fabric, and only the occasional activation transfer crosses the network.</p>
 </section>
+<section id="combining-ep-with-other-strategies" class="level3">
+<h3 class="anchored" data-anchor-id="combining-ep-with-other-strategies">Combining EP with other strategies</h3>
+<p>Combining EP with other strategies works slightly differently because EP only uses a subset of a layer’s experts for each token. DP, TP, and PP always require all devices to fully participate for each token. The averaging of work across devices with EP is more complex, and averages better with larger numbers that smooth out the routing decisions. Whereas simple DP can be performed with replicas that don’t interact, DP with EP works better if the replicas share load balancing of EP across devices. It’s also difficult to manage multiple communication patterns simultaneously. This is the reason why vLLM reuses the DP / TP communications mesh for EP, rather than introducing a separate communication mesh just for the experts.</p>
+</section>
 <section id="communication-bound-regime" class="level3">
 <h3 class="anchored" data-anchor-id="communication-bound-regime">Communication-bound regime</h3>
-<p>When does communication become the bottleneck? During decode with small batch sizes, the per-layer computation is tiny (a few matrix-vector multiplications), and each layer’s all-reduce – even if it’s only transferring tens of KB – has a latency floor that can dominate. The all-reduce latency depends on both bandwidth and the number of sequential steps in the algorithm.</p>
-<p>A useful rule of thumb: if the communication time per layer exceeds the compute time per layer, you’ve over-parallelized. Adding more TP devices beyond this point will increase latency rather than decrease it, because you’re spending more time synchronizing than computing. This is why TP=8 is a common sweet spot on 8-GPU nodes – it matches the NVLink connectivity – and going to TP=16 across nodes rarely makes sense.</p>
+<p>When does communication become the bottleneck? During decode with small batch sizes, the per-layer computation is tiny (a few matrix-vector multiplications), and each layer’s all-reduce, even if it’s only transferring tens of KB, has a latency floor that can dominate. The all-reduce latency depends on both bandwidth and the number of sequential steps in the algorithm.</p>
+<p>A useful rule of thumb: if the communication time per layer exceeds the compute time per layer, you’ve over-parallelized. Adding more TP devices beyond this point will increase latency rather than decrease it, because you’re spending more time synchronizing than computing. This is why TP=8 is a common sweet spot on 8-GPU nodes. It matches the NVLink connectivity, and going to TP=16 across nodes rarely makes sense. Note also that TP up to the number of KV heads efficiently shards the KV cache, but beyond that, requires replication of the KV cache across devices, which is less beneficial.</p>
 </section>
 </section>
 <section id="sec-multi-node" class="level2" data-number="7.8">
 <h2 data-number="7.8" class="anchored" data-anchor-id="sec-multi-node"><span class="header-section-number">7.8</span> Multi-Node Inference</h2>
-<p>When a model is too large for a single node – or when you need more throughput than one node can provide – you’re in multi-node territory. This introduces the network as a hard constraint on performance.</p>
+<p>When a model is too large for a single node, or when you need more throughput than one node can provide, you’re in multi-node territory. This introduces the network as a hard constraint on performance.</p>
 <section id="network-latency-as-a-floor" class="level3">
 <h3 class="anchored" data-anchor-id="network-latency-as-a-floor">Network latency as a floor</h3>
 <p>During decode, each token generation requires a full forward pass through the model. If that forward pass spans two nodes connected by InfiniBand, each pipeline stage boundary (or TP all-reduce, if you’re running TP across nodes) adds network latency. InfiniBand NDR round-trip latency is roughly 2-5 μs, compared to ~100 ns for NVLink. This latency is per layer for TP or per stage for PP, and it accumulates across the forward pass.</p>
-<p>For a model using PP=2 across nodes, the activation transfer between stages adds a few microseconds per decode step. That’s usually acceptable. But for TP across nodes, where you need two all-reduces per layer across potentially 80+ layers, the cumulative latency can add milliseconds to each token, directly increasing TPOT (see <a href="inference.html#sec-metrics" class="quarto-xref"><span>Section 3.2</span></a>).</p>
+<p>For a model using PP=2 across nodes, the activation transfer between stages adds a few microseconds per decode step. That’s usually acceptable. But for TP across nodes, where you need two all-reduces per layer across potentially 80+ layers, the cumulative latency can add milliseconds to each token, directly increasing TPOT.</p>
 </section>
 <section id="practical-deployment-patterns" class="level3">
 <h3 class="anchored" data-anchor-id="practical-deployment-patterns">Practical deployment patterns</h3>
 <p>In practice, multi-node inference for large models follows a few common patterns:</p>
 <ul>
+<li><strong>DP across nodes</strong>: when the model fits on a single node, the simplest scale-out is running independent replicas. No cross-node communication during inference at all.</li>
 <li><strong>TP within node, PP across nodes</strong>: the standard approach, as discussed above. Minimizes cross-node communication.</li>
 <li><strong>TP within node, EP across nodes for MoE</strong>: expert parallelism’s all-to-all pattern is more latency-tolerant than TP’s all-reduce, making it more viable across nodes.</li>
-<li><strong>DP across nodes</strong>: when the model fits on a single node, the simplest scale-out is running independent replicas. No cross-node communication during inference at all.</li>
 </ul>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -706,14 +735,14 @@ Note
 <h3 class="anchored" data-anchor-id="memory-and-kv-cache-considerations">Memory and KV cache considerations</h3>
 <p>One often-overlooked benefit of distributing a model across more GPUs is that it frees up memory for the <strong>KV cache</strong>. If a 70B FP16 model uses 140 GB across 8 GPUs (17.5 GB per GPU), that leaves about 62 GB per GPU on H100 for KV cache and activations. With quantized weights (e.g., INT4), the model only consumes ~35 GB total, leaving even more room. More KV cache memory means you can serve larger batches or longer sequences, directly improving throughput.</p>
 <p>This is a genuine advantage of tensor parallelism beyond just enabling large models: by spreading weight memory across more devices, you increase the aggregate memory available for serving. Combined with KV cache sharding from GQA/MQA models (<a href="model-design.html#sec-efficient-attention" class="quarto-xref"><span>Section 4.4</span></a>) and PagedAttention (<a href="request.html#sec-kv-cache" class="quarto-xref"><span>Section 6.3</span></a>), multi-GPU setups can serve substantially more concurrent requests than the raw parameter count might suggest.</p>
-<p>The next chapter (<a href="production.html" class="quarto-xref"><span>Chapter 8</span></a>) will discuss how all of these techniques come together in production serving systems, including how frameworks like vLLM and TensorRT-LLM configure parallelism strategies automatically based on available hardware.</p>
+<p>The next chapter (<a href="production.html" class="quarto-xref"><span>Chapter 8</span></a>) will share how all of these techniques come together in production serving systems, including how frameworks like vLLM and TensorRT-LLM configure parallelism strategies automatically based on available hardware.</p>
 </section>
 </section>
 <section id="sec-further-scaling" class="level2" data-number="7.9">
 <h2 data-number="7.9" class="anchored" data-anchor-id="sec-further-scaling"><span class="header-section-number">7.9</span> Further Reading</h2>
 <p><strong>Overviews of parallelism strategies.</strong> Lilian Weng’s “How to Train Really Large Models on Many GPUs?” <span class="citation" data-cites="weng2021trainlarge">(<a href="references.html#ref-weng2021trainlarge" role="doc-biblioref">Weng 2021</a>)</span> is the most widely recommended introduction to all the parallelism strategies covered in this chapter. It covers data, tensor, pipeline, and expert parallelism with clear diagrams. The writing is from a training perspective, but the forward-pass mechanics are identical for inference. The Hugging Face documentation on parallelism methods <span class="citation" data-cites="hf2024parallelism">(<a href="references.html#ref-hf2024parallelism" role="doc-biblioref">Hugging Face 2024</a>)</span> is a good practical companion, with a decision table for choosing a strategy based on your hardware setup.</p>
-<p><strong>The hardware perspective.</strong> “How to Scale Your Model” <span class="citation" data-cites="austin2025scaling">(<a href="references.html#ref-austin2025scaling" role="doc-biblioref">Austin et al. 2025</a>)</span>, an online book from the JAX team at Google DeepMind, approaches parallelism from the hardware up. It starts with GPU and TPU architecture, works through the roofline model, and then explains each parallelism strategy in terms of the communication costs they impose on different interconnects. The chapter on how to parallelize a transformer for training is especially relevant.</p>
-<p><strong>Scaling inference specifically.</strong> <span class="citation" data-cites="pope2022scaling">Pope et al. (<a href="references.html#ref-pope2022scaling" role="doc-biblioref">2022</a>)</span> is one of the best analyses of how parallelism strategies interact with the unique characteristics of inference – the distinction between prefill and decode, the impact of batch size on communication-to-compute ratio, and the tradeoffs between latency and throughput. For a more recent and practical treatment, Meta’s engineering blog post on scaling LLM inference <span class="citation" data-cites="zhao2025metascaling">(<a href="references.html#ref-zhao2025metascaling" role="doc-biblioref">Zhao et al. 2025</a>)</span> covers how they combine tensor, context, and expert parallelism in production, including their work on context parallelism for million-token sequences.</p>
+<p><strong>The hardware perspective.</strong> “How to Scale Your Model” <span class="citation" data-cites="austin2025scaling">(<a href="references.html#ref-austin2025scaling" role="doc-biblioref">Austin et al. 2025</a>)</span>, an online book from the JAX team at Google DeepMind, approaches parallelism from the hardware up. It starts with the TPU architecture, works through the roofline model, and then explains each parallelism strategy in terms of the communication costs they impose on different interconnects. Much of the focus is on training, but there is a chapter dedicated to inference, and all of the content is rich with details.</p>
+<p><strong>Scaling inference specifically.</strong> <span class="citation" data-cites="pope2022scaling">Pope et al. (<a href="references.html#ref-pope2022scaling" role="doc-biblioref">2022</a>)</span> is one of the best analyses of how parallelism strategies interact with the unique characteristics of inference — the distinction between prefill and decode, the impact of batch size on communication-to-compute ratio, and the tradeoffs between latency and throughput. For a more recent and practical treatment, Meta’s engineering blog post on scaling LLM inference <span class="citation" data-cites="zhao2025metascaling">(<a href="references.html#ref-zhao2025metascaling" role="doc-biblioref">Zhao et al. 2025</a>)</span> covers how they combine tensor, context, and expert parallelism in production, including their work on context parallelism for million-token sequences.</p>
 <p><strong>Mixture of Experts.</strong> The Hugging Face blog post “Mixture of Experts Explained” <span class="citation" data-cites="sanseviero2023moe">(<a href="references.html#ref-sanseviero2023moe" role="doc-biblioref">Sanseviero et al. 2023</a>)</span> provides an accessible introduction to MoE architectures, including the routing mechanism, load balancing challenges, and how expert parallelism fits into the picture. For the systems-level challenges of serving MoE models at scale, the AlpaServe paper <span class="citation" data-cites="li2023alpaserve">(<a href="references.html#ref-li2023alpaserve" role="doc-biblioref">Z. Li et al. 2023</a>)</span> explores how to automatically determine parallelism strategies across heterogeneous clusters, balancing latency constraints against hardware utilization.</p>
 
 
@@ -735,6 +764,12 @@ Li, Shenggui, Fuzhao Xue, Chaitanya Baranwal, Yongbin Li, and Yang You. 2021. <s
 </div>
 <div id="ref-li2023alpaserve" class="csl-entry" role="listitem">
 Li, Zhuohan, Lianmin Zheng, Yinmin Zhong, et al. 2023. <span>“<span>AlpaServe</span>: Statistical Multiplexing with Model Parallelism for Deep Learning Serving.”</span> <em>arXiv Preprint arXiv:2302.11665</em>. <a href="https://arxiv.org/abs/2302.11665">https://arxiv.org/abs/2302.11665</a>.
+</div>
+<div id="ref-liu2024deepseekv2" class="csl-entry" role="listitem">
+<span class="nocase">Liu, Aixin et al.</span> 2024a. <span>“<span>DeepSeek-V2</span>: A Strong, Economical, and Efficient Mixture-of-Experts Language Model.”</span> <em>arXiv Preprint arXiv:2405.04434</em>. <a href="https://arxiv.org/abs/2405.04434">https://arxiv.org/abs/2405.04434</a>.
+</div>
+<div id="ref-liu2024deepseekv3" class="csl-entry" role="listitem">
+<span class="nocase">Liu, Aixin et al.</span> 2024b. <span>“<span>DeepSeek-V3</span> Technical Report.”</span> <em>arXiv Preprint arXiv:2412.19437</em>. <a href="https://arxiv.org/abs/2412.19437">https://arxiv.org/abs/2412.19437</a>.
 </div>
 <div id="ref-nvidia2023h100" class="csl-entry" role="listitem">
 NVIDIA. 2023. <span>“<span>NVIDIA H100 Tensor Core GPU</span>.”</span> <a href="https://www.nvidia.com/en-us/data-center/h100/">https://www.nvidia.com/en-us/data-center/h100/</a>.

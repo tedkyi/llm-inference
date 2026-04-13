@@ -28,7 +28,7 @@ First, its **RadixAttention** system extends prefix caching beyond simple exact-
 It organizes the KV cache as a radix tree keyed by token sequences, enabling automatic, fine-grained prefix sharing across requests (@sec-prefix-caching).
 When many requests share system prompts, few-shot examples, or RAG context, this can dramatically reduce redundant prefill computation.
 
-Second, SGLang provides a programming model for **multi-call LLM programs** -- workflows where a single user interaction involves multiple LLM calls with branching logic, structured output constraints, or iterative refinement.
+Second, SGLang provides a programming model for **multi-call LLM programs** --- workflows where a single user interaction involves multiple LLM calls with branching logic, structured output constraints, or iterative refinement.
 By co-designing the serving engine with this programming model, SGLang can optimize across calls in ways that a stateless API cannot.
 
 ### TensorRT-LLM
@@ -87,25 +87,25 @@ While we won't discuss them here, the top inference engines for local deployment
 
 ## Multi-LoRA Serving {#sec-multi-lora}
 
-In many production deployments, you don't just serve one model -- you serve many fine-tuned variants of the same base model.
+In many production deployments, you don't just serve one model --- you serve many fine-tuned variants of the same base model.
 Different customers, tasks, or use cases each have their own adapter, and loading a separate full model for each one is wildly impractical.
 **Multi-LoRA serving** solves this by keeping a single copy of the base model weights in GPU memory and hot-swapping lightweight LoRA adapters at request time.
 
-A LoRA adapter modifies the base model by adding low-rank update matrices to specific layers -- typically the attention projections.
+A LoRA adapter modifies the base model by adding low-rank update matrices to specific layers --- typically the attention projections.
 These adapters are small, often just tens of megabytes compared to the base model's tens of gigabytes.
 This size difference is what makes the whole approach work: you can keep the base model loaded and swap adapters in and out without the memory cost of maintaining multiple full model copies.
 
 The serving framework needs to handle three things for multi-LoRA to work well:
 
 1. **Adapter routing**: Each incoming request specifies which adapter to use. The system must route the request to the correct adapter and apply it during the forward pass.
-2. **Adapter memory management**: Popular adapters can be kept resident in GPU memory. Less frequently used adapters are loaded on demand from CPU memory or storage. The system needs an eviction policy -- typically LRU -- to manage which adapters are resident.
+2. **Adapter memory management**: Popular adapters can be kept resident in GPU memory. Less frequently used adapters are loaded on demand from CPU memory or storage. The system needs an eviction policy --- typically LRU --- to manage which adapters are resident.
 3. **Batching across adapters**: Requests using different adapters can still be batched together for the base model computation. The adapter-specific computation (the low-rank matrix multiplies) is applied per-request. This means you get most of the batching benefits of shared base weights while still serving personalized models.
 
 Both vLLM and SGLang support multi-LoRA serving, with adapter management integrated into their scheduling and memory systems.
 
 ## Scheduling and Orchestration {#sec-orchestration}
 
-The scheduling strategies from @sec-scheduling operate at the level of a single serving instance -- one model on one set of GPUs.
+The scheduling strategies from @sec-scheduling operate at the level of a single serving instance --- one model on one set of GPUs.
 In production, you often need to coordinate across a fleet of instances, potentially running different models on different hardware.
 
 ### Multi-model routing
@@ -117,7 +117,7 @@ This **quality-tier routing** can significantly reduce cost while maintaining qu
 
 ### Load balancing across replicas
 
-When you scale out with data parallelism -- running multiple identical copies of the same model -- you need a load balancer that understands LLM workload characteristics.
+When you scale out with data parallelism --- running multiple identical copies of the same model --- you need a load balancer that understands LLM workload characteristics.
 Naive round-robin doesn't work well because requests vary enormously in cost.
 A request with a 10,000-token prompt and 2,000-token output takes orders of magnitude more resources than a 100-token prompt with a 50-token output.
 Load balancers that account for estimated request cost (based on input length and expected output length) distribute work more evenly.
@@ -133,7 +133,7 @@ Production systems typically monitor queue depths on both pools and auto-scale t
 
 ### Heterogeneous hardware
 
-Large deployments often mix GPU generations -- perhaps H100s for the most latency-sensitive traffic and A100s or older GPUs for batch workloads.
+Large deployments often mix GPU generations --- perhaps H100s for the most latency-sensitive traffic and A100s or older GPUs for batch workloads.
 The orchestration layer must route requests based on both the model's requirements and each hardware pool's capabilities and current load.
 
 ## Memory Management and Preemption {#sec-memory-preemption}
@@ -147,7 +147,7 @@ When many concurrent requests share the same GPU, the KV cache dominates memory 
 Each active request's cache grows with every decode step, and different requests may have very different sequence lengths.
 The serving framework must track per-request memory consumption and make admission decisions: can we accept this new request, or will it push us over our memory budget?
 
-PagedAttention helps by eliminating fragmentation -- memory is allocated in pages and freed when requests complete.
+PagedAttention helps by eliminating fragmentation --- memory is allocated in pages and freed when requests complete.
 But even with perfect paging, the total KV cache demand can exceed available memory when the system is under heavy load or processing long-context requests.
 
 ### Preemption policies
@@ -161,12 +161,12 @@ The choice between swap and recompute involves a tradeoff:
 - **Swap** preserves the computation already done but requires CPU memory and PCIe bandwidth to move the KV cache. For long sequences with large KV caches, the transfer time can be significant.
 - **Recompute** avoids the transfer cost but wastes the prefill work. For short sequences, recompute is often cheaper than swap.
 
-Production systems typically use **priority-based preemption** -- lower-priority requests are evicted first, and SLA-aware policies protect requests that are close to completing or that belong to higher-priority tiers.
+Production systems typically use **priority-based preemption** --- lower-priority requests are evicted first, and SLA-aware policies protect requests that are close to completing or that belong to higher-priority tiers.
 
 ### Graceful degradation
 
 Under sustained overload, the goal shifts from maximizing throughput to avoiding cascading failures.
-**Request shedding** -- rejecting new requests at the admission layer when the system is at capacity -- is blunt but effective.
+**Request shedding** --- rejecting new requests at the admission layer when the system is at capacity --- is blunt but effective.
 More sophisticated approaches include dynamically reducing maximum sequence lengths, lowering batch sizes, or routing overflow traffic to a degraded service tier that uses a smaller, faster model.
 
 ## Monitoring and Benchmarking {#sec-monitoring}
@@ -191,14 +191,14 @@ The metrics that matter most in production go beyond averages:
 : Key production metrics and their diagnostic value. {#tbl-metrics .striped}
 
 Percentile latencies (P50, P90, P99) are essential because averages hide tail behavior.
-A system can have a perfectly acceptable P50 TTFT of 200ms while its P99 is 5 seconds -- meaning one in a hundred users waits 25x longer than the median user.
+A system can have a perfectly acceptable P50 TTFT of 200ms while its P99 is 5 seconds --- meaning one in a hundred users waits 25x longer than the median user.
 Production SLAs are typically defined at the P99 level.
 
 ### Instrumentation
 
 Most production deployments use **Prometheus** [@prometheus2024docs] for metrics collection and **Grafana** [@grafana2024docs] for dashboarding.
 vLLM, SGLang, and TensorRT-LLM all expose Prometheus-compatible metrics endpoints.
-For distributed tracing across the full request lifecycle -- from the load balancer through the serving engine to response delivery -- **OpenTelemetry** [@opentelemetry2024] provides a standard instrumentation layer.
+For distributed tracing across the full request lifecycle --- from the load balancer through the serving engine to response delivery --- **OpenTelemetry** [@opentelemetry2024] provides a standard instrumentation layer.
 
 ### Benchmarking
 
@@ -232,7 +232,7 @@ This is particularly damaging in mixed-workload deployments where most requests 
 
 ### Thundering herd
 
-A burst of simultaneous requests -- perhaps triggered by a traffic spike, a retry storm, or a batch job -- overwhelms the KV cache allocator and scheduler.
+A burst of simultaneous requests --- perhaps triggered by a traffic spike, a retry storm, or a batch job --- overwhelms the KV cache allocator and scheduler.
 The system attempts to admit all requests at once, runs out of memory, and begins preempting aggressively, which compounds the problem.
 
 **Mitigation**: Admission control with request queuing and rate limiting. Gradually ramp admitted requests rather than accepting the full burst. Backpressure signals to upstream load balancers allow the fleet to absorb traffic spikes across replicas.
@@ -253,7 +253,7 @@ A system that gracefully sheds 10% of requests under a load spike is far better 
 
 vLLM has become the most widely deployed open-source LLM serving framework, and it's worth understanding why.
 The short answer is breadth: vLLM implements nearly every optimization technique we've covered in this book, from PagedAttention and chunked prefill through speculative decoding and expert parallelism.
-But breadth alone doesn't explain adoption -- the design decisions behind how these techniques fit together matter just as much.
+But breadth alone doesn't explain adoption --- the design decisions behind how these techniques fit together matter just as much.
 This section walks through those decisions, focusing on what's distinctive about vLLM's implementation rather than re-explaining the underlying techniques.
 
 ### The V1 architecture {#sec-vllm-v1}
@@ -263,23 +263,23 @@ By the time it supported prefix caching, speculative decoding, chunked prefill, 
 The **V1 redesign** [@vllm2025v1] addressed this by rethinking the core abstractions.
 
 The most visible change is the **persistent batch**.
-In V0, each scheduling step constructed a new set of input tensors from scratch -- assembling token IDs, position indices, and attention metadata for every request in the batch.
+In V0, each scheduling step constructed a new set of input tensors from scratch --- assembling token IDs, position indices, and attention metadata for every request in the batch.
 V1 caches these tensors and applies only incremental diffs each step.
 If a batch of 200 requests produces one token each, V1 updates 200 entries rather than rebuilding the entire input.
 This sounds like a minor optimization, but the CPU overhead of tensor construction was a real bottleneck at high batch sizes, and eliminating it delivers up to 1.7x higher throughput compared to V0 [@vllm2025v1].
 
 The second major change is **symmetric tensor parallelism**.
 In V0, the scheduler ran on rank 0 and broadcast full request state to all other TP ranks every step.
-V1 caches request state on every worker and transmits only diffs -- new requests entering the batch and completed requests leaving it.
+V1 caches request state on every worker and transmits only diffs --- new requests entering the batch and completed requests leaving it.
 This removes the asymmetry where rank 0 was doing substantially more work than the other ranks, and it reduces the communication volume between the scheduler and the workers.
 
 V1 also embraces `torch.compile` as a first-class optimization path.
 Rather than relying entirely on hand-written custom CUDA kernels, V1 passes models through PyTorch's Inductor compiler and then applies vLLM-specific fusion passes on top [@vllm2024fusions].
-The compiler handles the boilerplate optimizations -- operator fusion, memory planning, kernel selection -- while custom passes add inference-specific fusions like RMSNorm + quantization and SiLU + quantized linear.
+The compiler handles the boilerplate optimizations --- operator fusion, memory planning, kernel selection --- while custom passes add inference-specific fusions like RMSNorm + quantization and SiLU + quantized linear.
 This is a deliberate bet on maintainability: as new GPU architectures arrive, `torch.compile` can retarget them without rewriting kernel code.
 
 Finally, V1 uses **piecewise CUDA graphs** aligned with its compilation strategy.
-The computation graph is split at attention operations -- which need dynamic shapes because the batch composition changes every step -- and CUDA graphs capture everything between them.
+The computation graph is split at attention operations --- which need dynamic shapes because the batch composition changes every step --- and CUDA graphs capture everything between them.
 This gives most of the kernel launch overhead reduction of full CUDA graphs while preserving the flexibility that attention requires [@vllm2025v1].
 
 ### Scheduling and memory management {#sec-vllm-scheduling}
@@ -289,20 +289,20 @@ This is the same continuous batching approach used by other frameworks, but vLLM
 
 **Chunked prefill** is the default scheduling mode.
 Long prompts are split into chunks by capping the number of new tokens processed per step.
-The scheduler fills each step by first allocating budget to decode requests -- since each one needs only a single token -- and then filling the remaining budget with pending prefill chunks.
+The scheduler fills each step by first allocating budget to decode requests --- since each one needs only a single token --- and then filling the remaining budget with pending prefill chunks.
 This prioritization is what keeps inter-token latency stable for requests that are already generating: decode steps are never blocked behind a large prefill.
 
 **Priority-based scheduling** lets you assign integer priorities to requests, and the scheduler dynamically reorders both the waiting and running queues.
-If a running request has lower priority than a waiting request, the scheduler can forcefully preempt it -- swapping or freeing its KV cache blocks -- to make room for the higher-priority request immediately.
+If a running request has lower priority than a waiting request, the scheduler can forcefully preempt it --- swapping or freeing its KV cache blocks --- to make room for the higher-priority request immediately.
 This goes beyond the simple memory-pressure preemption described in @sec-memory-preemption: it's policy-driven preemption in service of request-level SLAs.
 
 When preemption is necessary, vLLM uses a hybrid strategy.
 It attempts to swap KV cache blocks to CPU memory first, preserving the computed state.
-If CPU memory is insufficient, it falls back to recomputation -- freeing the blocks and requeuing the request to recompute its KV cache when it's rescheduled.
+If CPU memory is insufficient, it falls back to recomputation --- freeing the blocks and requeuing the request to recompute its KV cache when it's rescheduled.
 The choice between swap and recompute is made automatically based on available resources, not configured manually.
 
 **SLA-aware scheduling** is at the RFC stage as of early 2026, but worth noting because it reflects where the project is heading.
-The proposal introduces SLA tiers -- interactive, batch, and background -- as the primary sort key for scheduling, with integer priority as a tie-breaker within a tier.
+The proposal introduces SLA tiers --- interactive, batch, and background --- as the primary sort key for scheduling, with integer priority as a tie-breaker within a tier.
 SLA tier would also influence preemption order under memory pressure: background requests are evicted first, then batch, then interactive.
 This is a natural extension of the priority-based scheduling already in place, moving from raw integer priorities toward semantically meaningful service classes.
 
@@ -314,7 +314,7 @@ KV cache blocks can also be swapped to CPU memory during preemption, effectively
 **Prefix caching** is enabled by default in V1 with near-zero overhead [@vllm2025v1].
 vLLM's approach hashes each KV block using the tokens it contains plus all preceding tokens, then stores these hashes in a global table.
 When a new request shares a prefix with a cached request, the matching blocks are reused without recomputation.
-The eviction policy is LRU among blocks with a reference count of zero, with ties broken by evicting the block at the end of the longest cached prefix -- an approach that produces equivalent behavior to SGLang's RadixAttention for standard full-attention models.
+The eviction policy is LRU among blocks with a reference count of zero, with ties broken by evicting the block at the end of the longest cached prefix --- an approach that produces equivalent behavior to SGLang's RadixAttention for standard full-attention models.
 The V1 implementation achieves less than 1% throughput overhead even at a 0% cache hit rate, thanks to constant-time eviction data structures [@vllm2025v1].
 
 **KV cache quantization** provides an additional memory lever on top of paged allocation and prefix caching (@sec-kv-cache).
@@ -330,7 +330,7 @@ Instead, it auto-selects from a menu of backends based on the GPU architecture, 
 The selection logic follows GPU compute capability [@vllm2024attention]:
 
 - **FlashAttention-2** is the default on Ada Lovelace (SM89) and earlier CUDA GPUs.
-- **FlashAttention-3** is the default on Hopper (SM90) GPUs. It exploits Hopper-specific features -- warp specialization, FP8 tensor cores, asynchronous memory operations -- and is essential for V1's mixed prefill/decode batching where batch composition is highly dynamic.
+- **FlashAttention-3** is the default on Hopper (SM90) GPUs. It exploits Hopper-specific features --- warp specialization, FP8 tensor cores, asynchronous memory operations --- and is essential for V1's mixed prefill/decode batching where batch composition is highly dynamic.
 - **FlashAttention-4** is the default on Blackwell (SM100+) GPUs.
 - **FlashInfer** provides a unified API that abstracts over multiple kernel implementations and JIT-compiles CUDA kernels for the target architecture. It serves as the primary backend on NVIDIA HGX B200 systems [@vllm2024attention].
 - **Triton attention** is implemented entirely in Triton [@tillet2019triton] and carries no external kernel dependencies [@vllm2026triton]. The same source code runs on NVIDIA, AMD, and Intel GPUs, making it the cross-platform fallback when FlashAttention or FlashInfer are unavailable.
@@ -343,25 +343,25 @@ The specific fusions include:
 - **QK norm + RoPE fusion**: combines split QKV, reshape, Q/K RMSNorm, and rotary embedding into a single kernel
 - **RMSNorm + quantization**: eliminates an intermediate read/write of the full-precision activation tensor
 
-These fusions are applied automatically when `torch.compile` is enabled -- you don't need to select or configure them individually.
+These fusions are applied automatically when `torch.compile` is enabled --- you don't need to select or configure them individually.
 
 ### Parallelism {#sec-vllm-parallelism}
 
-vLLM supports all four major parallelism strategies -- data parallelism (DP), tensor parallelism (TP), pipeline parallelism (PP), and expert parallelism (EP) -- but the way they compose is worth understanding, especially for Mixture-of-Experts models.
+vLLM supports all four major parallelism strategies --- data parallelism (DP), tensor parallelism (TP), pipeline parallelism (PP), and expert parallelism (EP) --- but the way they compose is worth understanding, especially for Mixture-of-Experts models.
 
 The standard pattern for dense models is **TP within a node and PP across nodes** (@sec-tensor-parallelism, @sec-pipeline-parallelism).
 TP shards individual layers across GPUs on the same node and synchronizes via AllReduce, while PP distributes layers sequentially across nodes.
 vLLM optimizes pipeline bubbles by processing multiple requests concurrently through the pipeline.
 
 For MoE models, the picture gets more interesting.
-**Expert parallelism is not a standalone strategy** -- it's a modifier flag (`--enable-expert-parallel`) that changes how experts are distributed within an existing TP or DP configuration [@amd2025moe].
+**Expert parallelism is not a standalone strategy** --- it's a modifier flag (`--enable-expert-parallel`) that changes how experts are distributed within an existing TP or DP configuration [@amd2025moe].
 
 Without the EP flag, all experts are present on every GPU with their weights sharded across devices, and synchronization uses AllReduce.
-With EP enabled alongside TP, experts are distributed across the TP GPUs -- different experts on different devices -- using AllToAll communication to route tokens to the correct expert.
+With EP enabled alongside TP, experts are distributed across the TP GPUs --- different experts on different devices --- using AllToAll communication to route tokens to the correct expert.
 With EP enabled alongside DP, experts are distributed across DP replicas, with AllToAll routing tokens across replicas.
 
 This distinction matters because the two combinations have very different performance profiles.
-TP+EP excels at low concurrency -- roughly 52% higher throughput than DP+EP at 64 concurrent requests for DeepSeek-R1.
+TP+EP excels at low concurrency --- roughly 52% higher throughput than DP+EP at 64 concurrent requests for DeepSeek-R1.
 But DP+EP dominates at high concurrency, with 47% higher throughput at 1024 concurrent requests.
 The crossover occurs around 256--512 concurrent requests [@amd2025moe].
 The reason is that DP+EP partitions the KV cache across replicas, so each replica handles a smaller share of the total batch.
@@ -372,11 +372,11 @@ MLA models have a single KV head, which means the KV cache can't be sharded alon
 Under TP, the full KV cache must be duplicated on every TP rank, wasting memory.
 DP+EP avoids this duplication, making it the preferred configuration for MLA models at scale.
 
-One more wrinkle: for **ultra-sparse models** with less than 1% activation density -- models like Llama-4-Maverick where very few experts fire per token -- enabling the EP flag actually hurts throughput by 7--12% [@amd2025moe].
+One more wrinkle: for **ultra-sparse models** with less than 1% activation density --- models like Llama-4-Maverick where very few experts fire per token --- enabling the EP flag actually hurts throughput by 7--12% [@amd2025moe].
 AllReduce is more efficient than AllToAll when the number of active experts is tiny, so the communication pattern that EP introduces costs more than it saves.
 
 **Disaggregated prefill** is available as an experimental feature [@vllm2025disagg].
-The idea (@sec-prefill-strategies) is to run two separate vLLM instances -- one dedicated to prefill (compute-bound) and one to decode (memory-bandwidth-bound) -- with a connector that transfers prefill KV caches from the prefill instance to the decode instance.
+The idea (@sec-prefill-strategies) is to run two separate vLLM instances --- one dedicated to prefill (compute-bound) and one to decode (memory-bandwidth-bound) --- with a connector that transfers prefill KV caches from the prefill instance to the decode instance.
 The motivation is that co-locating prefill and decode on the same GPUs forces suboptimal resource allocation, since the two phases have fundamentally different performance profiles.
 The vLLM Router (@sec-vllm-operational) supports this configuration natively, routing new requests to prefill workers and completed prefills to decode workers.
 This is still experimental, but it mirrors the more mature disaggregated serving support in SGLang (@sec-sglang-disaggregated).
@@ -395,7 +395,7 @@ vLLM reports up to 1.5x speedup with this method [@jarvislabs2025spec].
 **N-gram matching** (prompt lookup decoding) is the simplest option.
 It searches the prompt and previously generated tokens for n-gram matches and proposes the tokens that followed the match.
 There's no separate model, so the VRAM overhead is zero.
-On summarization tasks where output heavily overlaps with the input, n-gram matching achieves up to 2.8x speedup -- but for general-purpose chat, gains are modest at 1.10--1.17x [@jarvislabs2025spec].
+On summarization tasks where output heavily overlaps with the input, n-gram matching achieves up to 2.8x speedup --- but for general-purpose chat, gains are modest at 1.10--1.17x [@jarvislabs2025spec].
 
 **Suffix decoding** builds dual suffix tree data structures from the current request and previous request outputs.
 It's CPU-based, model-free, and ideal for repetitive workloads like code generation or agentic loops where outputs follow predictable patterns [@jarvislabs2025spec].
@@ -414,13 +414,13 @@ The practical guidance breaks down by model size and workload:
 - **Larger models (70B+)**: EAGLE-3 consistently wins due to the memory bandwidth bottleneck
 - **High prompt/output overlap**: n-gram matching is hard to beat and costs nothing
 
-vLLM supports CUDA graphs for EAGLE-1 and EAGLE-3, and exposes speculative decoding metrics -- draft acceptance rate, per-position acceptance rates, and mean acceptance length -- for monitoring effectiveness in production [@vllm2025largescale].
+vLLM supports CUDA graphs for EAGLE-1 and EAGLE-3, and exposes speculative decoding metrics --- draft acceptance rate, per-position acceptance rates, and mean acceptance length --- for monitoring effectiveness in production [@vllm2025largescale].
 
 ### Operational features {#sec-vllm-operational}
 
 Several features round out vLLM's production story beyond raw inference performance.
 
-**Multi-LoRA serving** in vLLM processes requests using different LoRA adapters concurrently in the same batch -- base model, LoRA-A, and LoRA-B requests all run in parallel.
+**Multi-LoRA serving** in vLLM processes requests using different LoRA adapters concurrently in the same batch --- base model, LoRA-A, and LoRA-B requests all run in parallel.
 Adapters can be added and removed at runtime via API endpoints without restarting the server.
 The key tuning parameters are `max_loras` (how many adapters can be active in a single batch), `max_cpu_loras` (the LRU cache size for adapters in CPU memory), and `max_lora_rank` (set as low as your adapters allow to save memory) [@vllm2024docs].
 
@@ -440,17 +440,17 @@ For distributed tracing, vLLM supports OpenTelemetry, sending traces via OTLP to
 
 **Hardware support** is unusually broad.
 Beyond NVIDIA and AMD GPUs, vLLM runs on Intel GPUs and CPUs, Arm CPUs, Google TPUs, and through plugins on Intel Gaudi, IBM Spyre, and Huawei Ascend accelerators [@redhat2025vllm].
-The Triton attention backend and `torch.compile` integration are what make this portability practical -- the same model code and attention implementation can target different hardware without per-platform kernel rewrites.
+The Triton attention backend and `torch.compile` integration are what make this portability practical --- the same model code and attention implementation can target different hardware without per-platform kernel rewrites.
 CPU inference supports DP, TP, and PP across multiple CPU sockets, and vLLM even supports **heterogeneous speculative decoding** where the draft model runs on CPU while the target model runs on GPU [@redhat2025vllm].
 
 **Weight quantization** is well-supported through multiple methods.
-FP8 W8A8 (8-bit weights and activations) runs on Hopper and Ada Lovelace GPUs, with a weight-only W8A16 variant available on Turing and Ampere via Marlin kernels -- providing up to 2x memory reduction and up to 1.6x throughput improvement [@vllm2024docs].
+FP8 W8A8 (8-bit weights and activations) runs on Hopper and Ada Lovelace GPUs, with a weight-only W8A16 variant available on Turing and Ampere via Marlin kernels --- providing up to 2x memory reduction and up to 1.6x throughput improvement [@vllm2024docs].
 INT8 W8A8 is supported on compute capability 7.5 and above (Turing through Hopper), though not on Blackwell.
 For 4-bit weight-only quantization, vLLM supports both AWQ (using the official AWQ kernel) and GPTQ (using the ExLlamaV2 kernel by default).
 The `llm-compressor` companion library handles the calibration and quantization workflow for all of these methods [@vllm2024quantkv].
 
 **Guided decoding** constrains model output to conform to a grammar-based finite-state machine, supporting both regular and context-free grammars through backends like xgrammar [@vllm2025anatomy].
-This enables structured output generation -- producing valid JSON matching a schema, for instance -- without post-hoc validation and retry.
+This enables structured output generation --- producing valid JSON matching a schema, for instance --- without post-hoc validation and retry.
 
 **Multimodal and VLM support** received significant attention in V1.
 Input processing for vision-language models is offloaded to separate processes to avoid blocking the main inference loop.
@@ -458,7 +458,7 @@ V1 implements encoder caching to avoid redundant vision encoder forward passes, 
 
 **Benchmarking tools** ship with vLLM for evaluating serving performance across different scenarios [@vllm2024bench].
 Three built-in benchmark modes cover the main use cases: a latency benchmark (short inputs, fixed output length) for measuring per-request latency, a throughput benchmark (1000+ samples submitted at once) for measuring maximum offline batch throughput, and a serving benchmark with Poisson-distributed request arrivals for measuring online serving under realistic load.
-The serving benchmark reports TTFT, TPOT, and ITL at P50, P90, and P99 -- the same percentile latencies that production SLAs are typically defined against (@sec-monitoring).
+The serving benchmark reports TTFT, TPOT, and ITL at P50, P90, and P99 --- the same percentile latencies that production SLAs are typically defined against (@sec-monitoring).
 vLLM also runs continuous benchmarks on every labeled commit and merged PR, publishing results to a public performance dashboard for tracking regressions over time [@vllm2024bench].
 
 
@@ -467,25 +467,25 @@ vLLM also runs continuous benchmarks on every labeled commit and merged PR, publ
 
 SGLang's identity is built around two ideas: RadixAttention for fine-grained prefix caching, and a co-designed programming model for multi-call LLM workflows.
 But the framework has grown well beyond those roots.
-SGLang now implements a comprehensive set of serving optimizations -- from a zero-overhead batch scheduler and hierarchical KV caching to chunked pipeline parallelism and an extensive menu of attention backends.
+SGLang now implements a comprehensive set of serving optimizations --- from a zero-overhead batch scheduler and hierarchical KV caching to chunked pipeline parallelism and an extensive menu of attention backends.
 This section walks through those implementations, focusing on what SGLang does differently and where its design choices lead to distinct tradeoffs.
 
 ### RadixAttention and prefix caching {#sec-sglang-radix}
 
 RadixAttention is SGLang's signature contribution to KV cache management [@zheng2023sglang].
-Where vLLM hashes KV blocks and stores them in a flat lookup table, SGLang organizes the entire KV cache as a **radix tree** -- a compressed trie where edges are labeled with token sequences of varying lengths and nodes point to the corresponding KV cache tensors.
+Where vLLM hashes KV blocks and stores them in a flat lookup table, SGLang organizes the entire KV cache as a **radix tree** --- a compressed trie where edges are labeled with token sequences of varying lengths and nodes point to the corresponding KV cache tensors.
 
 When a new request arrives, the scheduler walks the tree to find the longest prefix match.
 If the request's prompt shares a prefix with any cached sequence, the matching KV cache is reused without recomputation.
 The tree structure makes this automatic and fine-grained: it handles multi-level sharing across few-shot prompts, branching reasoning trees, multi-turn chat histories, and self-consistency sampling without any explicit configuration.
 
 The key architectural difference from vLLM's block-level hashing is granularity.
-vLLM matches at block boundaries using O(1) hash lookups -- fast, but it can only reuse cache at the granularity of fixed-size blocks.
+vLLM matches at block boundaries using O(1) hash lookups --- fast, but it can only reuse cache at the granularity of fixed-size blocks.
 SGLang's token-level matching in a radix tree enables finer-grained reuse at the cost of a tree traversal.
-For workloads with many shared prefixes -- the exact scenario RadixAttention was designed for -- the finer granularity pays off.
+For workloads with many shared prefixes --- the exact scenario RadixAttention was designed for --- the finer granularity pays off.
 
 RadixAttention is enabled by default and uses **LRU eviction** that recursively frees leaf nodes when GPU memory fills up.
-The overhead when there is no cache hit is negligible -- the tree traversal cost is dwarfed by the GPU computation [@zheng2023sglang].
+The overhead when there is no cache hit is negligible --- the tree traversal cost is dwarfed by the GPU computation [@zheng2023sglang].
 It can be disabled with `--disable-radix-cache` for workloads where prefix sharing is rare and the tree maintenance isn't worth it.
 
 ### Scheduling and memory management {#sec-sglang-scheduling}
@@ -497,13 +497,13 @@ This is the same continuous batching approach used by other frameworks, but SGLa
 
 **Zero-overhead batch scheduling.**
 Introduced in v0.4 [@sglang2024v04], this optimization overlaps CPU batch preparation with GPU execution.
-While the GPU runs the current batch's forward pass, the CPU concurrently prepares the next batch -- creating "future tokens" and carefully scheduling CUDA events and synchronization points so that there is no idle time on the GPU between consecutive decoding batches.
+While the GPU runs the current batch's forward pass, the CPU concurrently prepares the next batch --- creating "future tokens" and carefully scheduling CUDA events and synchronization points so that there is no idle time on the GPU between consecutive decoding batches.
 The SGLang team verified this via Nsight profiling: the GPU stays fully occupied across batch boundaries.
 The result is a 1.1x throughput improvement over SGLang v0.3 and a 1.3x speedup over other frameworks at the time of release [@sglang2024v04].
 
 **Cache-aware scheduling policies.**
 The default scheduling policy is **Longest Prefix Match** (`lpm`), which prioritizes requests whose prompts share the longest prefix already in the radix cache.
-This is a natural pairing with RadixAttention -- the scheduler actively steers toward cache hits rather than leaving them to chance.
+This is a natural pairing with RadixAttention --- the scheduler actively steers toward cache hits rather than leaving them to chance.
 SGLang also supports `dfs-weight` (balances cache hits with tree traversal efficiency), `fcfs` (first come first serve), `lof` (longest output first), and `random`, configured via `--schedule-policy` [@sglang2024docs].
 
 **Ragged batching.**
@@ -521,12 +521,12 @@ The current limitation is that mixed mode uses a single prefill attention kernel
 When enabled, requests can carry explicit priorities that override the scheduling policy ordering.
 The scheduler can preempt running requests to make room for higher-priority arrivals, evicting lowest-priority running requests first.
 The preemption threshold is controlled by `priority_scheduling_preemption_threshold` (default: 10).
-This feature is still maturing -- a known issue is that excessive preemption can occur where low-priority requests keep getting preempted even after the minimum token removal threshold is satisfied [@sglang2024docs].
+This feature is still maturing --- a known issue is that excessive preemption can occur where low-priority requests keep getting preempted even after the minimum token removal threshold is satisfied [@sglang2024docs].
 
 **Preemption** in SGLang uses **recomputation only**.
 There is no swap-to-CPU preemption strategy.
 When a request is preempted, its KV cache is discarded, and when the request is rescheduled, its KV cache must be recomputed from scratch.
-This is a deliberate simplification compared to vLLM's hybrid swap/recompute approach -- it avoids the complexity and PCIe bandwidth cost of CPU swapping, but it means preemption is more expensive for long sequences that took significant prefill work to generate.
+This is a deliberate simplification compared to vLLM's hybrid swap/recompute approach --- it avoids the complexity and PCIe bandwidth cost of CPU swapping, but it means preemption is more expensive for long sequences that took significant prefill work to generate.
 
 **OOM handling** is adaptive rather than static.
 The `new_token_ratio` parameter controls how aggressively the scheduler estimates future token consumption.
@@ -546,12 +546,12 @@ The performance impact is substantial: up to 6x throughput improvement and up to
 
 ### Attention backends {#sec-sglang-attention}
 
-SGLang doesn't commit to a single attention kernel either, but its backend selection matrix is unusually broad -- spanning not just GPU generations but entire hardware families.
+SGLang doesn't commit to a single attention kernel either, but its backend selection matrix is unusually broad --- spanning not just GPU generations but entire hardware families.
 
 The auto-selection logic follows GPU compute capability [@sglang2024docs]:
 
 - **Triton** is the default on Turing (SM75) GPUs.
-- **FlashInfer** is the default on Ampere (SM80, SM86) and Ada Lovelace (SM89) GPUs. FlashInfer provides a unified API that abstracts over multiple kernel implementations and serves as the primary backend for older NVIDIA architectures. NVIDIA releases its most performant inference kernels -- including TensorRT-LLM kernels -- through FlashInfer for integration into SGLang.
+- **FlashInfer** is the default on Ampere (SM80, SM86) and Ada Lovelace (SM89) GPUs. FlashInfer provides a unified API that abstracts over multiple kernel implementations and serves as the primary backend for older NVIDIA architectures. NVIDIA releases its most performant inference kernels --- including TensorRT-LLM kernels --- through FlashInfer for integration into SGLang.
 - **FlashAttention-3** is the default on Hopper (SM90) for standard multi-head attention models. SGLang skipped FA1 and FA2 as explicit backends, jumping directly to FA3 with FlashInfer covering earlier-generation workloads. FA3 became the default attention backend as of v0.4.6 for mainstream MHA models on Hopper, chosen for its native paged KV cache support via the `flash_attn_with_kvcache` API. It consistently delivers the highest throughput across tested scenarios, outperforming FlashInfer and Triton especially as input/output size increases [@sglang2024docs].
 - **FlashInfer** remains the default on Hopper for non-MHA models (MLA, GQA variants).
 - **FlashAttention-4** is supported for Blackwell (SM100+) GPUs with `--page-size 128` for MHA and page_size=1 for MLA. FA4 supports FP4 KV cache, but currently has a limitation: decode speed degrades as sequence length grows due to lack of SplitKV support on Hopper, making it primarily useful for prefill in some configurations.
@@ -560,7 +560,7 @@ For **Multi-Head Latent Attention** models like DeepSeek, SGLang provides a dedi
 FlashInfer MLA operates with page_size=1 and supports FP4 KV cache and prefix caching.
 On Blackwell, TRTLLM prefill/decode DSA kernels are the default [@sglang2024docs].
 
-SGLang also supports hybrid prefill/decode backend configuration via `--prefill-attention-backend` and `--decode-attention-backend`, allowing different kernels for each phase -- a recognition that the optimal kernel for compute-bound prefill is often different from the optimal kernel for memory-bound decode.
+SGLang also supports hybrid prefill/decode backend configuration via `--prefill-attention-backend` and `--decode-attention-backend`, allowing different kernels for each phase --- a recognition that the optimal kernel for compute-bound prefill is often different from the optimal kernel for memory-bound decode.
 
 Beyond the attention backends, hardware support extends to AMD (ROCm via AITER and Wave backends), Huawei Ascend (NPU), and Intel (XPU), though the NVIDIA backends are the most mature [@sglang2024docs].
 
@@ -573,7 +573,7 @@ sgl-kernel supports multiple architectures (SM80, SM89, SM90, SM90a, SM100a+) an
 SGLang splits model computation into separate pieces captured as individual CUDA graphs for predefined token lengths.
 Inputs are padded to the nearest captured size at runtime, eliminating kernel launch overhead.
 Memory is optimized via a global shared memory pool across runners, with capture in reverse order (largest-first).
-The approach auto-disables for speculative decoding, pipeline parallelism, LoRA, VLM models, non-CUDA hardware, and deterministic inference -- cases where the static capture assumption breaks down [@sglang2024docs].
+The approach auto-disables for speculative decoding, pipeline parallelism, LoRA, VLM models, non-CUDA hardware, and deterministic inference --- cases where the static capture assumption breaks down [@sglang2024docs].
 
 **`torch.compile` integration** is experimental.
 SGLang implements a custom `SGLangBackend` that traces model forward passes as FX graphs, splits at registered split points (such as MoE dispatch operations), compiles each piece separately for dynamic shapes, and dispatches at runtime through eager split ops and per-piece replay.
@@ -591,7 +591,7 @@ Different backends impose different page size requirements: FA4 requires page_si
 **KV cache quantization** supports FP8 E5M2 (larger dynamic range), FP8 E4M3 (higher precision, recommended), and experimental FP4 E2M1 (MXFP4 with 16-element blocks), enabled via `--kv-cache-dtype`.
 FP8 provides roughly 2x memory savings over BF16; FP4 provides roughly 3.56x savings accounting for scaling overhead.
 FP8 requires per-tensor scaling factors from checkpoints or a JSON file (defaulting to 1.0 with an accuracy warning), while FP4 handles scaling automatically.
-INT8 KV cache is not supported -- only FP8 and FP4.
+INT8 KV cache is not supported --- only FP8 and FP4.
 A critical caveat: not all backends support fused dequantization with the attention kernel, and using quantized KV with an unsupported backend can be "extremely slow" [@sglang2024docs].
 
 **MLA support** is first-class.
@@ -603,7 +603,7 @@ Under data parallelism, MLA's latent state caches are stored on different GPUs, 
 DoubleSparsity provides approximated attention with token selection for KV cache compression.
 Token eviction methods (SnapKV, PyramidKV) permanently drop non-important tokens for long-context and streaming scenarios.
 FlashInfer supports vector-sparsity (page_size=1), enabling efficient KV cache token pruning at token granularity.
-**Native Sparse Attention** (NSA) is also supported, with a fuse store indexer for K cache and a configurable KV length threshold for sparse MLA attention at prefill -- improving throughput for DeepSeek V3.2 and GLM-5 [@sglang2024docs].
+**Native Sparse Attention** (NSA) is also supported, with a fuse store indexer for K cache and a configurable KV length threshold for sparse MLA attention at prefill --- improving throughput for DeepSeek V3.2 and GLM-5 [@sglang2024docs].
 
 ### Speculative decoding {#sec-sglang-speculative}
 
@@ -615,7 +615,7 @@ EAGLE-3 removes the feature prediction objective, incorporates low and mid-layer
 The performance difference is significant: on LLaMA-3.1-8B with an H100, EAGLE-2 achieves 244 tokens/s (54% improvement over baseline), while EAGLE-3 reaches 373 tokens/s (136% improvement over baseline of 158 tokens/s).
 SGLang also supports EAGLE-2 combined with **FR-Spec**, which uses a truncated high-frequency vocabulary to reduce lm_head overhead, configured via `--speculative-token-map` [@sglang2024docs].
 
-SGLang provides **SpecForge**, its own training framework for EAGLE draft models -- making it one of the few serving frameworks that includes tooling for the draft model training side, not just inference.
+SGLang provides **SpecForge**, its own training framework for EAGLE draft models --- making it one of the few serving frameworks that includes tooling for the draft model training side, not just inference.
 
 **Standalone draft model decoding** is supported (`--speculative-algorithm STANDALONE`), using a separate smaller model for token-level drafting.
 The limitation is that it cannot be combined with `--enable-dp-attention` [@sglang2024docs].
@@ -635,9 +635,9 @@ An experimental **Speculative Decoding V2** with an overlap scheduler is availab
 
 ### Parallelism {#sec-sglang-parallelism}
 
-SGLang supports data parallelism, tensor parallelism, pipeline parallelism, expert parallelism, and context parallelism, with total world size computed as $\text{tp} \times \text{pp} \times \text{ep} \times \text{dp}$.
+SGLang supports data parallelism, tensor parallelism, pipeline parallelism, expert parallelism, and context parallelism, with total world size computed as $\text{TP} \times \text{PP} \times \text{EP} \times \text{DP}$.
 
-**Tensor parallelism** (`--tp <size>`) shards model weights across GPUs within a node, synchronized via AllReduce -- the standard approach (@sec-tensor-parallelism).
+**Tensor parallelism** (`--tp <size>`) shards model weights across GPUs within a node, synchronized via AllReduce --- the standard approach (@sec-tensor-parallelism).
 
 **Pipeline parallelism** is where SGLang has made a distinctive contribution.
 **Chunked Pipeline Parallelism**, introduced in January 2026 [@sglang2026pipeline], splits long sequences into chunks and processes different chunks in parallel across pipeline stages.
@@ -662,7 +662,7 @@ For expert load balancing, SGLang supports **EPLB** (Expert Parallelism Load Bal
 SGLang also supports `--enable-dp-attention` for data-parallel attention, which is distinct from standard DP: latent state caches for different requests are stored on different GPUs, which is particularly useful for MLA models where the KV cache can't be sharded along the head dimension [@sglang2024docs].
 
 **Context parallelism** is supported for the prefill phase, distributing long sequences across GPUs for MHA models.
-This is distinct from pipeline parallelism -- it splits a single sequence's tokens across GPUs rather than distributing layers [@sglang2026pipeline].
+This is distinct from pipeline parallelism --- it splits a single sequence's tokens across GPUs rather than distributing layers [@sglang2026pipeline].
 
 **Combined parallelism** patterns are well-supported.
 PP4 TP8 has been demonstrated for DeepSeek-V3.1 on multi-node H20 clusters.
@@ -708,7 +708,7 @@ Pre-quantized models (such as DeepSeek V3/R1 with native FP8) should not have ad
 SGLang supports JSON schema (via Pydantic BaseModel or raw schema), regular expressions, and EBNF grammar (GGML BNF format for XGrammar).
 The grammar backend is configurable via `--grammar-backend`: XGrammar (default, best performance, supports JSON/regex/EBNF), Outlines (JSON/regex only), or Llguidance (JSON/regex/EBNF).
 The key optimization is that per-step mask generation is overlapped with LLM inference, hiding grammar processing latency and achieving near-zero overhead constrained decoding at production scale.
-SGLang also supports structural tags for multiple constrained regions within a single response -- useful for tool calling where some parts of the response are free-form and others must conform to a schema [@sglang2024docs].
+SGLang also supports structural tags for multiple constrained regions within a single response --- useful for tool calling where some parts of the response are free-form and others must conform to a schema [@sglang2024docs].
 
 **Multi-LoRA serving** integrates S-LoRA and Punica for efficient multi-adapter batching.
 Key configuration parameters include `--max-loras-per-batch` (default 8), `--max-loaded-loras` (CPU memory limit), and `--lora-backend` (`triton` or `csgmv`; csgmv is the default, providing 20--80% latency improvement at high concurrency).
@@ -742,17 +742,17 @@ Reasoning parser integration supports DeepSeek-R1, Qwen-3, and GLM-4.5 thinking 
 ## TensorRT-LLM {#sec-tensorrt-llm}
 
 TensorRT-LLM takes a fundamentally different design path from vLLM and SGLang.
-Where those frameworks operate primarily at the Python level -- scheduling, memory management, and model execution all live in Python with selective CUDA kernel calls -- TensorRT-LLM compiles the entire model into an optimized execution plan before serving begins.
+Where those frameworks operate primarily at the Python level --- scheduling, memory management, and model execution all live in Python with selective CUDA kernel calls --- TensorRT-LLM compiles the entire model into an optimized execution plan before serving begins.
 The result is a system that trades flexibility and hardware breadth for raw throughput on NVIDIA hardware.
 
 ### Architecture and compilation {#sec-trtllm-architecture}
 
 TensorRT-LLM has gone through a significant architectural shift.
 The **legacy TensorRT backend** compiled the model graph through NVIDIA's TensorRT engine, which performed kernel selection, operator fusion, and memory optimization at build time.
-This produced highly optimized execution plans but required a heavyweight compilation step -- rebuilding the engine for different batch sizes, sequence lengths, or quantization configurations.
+This produced highly optimized execution plans but required a heavyweight compilation step --- rebuilding the engine for different batch sizes, sequence lengths, or quantization configurations.
 
 The **PyTorch workflow**, which became the default in v1.0, takes a different approach [@nvidia2024trtllm].
-Instead of compiling through TensorRT's graph optimizer, it runs the model through PyTorch and applies optimizations via `torch.compile` and **piecewise CUDA graphs** -- the same strategy vLLM V1 adopted (@sec-vllm-v1).
+Instead of compiling through TensorRT's graph optimizer, it runs the model through PyTorch and applies optimizations via `torch.compile` and **piecewise CUDA graphs** --- the same strategy vLLM V1 adopted (@sec-vllm-v1).
 The PyTorch workflow offers more flexibility: you can modify model code without recompiling, swap attention backends, and iterate faster during development.
 The tradeoff is that the legacy backend can still squeeze out a few extra percent of throughput for well-characterized workloads where the compilation cost is amortized across many requests.
 
@@ -761,7 +761,7 @@ This is the compilation philosophy in a nutshell: spend time upfront to make eve
 
 ### Scheduling and memory management {#sec-trtllm-scheduling}
 
-TensorRT-LLM's scheduler uses the same continuous batching approach as the other frameworks (@sec-batching), but NVIDIA's terminology calls it **in-flight batching** -- the batch composition changes at every iteration, with finished sequences immediately evicted and new requests inserted [@nvidia2024trtllm; @trtllm2024gptattention].
+TensorRT-LLM's scheduler uses the same continuous batching approach as the other frameworks (@sec-batching), but NVIDIA's terminology calls it **in-flight batching** --- the batch composition changes at every iteration, with finished sequences immediately evicted and new requests inserted [@nvidia2024trtllm; @trtllm2024gptattention].
 The constraint is that context-phase sequences must precede generation-phase sequences in the packed input tensor, which affects how the scheduler orders work within each step.
 
 **Chunked prefill** splits context processing into chunks that are batched with generation tokens, just as in vLLM and SGLang (@sec-prefill-strategies).
@@ -783,11 +783,11 @@ You can assign priority levels (0--100) to specific token ranges within a reques
 The practical use case is system prompts: assign them maximum priority so they remain cached longer, improving reuse for requests that share the same system prompt.
 
 **OOM handling** is less adaptive than what vLLM and SGLang provide.
-There is no automatic dynamic batch size reduction at runtime -- `max_batch_size` is configured at build or launch time.
+There is no automatic dynamic batch size reduction at runtime --- `max_batch_size` is configured at build or launch time.
 NVIDIA's guidance is to profile throughput across batch sizes, set `max_batch_size` 20--30% above the throughput knee, and reduce it if KV cache utilization consistently exceeds 80% [@nvidia2024trtllm].
 This is a manual tuning process rather than the self-adjusting ratios that SGLang uses (@sec-sglang-scheduling).
 
-There is no built-in **SLA-aware scheduling** -- no mechanism to automatically adjust scheduling based on per-request latency targets.
+There is no built-in **SLA-aware scheduling** --- no mechanism to automatically adjust scheduling based on per-request latency targets.
 The priority-based KV cache eviction and request admission policies provide building blocks, but tying them to SLA tiers is left to the orchestration layer.
 
 ### Attention backends and kernel optimization {#sec-trtllm-attention}
@@ -804,7 +804,7 @@ The **generation phase** uses **XQA** (eXtended Query Attention), a specialized 
 XQA supports FP16 and BF16 compute with FP16, BF16, FP8, and INT8 KV cache, and paged KV cache with block sizes of 8, 16, 32, 64, or 128 tokens.
 It's enabled by default and can be disabled with `--disable_xqa`.
 
-**Multi-block mode** is TensorRT-LLM's version of FlashDecoding (@sec-attention-kernels) -- it distributes attention computation across multiple CUDA thread blocks during the generation phase to improve GPU occupancy when a single query attends to a long KV cache.
+**Multi-block mode** is TensorRT-LLM's version of FlashDecoding (@sec-attention-kernels) --- it distributes attention computation across multiple CUDA thread blocks during the generation phase to improve GPU occupancy when a single query attends to a long KV cache.
 It's enabled by default since v0.13 [@trtllm2024gptattention].
 
 The kernel fusion story goes well beyond attention.
@@ -822,18 +822,18 @@ TensorRT-LLM uses its own custom attention kernels and plugin system rather than
 ### KV cache engineering {#sec-trtllm-kvcache}
 
 TensorRT-LLM implements paged KV cache with configurable block sizes of 8, 16, 32, 64, or 128 tokens (default 128, must be a power of 2) [@trtllm2024gptattention].
-The contrast with the legacy **contiguous KV cache** is stark: the old approach allocated a monolithic tensor of shape `[max_batch_size * max_beam_width, 2, num_heads, max_seqlen, hidden_dim_per_head]`, wasting memory whenever sequences were shorter than the maximum -- which was almost always.
+The contrast with the legacy **contiguous KV cache** is stark: the old approach allocated a monolithic tensor of shape `[max_batch_size * max_beam_width, 2, num_heads, max_seqlen, hidden_dim_per_head]`, wasting memory whenever sequences were shorter than the maximum --- which was almost always.
 
 **KV cache quantization** supports INT8 and FP8 modes with per-tensor scaling factors.
 The XQA kernel handles FP16, BF16, FP8, and INT8 KV cache combinations, so quantization integrates cleanly with the generation-phase attention path [@trtllm2024gptattention].
 There is no support for **TurboQuant**, the rotation-plus-vector-quantization technique for KV cache compression that has community integrations in vLLM and SGLang.
 
-**Prefix caching** (KV cache reuse) uses **block hashing** -- only full blocks can be shared across requests, similar to vLLM's approach and unlike SGLang's token-level radix tree (@sec-sglang-radix).
+**Prefix caching** (KV cache reuse) uses **block hashing** --- only full blocks can be shared across requests, similar to vLLM's approach and unlike SGLang's token-level radix tree (@sec-sglang-radix).
 It's enabled by default when built with paged context FMHA, with the default block size of 128 tokens [@trtllm2024kvcachereuse].
 There's an important practical limitation: reuse requires the first request to complete its block before subsequent requests can access it.
 At high batch sizes, requests may launch before prior ones finish filling their blocks, preventing reuse.
 
-A **KV Cache Event API** provides real-time tracking of cache state changes -- block creation, storage, removal, and updates -- enabling downstream routing decisions [@trtllm2024kvcachereuse].
+A **KV Cache Event API** provides real-time tracking of cache state changes --- block creation, storage, removal, and updates --- enabling downstream routing decisions [@trtllm2024kvcachereuse].
 This is particularly useful for multi-instance deployments where a load balancer needs to know which instances already have specific token sequences cached.
 
 **Host memory offloading** extends KV cache reuse by preserving evicted blocks in pinned host memory with LRU eviction.
@@ -855,7 +855,7 @@ TensorRT-LLM supports a broad set of speculative decoding methods (@sec-speculat
 
 **Draft model decoding** uses two independently trained models that share the same vocabulary.
 The draft model generates up to $K$ candidate tokens, and the target model validates them in a single forward pass.
-The performance on H200 GPUs tells the story: Llama 405B with a 3B draft model achieves 120.75 tokens/sec -- a 3.61x speedup over the 33.46 tok/sec baseline.
+The performance on H200 GPUs tells the story: Llama 405B with a 3B draft model achieves 120.75 tokens/sec --- a 3.61x speedup over the 33.46 tok/sec baseline.
 Llama 70B with a 1B draft achieves 146.05 tokens/sec (2.86x speedup).
 These numbers are notably higher than what vLLM reports for draft model decoding (@sec-vllm-speculative), reflecting TensorRT-LLM's kernel-level optimizations.
 Draft model decoding works with FP8 quantization and is compatible with Triton Inference Server [@trtllm2024kvcachereuse].
@@ -868,22 +868,22 @@ EAGLE-3 was added in v0.19.0 with disaggregated serving support following in v0.
 Inflight batching support has been available since v0.9.0.
 The current limitations are notable: it only supports Vicuna (fine-tuned LLaMA), requires `medusa_temperature=0`, and is incompatible with beam search [@trtllm2024specdec].
 
-**ReDrafter** takes a different approach -- recurrent prediction where each draft token depends on the previous one.
+**ReDrafter** takes a different approach --- recurrent prediction where each draft token depends on the previous one.
 The engine performs logits prediction, beam search, and acceptance internally, supporting both inflight fused batching and static batching [@trtllm2024specdec].
 
 **N-gram speculative decoding** copies input prompt and previously generated output as draft tokens, requiring only the target model.
-It performs best on tasks with high n-gram overlap -- summarization, question answering, code editing -- where the output draws heavily from the input.
+It performs best on tasks with high n-gram overlap --- summarization, question answering, code editing --- where the output draws heavily from the input.
 NGram v2 was added in v1.0 [@trtllm2024specdec; @trtllm2024releasenotes].
 
 **Multi-token prediction** is supported for models with built-in MTP heads, notably DeepSeek V3/R1.
 When combined with disaggregated serving, MTP adds another 1.6x--2.5x speedup on top of the disaggregation benefits [@trtllm2024releasenotes; @trtllm2024disagg].
 
-**Lookahead decoding** (Jacobi iteration) runs two parallel computation branches -- a lookahead branch and a verification branch -- within the same model, requiring no additional training or fine-tuning.
+**Lookahead decoding** (Jacobi iteration) runs two parallel computation branches --- a lookahead branch and a verification branch --- within the same model, requiring no additional training or fine-tuning.
 It has been experimental since v0.13.0, with inflight batching support since v0.16.0 [@trtllm2024specdec; @trtllm2024releasenotes].
 
 An **overlap scheduler** between draft forwards was added in v0.21.0, implementing the pipelined draft-verify idea from speculative speculative decoding (@sec-speculative) [@trtllm2024releasenotes].
 
-**Inference with reference** -- reusing a reference output to accelerate decoding -- is not supported.
+**Inference with reference** --- reusing a reference output to accelerate decoding --- is not supported.
 
 ### Parallelism {#sec-trtllm-parallelism}
 
@@ -895,7 +895,7 @@ It's the preferred strategy within a single node where fast NVLink connections k
 **Pipeline parallelism** divides the model into sets of contiguous layers, with each GPU housing one set.
 Communication is limited to sending activations between sequential GPU sets.
 It may increase latency but reduces per-step communication overhead compared to TP, making it the preferred strategy across nodes.
-The recommended default for multi-node deployment is **TP within a node, PP across nodes** -- with one exception: NVIDIA's NVL36/NVL72 Blackwell systems have multi-node NVLink, so TP can span their full GPU sets without the usual cross-node bandwidth penalty [@trtllm2024sharding].
+The recommended default for multi-node deployment is **TP within a node, PP across nodes** --- with one exception: NVIDIA's NVL36/NVL72 Blackwell systems have multi-node NVLink, so TP can span their full GPU sets without the usual cross-node bandwidth penalty [@trtllm2024sharding].
 
 **Expert parallelism** distributes complete expert weights across GPUs, so each GPU holds the full weights of its assigned experts.
 Configuration uses `--moe_tp_size` and `--moe_ep_size`, with the constraint that their product must equal `tp_size`.
@@ -904,7 +904,7 @@ A hybrid approach combining EP with TP enables load balancing across experts [@t
 **Wide Expert Parallel** introduces expert slots that are decoupled from specific experts, enabling replication of high-demand experts for load balancing [@trtllm2024parallelism].
 The **Expert Parallelism Load Balancer** (EPLB) handles both offline and online load balancing, with optimized communication kernels for GB200 multi-node NVLink.
 Large-scale EP was extended in v0.21.0, and **DeepEP** integration provides optimized MoE communication kernels [@trtllm2024releasenotes; @nvidia2024trtllm].
-Token dropping for load balancing is not implemented -- load balancing relies on expert replication and EPLB instead.
+Token dropping for load balancing is not implemented --- load balancing relies on expert replication and EPLB instead.
 
 **Attention Data Parallel** (ADP) is a distinctive feature that doesn't appear in the other frameworks under this name.
 ADP replicates GEMM weights on every GPU but partitions the KV cache across devices, eliminating cross-GPU communication during the attention phase.
@@ -922,14 +922,14 @@ Three deployment approaches are available [@trtllm2024disagg]:
 
 KV cache transfer between prefill and decode GPUs uses MPI, UCX, or NIXL backends over RDMA or NVLink.
 UCX and NIXL are recommended for deployments that need dynamic scaling.
-A particularly useful capability is support for **different parallelism strategies between phases** -- for example, context with TP2 paired with generation using PP2, with orchestrated block mapping for layout transformation between the two [@trtllm2024disagg].
+A particularly useful capability is support for **different parallelism strategies between phases** --- for example, context with TP2 paired with generation using PP2, with orchestrated block mapping for layout transformation between the two [@trtllm2024disagg].
 
 The performance gains are substantial: DeepSeek R1 shows 1.4x--2.5x speedup, and Qwen 3 shows 1.7x--6.11x speedup on GB200 GPUs.
 The current limitation is that the number of context and generation instances is fixed at deployment time; dynamic scaling is under development [@trtllm2024disagg].
 
 ### Quantization {#sec-trtllm-quantization}
 
-TensorRT-LLM's quantization support reflects its NVIDIA-first philosophy -- it provides deep integration with NVIDIA's quantization formats and hardware features rather than broad third-party method support.
+TensorRT-LLM's quantization support reflects its NVIDIA-first philosophy --- it provides deep integration with NVIDIA's quantization formats and hardware features rather than broad third-party method support.
 
 **Weight quantization** covers FP4/NVFP4 (Blackwell-only, with native support and optimized kernels), FP8 (Hopper and Blackwell, with automatic conversion via Transformer Engine), INT4, and INT8 [@nvidia2024trtllm; @trtllm2024releasenotes].
 **Mixed precision quantization** is supported, with AutoQ for automated mixed-precision selection since v0.15.0.
@@ -956,12 +956,12 @@ The KV Cache Event API provides real-time tracking of cache state changes for mo
 The `trtllm-bench` benchmarking tool supports streaming with TTFT and ITL metrics since v0.10.0 [@trtllm2024releasenotes; @trtllm2024kvcachereuse].
 
 **Hardware support** is NVIDIA-only.
-This is the fundamental tradeoff: TensorRT-LLM doesn't run on AMD, Intel, or any other hardware, but it can exploit NVIDIA-specific features -- Hopper's FP8 tensor cores, Blackwell's FP4 support, NVLink topology-aware communication -- more deeply than frameworks that target multiple backends.
+This is the fundamental tradeoff: TensorRT-LLM doesn't run on AMD, Intel, or any other hardware, but it can exploit NVIDIA-specific features --- Hopper's FP8 tensor cores, Blackwell's FP4 support, NVLink topology-aware communication --- more deeply than frameworks that target multiple backends.
 
 ---
 
 Production LLM serving sits at the intersection of systems engineering and machine learning optimization.
-The techniques from the preceding chapters provide the building blocks, but assembling them into a reliable, efficient serving system requires understanding the operational realities -- memory pressure, failure modes, monitoring, and orchestration -- that don't show up in benchmark results.
+The techniques from the preceding chapters provide the building blocks, but assembling them into a reliable, efficient serving system requires understanding the operational realities --- memory pressure, failure modes, monitoring, and orchestration --- that don't show up in benchmark results.
 The frameworks surveyed here each represent a different set of answers to these challenges, and the right choice depends on your specific workload, hardware, and reliability requirements.
 
 

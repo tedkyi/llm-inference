@@ -12,7 +12,7 @@ book:
   downloads: [pdf]
   sharing: [twitter, facebook]
   date: today
-  date-format: "[Draft dated] YYYY-MM-DD"
+  date-format: "[Version dated] YYYY-MM-DD"
   license: "CC BY-NC-SA"
   chapters:
     - index.qmd

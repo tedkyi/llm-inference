@@ -9,7 +9,7 @@ book:
   twitter-card: true
   repo-url: https://github.com/tedkyi/llm-inference/
   repo-actions: [issue]
-  # downloads: [pdf]
+  downloads: [pdf]
   sharing: [twitter, facebook]
   date: today
   date-format: "[Draft dated] YYYY-MM-DD"

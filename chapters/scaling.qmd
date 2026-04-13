@@ -116,7 +116,7 @@ Each GPU holds a subset of the weights $W_i$ with shape **($d_{\text{in}}$, $d_{
 Each GPU receives the full input activation $x$ of shape **($d_{\text{in}}$)** and computes $x W_i$ locally, producing a partial output of shape **($d_{\text{out}}$/T)**.
 No communication is needed yet --- each GPU has an independent slice of the result.
 
-![Column-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Up}}$ matrix](images/tp_column.svg){#fig-tp-column .lightbox}
+![Column-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Up}}$ matrix. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.](images/tp_column.svg){#fig-tp-column .lightbox}
 
 @Fig-tp-column shows an example of a column-parallel linear layer with 2-way tensor parallelism, i.e. **T** = 2.
 The darker shaded portion of the weight matrix $W_{\text{Up}}$ shows the half that is stored on each GPU.
@@ -128,7 +128,7 @@ Each GPU computes $x_i W_i$, producing a partial result.
 This partial result is the correct shape of **($d_{\text{out}}$)**, but it's only a fraction of the correct value because it was computed with only part of the input.
 To get the correct output, we need an **all-reduce** operation to sum the partial results from all **T** GPUs.
 
-![Row-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Down}}$ matrix](images/tp_row.svg){#fig-tp-row .lightbox}
+![Row-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Down}}$ matrix. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.](images/tp_row.svg){#fig-tp-row .lightbox}
 
 @Fig-tp-row shows an example of a row-parallel linear layer with tensor parallelism **T** = 2.
 The darker shaded portion of the weight matrix $W_{\text{Down}}$ shows the half that is stored on each GPU.

@@ -28,7 +28,8 @@ For a sequence of length 4,096, the score matrix alone is $4096 \times 4096 = 16
 The actual computations of the matrix multiplications and softmax are necessary, fixed costs.
 The round-trip to HBM for these intermediate results is slow and wastes HBM memory.
 This problem scales quadratically with sequence length --- double the sequence length and you quadruple the HBM usage and intermediate memory traffic.
-This is why this implementation of attention causes GPU out of memory errors for long sequences.
+The latency associated with increased HBM traffic reduces MFU and increases TTFT.
+The quadratic memory usage is also why this implementation of attention causes GPU out of memory errors for long sequences.
 
 It's worth noting that even a single matmul like $\text{Scores} = QK^T$ doesn't happen as one monolithic operation.
 The $Q$ and $K$ matrices are far too large to fit in SRAM, so the GPU kernel **tiles** the computation.
@@ -65,10 +66,10 @@ For a 4K sequence with $\dimdk{d_K}=128$, that's a reduction from 16.7 million e
 Here's a counterintuitive detail: FlashAttention actually performs *more* FLOPs than standard attention.
 The online softmax rescaling adds extra multiply-accumulate operations.
 But wall-clock time drops substantially because the bottleneck was never the arithmetic --- it was the HBM traffic.
-By trading a small increase in compute for a large decrease in memory movement, FlashAttention lands in a much better spot on the roofline.
+By trading a small increase in compute for a large decrease in memory movement, FlashAttention increases arithmetic intensity and MFU, moving to a much better spot on the roofline.
 (FlashAttention also has optimizations for model training that are outside the scope of our inference discussion.)
 
-FlashAttention's tiling is most effective during prefill, where the sequence length **[S]{.dim-s}** is large (the full prompt) and the $O(\dims{\text{S}}^2)$ memory traffic savings are dramatic.
+FlashAttention's tiling is most effective during prefill, where the sequence length **[S]{.dim-s}** (the full prompt) is large and the $O(\dims{\text{S}}^2)$ memory traffic savings and decrease to TTFT are dramatic.
 During decode, however, the query dimension is just 1 (the new token).
 FlashAttention parallelizes over batch size and query length, so with a single-token query, most of the GPU's streaming multiprocessors sit idle --- there simply aren't enough blocks of work to fill the machine.
 
@@ -124,7 +125,7 @@ If those two kernels operate on the same data, this round trip is pure waste.
 
 Each fusion eliminates one HBM round trip.
 For a single transformer layer, there might be 10 or more such opportunities.
-Across 80+ layers in a large model, these small savings add up to a meaningful reduction in total memory traffic and kernel launch overhead.
+Across 80+ layers in a large model, these small savings add up to a meaningful reduction in total memory traffic and kernel launch overhead, increasing arithmetic intensity and decreasing TPOT.
 
 ### CUDA graphs
 
@@ -134,7 +135,7 @@ During decode, the GPU executes the same sequence of kernels at every step --- t
 But the CPU doesn't know that.
 At each step, it launches each kernel individually, waits for the GPU to be ready, sends the launch command, and moves on to the next kernel.
 Each launch takes roughly 5--10 microseconds, which doesn't sound like much, but a single decode step through a large model might involve hundreds of kernel launches.
-At 5 $\mu$s each, that's hundreds of microseconds per token of pure overhead --- time the GPU spends idle waiting for the CPU to tell it what to do next.
+At 5 $\mu$s each, that's hundreds of microseconds per token of pure overhead --- time added to TPOT that the GPU spends idle waiting for the CPU to tell it what to do next.
 
 A **CUDA graph** captures a fixed sequence of kernel launches into a single replayable object.
 You run the decode step once in "capture mode," which records every kernel launch, memory copy, and synchronization point.
@@ -150,6 +151,7 @@ Serving frameworks handle this with a small pool of pre-captured graphs for comm
 
 Rather than manually fusing kernels, you can let a compiler do it.
 **Computation graph compilers** analyze the full model graph, identify fusion opportunities, optimize memory layouts, and emit optimized GPU code.
+This more efficient code improves both TTFT and TPOT, but doesn't directly support higher concurrency.
 
 **`torch.compile`** in PyTorch traces the model's computation graph and applies a series of optimizations including operator fusion, memory planning, and code generation through backends like Triton [@tillet2019triton].
 For inference workloads, it can deliver significant speedups with minimal code changes.
@@ -167,7 +169,7 @@ Most production serving frameworks use some form of graph compilation, often Ten
 
 ## KV Cache Engineering {#sec-kv-cache}
 
-The KV cache is one of the biggest memory consumers during inference, and managing it well has a direct impact on how many requests you can serve concurrently and how long sequences can be.
+The KV cache is one of the biggest memory consumers during inference, and managing it well has a direct impact on concurrency levels and maximum sequence lengths.
 This section covers the core techniques for reducing KV cache memory pressure.
 
 ### KV cache memory formula
@@ -207,10 +209,12 @@ The same requests from @fig-kv-waste are shown in @fig-paged-attention with a pa
 
 The benefits are significant:
 
-- **Near-zero fragmentation**: no external fragmentation, and the only internal fragmentation is the partial last page of each request. With 16-token pages, average waste is 8 tokens per request --- negligible compared to the old approach of reserving memory for the maximum sequence length.
+- **Near-zero fragmentation**: no external fragmentation, and the only internal fragmentation is the partial last page of each request. 
+With 16-token pages, average waste is 8 tokens per request --- negligible compared to the old approach of reserving memory for the maximum sequence length.
+The near-zero memory waste allows dramatically higher concurrency and longer sequence lengths within the same memory budget.
 - **Dynamic allocation**: pages are allocated on demand as the sequence grows, so a short request doesn't tie up memory it will never use, and a long generation doesn't hold reserved memory for long periods.
 - **Sharing**: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. 
-The combination of paged attention and ragged batching (discussed in @sec-ragged-batching) is a beautiful solution that reduces both KV cache memory usage and memory reads.
+The combination of paged attention and ragged batching (discussed in @sec-ragged-batching) is a beautiful solution that reduces both KV cache memory usage and memory reads, benefitting TPOT.
 @Fig-ragged-shared-prefix shows the elegance and large savings when you combine the two, and is worth reviewing again here.
 - **Fine-grained preemption**: if the scheduler needs to free memory (@sec-request-scheduling), pages for an evicted request can be reallocated individually, rather than killing the entire request. 
 vLLM uses this optimistic strategy with recomputation, finding that when the request is resumed, most of the needed pages are often still in memory, avoiding much of the recomputation cost.
@@ -235,7 +239,7 @@ The tradeoff is straightforward: reduced memory for a small and often negligible
 One research paper garnering a lot of interest is **TurboQuant** [@zandieh2025turboquant].
 Rather than simply choosing a new datatype, they use techniques like random rotations to support quantization to lower bit depths.
 They report success squeezing entries down to 3.5 bits without hurting LLM performance.
-Interest is high because decoding being bandwidth bound means that reductions in KV cache size provide close to linear speedups to TPOT and throughput.
+Interest in KV cache quantization techniques is high because bandwidth bound nature of decoding means that reductions in KV cache size provide close to linear speedups to TPOT and throughput.
 
 ### KV cache compression
 
@@ -352,6 +356,7 @@ Then the cycle repeats.
 
 In the best case, all $k$ draft tokens are accepted, and you get $k + 1$ tokens from one target model forward pass.
 In the worst case, the first draft token is rejected, and you get just 1 token from that target model forward pass.
+If you're averaging more than one token per target forward pass, TPOT is improved.
 A comparison of standard decoding and speculative decoding is shown in @fig-speculative-decoding.
 
 ![Speculative decoding showing a sequence of four tokens that are generated in only two forward passes of the target model. In the first pass, two tokens from the draft model are accepted, and resampling generates a third token. In the second pass, the worst case scenario is illustrated. No tokens are accepted, which means that only the one resampled token is kept from this forward pass.](images/speculative_decoding.svg){#fig-speculative-decoding .lightbox}
@@ -373,7 +378,7 @@ $$E[\text{tokens per cycle}] = \frac{1 - \alpha^{k+1}}{1 - \alpha}$$
 
 where $k$ is the number of draft tokens. For $\alpha = 0.8$ and $k = 4$, this gives about 3.4 tokens per cycle on average.
 
-The speedup depends on the relative cost of the draft and target models.
+The speedup to TPOT depends on the relative cost of the draft and target models.
 If the draft model runs at $c$ times the speed of the target model (so a draft forward pass takes $1/c$ the time of a target forward pass), the wall-clock speedup is approximately:
 
 $$\text{speedup} \approx \frac{E[\text{tokens per cycle}]}{1 + k/c}$$
@@ -437,7 +442,7 @@ There's a sweet spot where the draft model is good enough to maintain high accep
 **Batch size**: this is the most important practical consideration.
 Speculative decoding's benefit comes from replacing sequential target model forward passes with one parallel verification pass.
 But in high-throughput serving with large batch sizes, the target model's forward passes may have high MFU already, meaning that verification can slow down the forward passes.
-Adding draft model on top of a high MFU pipeline provides less benefit and can actually hurt throughput.
+Adding draft model on top of a high MFU pipeline can increase TPOT, offsetting gains from speculative decoding, and in the extreme, it can actually hurt throughput.
 Speculative decoding shines in low-batch-size, latency-sensitive scenarios.
 
 ### Multi-token prediction

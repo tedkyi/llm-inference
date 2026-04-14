@@ -90,9 +90,10 @@ Simple **Data parallelism** is the easiest approach: place a complete copy of th
 There's no communication between replicas during inference.
 Since there are no data dependencies between different requests, each replica processes its requests independently.
 
-Without any communication overhead, DP scales throughput linearly with the number of replicas.
+Without any communication overhead, DP scales throughput linearly with the number of replicas by increasing concurrency.
 If one GPU can serve 50 tokens per second, eight GPUs can serve 400 tokens per second.
-However, DP does nothing for single-request latency, so throughput increases without reducing TPOT.
+However, DP does nothing for single-request latency.
+TTFT, TPOT, MFU, and MBU remain unchanged as throughput increases.
 When running DP as the only parallelism strategy, it requires each device to have enough memory to hold the full model.
 For a 70B parameter model in FP16, that's 140 GB of weights, already beyond the capacity of a single H100 with 80 GB of HBM3.
 
@@ -107,13 +108,13 @@ This is the most communication-intensive parallelism strategy, but it directly r
 ### Column-parallel and row-parallel linear layers
 
 The core idea is to partition each linear layer's weight matrix along either its columns or its rows.
-For the following, assume we have **T** GPUs and a weight matrix $W$ of shape **($d_{\text{in}}$, $d_{\text{out}}$)**.
+For the following, assume we have **T** GPUs and a weight matrix $W$ of shape **($\dimd{d_{\text{in}}}$, $\dimd{d_{\text{out}}}$)**.
 By splitting $W$ into **T** parts, we can distribute the storage requirement and computations involving $W$ across the GPUs.
 How we split $W$ determines the communication patterns.
 
-In a **column-parallel** linear layer, the weight matrix $W$ is split along the output dimension into **T** parts, each with $d_{\text{out}}$**/T** columns.
-Each GPU holds a subset of the weights $W_i$ with shape **($d_{\text{in}}$, $d_{\text{out}}$/T)**.
-Each GPU receives the full input activation $x$ of shape **($d_{\text{in}}$)** and computes $x W_i$ locally, producing a partial output of shape **($d_{\text{out}}$/T)**.
+In a **column-parallel** linear layer, the weight matrix $W$ is split along the output dimension into **T** parts, each with $\dimd{d_{\text{out}}}$**/T** columns.
+Each GPU holds a subset of the weights $W_i$ with shape **($\dimd{d_{\text{in}}}$, $\dimd{d_{\text{out}}}$/T)**.
+Ignoring the batch and sequence dimensions, each GPU receives the full input activation $x$ of shape **($\dimd{d_{\text{in}}}$)** and computes $x W_i$ locally, producing a partial output slice of shape **($\dimd{d_{\text{out}}}$/T)**.
 No communication is needed yet --- each GPU has an independent slice of the result.
 
 ![Column-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Up}}$ matrix. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.](images/tp_column.svg){#fig-tp-column .lightbox}
@@ -122,17 +123,18 @@ No communication is needed yet --- each GPU has an independent slice of the resu
 The darker shaded portion of the weight matrix $W_{\text{Up}}$ shows the half that is stored on each GPU.
 When multiplied by the full input $x$, each GPU produces a half-sized output, represented by the darker shaded portion of the output tensor.
 
-In a **row-parallel** linear layer, the weight matrix is split along the input dimension into **T** parts, each with $d_{\text{in}}$**/T** rows.
-Each GPU holds a subset of the weights $W_i$ with shape **($d_{\text{in}}$/T, $d_{\text{out}}$)** and receives only its slice of the input $x_i$, which is of shape **($d_{\text{in}}$/T)**.
-Each GPU computes $x_i W_i$, producing a partial result.
-This partial result is the correct shape of **($d_{\text{out}}$)**, but it's only a fraction of the correct value because it was computed with only part of the input.
+In a **row-parallel** linear layer, the weight matrix is split along the input dimension into **T** parts, each with $\dimd{d_{\text{in}}}$**/T** rows.
+Each GPU holds a subset of the weights $W_i$ with shape **($\dimd{d_{\text{in}}}$/T, $\dimd{d_{\text{out}}}$)**.
+Once again ignoring the batch and sequence dimensions, each GPU receives only its slice of the input $x_i$, which is of shape **($\dimd{d_{\text{in}}}$/T)**.
+Then, each GPU computes $x_i W_i$, producing a partial result.
+This partial result is the correct shape of **($\dimd{d_{\text{out}}}$)**, but it's only a fraction of the correct value because it was computed with only part of the input.
 To get the correct output, we need an **all-reduce** operation to sum the partial results from all **T** GPUs.
 
 ![Row-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Down}}$ matrix. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.](images/tp_row.svg){#fig-tp-row .lightbox}
 
 @Fig-tp-row shows an example of a row-parallel linear layer with tensor parallelism **T** = 2.
 The darker shaded portion of the weight matrix $W_{\text{Down}}$ shows the half that is stored on each GPU.
-When multiplied by the partial input called "Gated up proj," each GPU produces a partial output represented by the dotted and dashed tensor.
+When multiplied by the slice of the input called "Gated up proj," each GPU produces a partial output represented by the dotted and dashed tensor.
 To get the full output, we need to sum the partial outputs from both GPUs using an all-reduce operation, which is a collective communication primitive that efficiently sums tensors across multiple devices.
 
 The standard pattern with tensor parallelism is to pair column-parallel and row-parallel layers so that only one all-reduce is needed per pair.
@@ -175,8 +177,8 @@ where the factor of 2 accounts for the reduce-scatter and all-gather phases.
 With two all-reduces per transformer layer and **[L]{.dim-l}** layers, the total communication per forward pass is 2 × **[L]{.dim-l}** all-reduce operations.
 
 For a 70B model with **[D]{.dim-d}** = 8192 and TP=8 on H100 NVLink (900 GB/s), each all-reduce for a single-token decode step moves roughly 2 × 8192 × 2 bytes ≈ 32 KB.
-That completes in well under a microsecond, which is negligible.
-But for prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with sequence length and batch size, and it can start to matter.
+That completes in well under a microsecond, which is small but adds directly to TPOT.
+For prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with sequence length and batch size, and it can start to show up in TTFT.
 
 The key insight is that TP requires **high-bandwidth, low-latency** communication every layer, making it a costly slowdown across nodes where network bandwidth is 10-30x lower than NVLink.
 
@@ -195,7 +197,7 @@ The forward pass flows through the pipeline stages sequentially.
 GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on.
 The communication pattern is simple point-to-point transfers between adjacent stages --- no all-reduce needed.
 
-With **P** pipeline stages, the activation tensor passed between stages has shape **([S]{.dim-s}, [D]{.dim-d})**, and it only happens **P** - 1 times, resulting in a much smaller volume of communication than the 2 × **L**{.dim-l} all-reduce operations in TP.
+With **P** pipeline stages, the activation tensor passed between stages has shape **([S]{.dim-s}, [D]{.dim-d})**, and it only happens **P** -- 1 times, resulting in a much smaller volume of communication (and hit to TPOT) than the 2 × **[L]{.dim-l}** all-reduce operations in TP.
 This low communication volume makes PP better-suited for **multi-node** deployment, where network bandwidth is more limited.
 
 ### The pipeline bubble
@@ -216,7 +218,7 @@ First, during decode, each step generates just one token per request, so the pip
 Second, with continuous batching (@sec-batching), there are usually many concurrent requests to keep the pipeline full.
 
 However, PP does add latency to each decode step, since the activation must travel through all stages sequentially.
-With **P** stages, the minimum latency for a single forward pass is **P** times the per-stage compute time, plus the communication time between stages.
+With **P** stages, the minimum TPOT for a single forward pass is **P** times the per-stage compute time, plus the communication time between stages.
 For latency-sensitive applications, this overhead may be noticeable.
 
 
@@ -243,11 +245,12 @@ For a model with many MoE layers, this all-to-all traffic adds up.
 ### Load balancing
 
 A practical challenge with EP is **load imbalance**.
+A balanced distribution allows multiple devices to parallelize the work, reducing TPOT.
 If the router sends most tokens to a few popular experts, the GPUs holding those experts become bottlenecks while others sit idle.
 Training-time auxiliary losses encourage balanced routing, but inference workloads may still exhibit skewed expert utilization.
 Some systems address this by placing popular experts on multiple GPUs (expert replication) or by capping the number of tokens each expert processes and dropping overflow tokens.
 
-Advanced routing strategies for EP try to colocate experts that are frequently co-activated on the same GPU, reducing the all-to-all communication.
+Advanced routing strategies for EP also try to cap the number of devices hosting experts that are frequently co-activated, reducing the all-to-all communication.
 This is accomplished during training using techniques such as additional routing terms in the loss function [@liu2024deepseekv2] and learnable bias weights in the routing network [@liu2024deepseekv3].
 
 EP pairs naturally with TP and PP.
@@ -388,7 +391,7 @@ With quantized weights (e.g., INT4), the model only consumes \~35 GB total, leav
 More KV cache memory means you can serve larger batches or longer sequences, directly improving throughput.
 
 This is a genuine advantage of tensor parallelism beyond just enabling large models: by spreading weight memory across more devices, you increase the aggregate memory available for serving.
-Combined with KV cache sharding from GQA/MQA models (@sec-efficient-attention) and PagedAttention (@sec-kv-cache), multi-GPU setups can serve substantially more concurrent requests than the raw parameter count might suggest.
+Combined with KV cache sharding from GQA/MQA models (@sec-efficient-attention) and PagedAttention (@sec-kv-cache), multi-GPU setups can sustain higher concurrency rates than the raw parameter count might suggest.
 
 The next chapter (@sec-production) will share how all of these techniques come together in production serving systems, including how frameworks like vLLM and TensorRT-LLM configure parallelism strategies automatically based on available hardware.
 

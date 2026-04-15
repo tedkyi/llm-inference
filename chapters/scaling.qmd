@@ -76,10 +76,10 @@ There are several ways to distribute inference across multiple devices.
 Each strategy partitions a different dimension of the problem:
 
 - **Data parallelism (DP)**: spreads the batch dimension across devices. The simple approach replicates the entire model on different devices, and then splits requests across replicas, with no communication between them.
-- **Tensor parallelism (TP)**: spreads the model dimension across devices. This involves splitting individual layers across devices.
-- **Pipeline parallelism (PP)**: assigns different layers to different devices
-- **Expert parallelism (EP)**: assigns different MoE experts to different devices
-- **Sequence/context parallelism (SP/CP)**: spreads the sequence dimension across devices. Care is required to maintain dependencies between tokens.
+- **Tensor parallelism (TP)**: spreads the model dimension across devices. This involves splitting individual layer parameters and calculations among the devices.
+- **Pipeline parallelism (PP)**: assigns different layers to different devices.
+- **Expert parallelism (EP)**: assigns different MoE experts to different devices.
+- **Context/sequence parallelism (CP/SP)**: spreads the sequence dimension across devices. Care is required to maintain dependencies between tokens.
 
 In practice, modern frameworks support, and production systems combine, multiple parallelism strategies.
 A common pattern is TP within a node (where NVLink provides the bandwidth for frequent all-reduce operations) and PP across nodes (where only point-to-point activations need to cross the network).
@@ -119,7 +119,7 @@ No communication is needed yet --- each GPU has an independent slice of the resu
 
 ![Column-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Up}}$ matrix. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.](images/tp_column.svg){#fig-tp-column .lightbox}
 
-@Fig-tp-column shows an example of a column-parallel linear layer with 2-way tensor parallelism, i.e. **T** = 2.
+@Fig-tp-column shows an example of a column-parallel linear layer with 2-way tensor parallelism, with **T** = 2.
 The darker shaded portion of the weight matrix $W_{\text{Up}}$ shows the half that is stored on each GPU.
 When multiplied by the full input $x$, each GPU produces a half-sized output, represented by the darker shaded portion of the output tensor.
 
@@ -164,7 +164,7 @@ The **KV cache** is also sharded: each GPU only stores the K and V tensors for i
 With GQA or MQA (discussed in @sec-efficient-attention), there are fewer KV heads than query heads, so the KV cache per device is even smaller.
 For example, with 8 KV head groups split across 8 GPUs with TP=8, each GPU holds just one KV head group --- the minimum possible.
 
-![2-way tensor parallel attention data flow. Only the darker shaded portions of weight and data tensors are stored on each GPU. In addition, only half of the KV cache (not shown) heads are stored on each GPU. This cuts the memory requirement in half.](images/tp_attn.svg){#fig-tp-attn .lightbox}
+![2-way tensor parallel attention data flow. Only the darker shaded portions of weight and data tensors are stored on each GPU. In addition, only half of the KV cache heads (not shown) are stored on each GPU. This cuts the memory requirement in half.](images/tp_attn.svg){#fig-tp-attn .lightbox}
 
 ### Communication cost
 
@@ -180,7 +180,7 @@ For a 70B model with **[D]{.dim-d}** = 8192 and TP=8 on H100 NVLink (900 GB/s), 
 That completes in well under a microsecond, which is small but adds directly to TPOT.
 For prefill with thousands of tokens, or with larger batch sizes, the communication volume scales linearly with sequence length and batch size, and it can start to show up in TTFT.
 
-The key insight is that TP requires **high-bandwidth, low-latency** communication every layer, making it a costly slowdown across nodes where network bandwidth is 10-30x lower than NVLink.
+The key insight is that TP requires **high-bandwidth, low-latency** communication every layer, making it very slow across nodes where network bandwidth is 10-30x lower than NVLink.
 
 
 ## Pipeline Parallelism (PP) {#sec-pipeline-parallelism}
@@ -197,7 +197,7 @@ The forward pass flows through the pipeline stages sequentially.
 GPU 0 processes the input through layers 0-19 and sends the activation tensor to GPU 1, which runs layers 20-39, and so on.
 The communication pattern is simple point-to-point transfers between adjacent stages --- no all-reduce needed.
 
-With **P** pipeline stages, the activation tensor passed between stages has shape **([S]{.dim-s}, [D]{.dim-d})**, and it only happens **P** -- 1 times, resulting in a much smaller volume of communication (and hit to TPOT) than the 2 × **[L]{.dim-l}** all-reduce operations in TP.
+With **P** pipeline stages, the activation tensor passed between stages has shape **([S]{.dim-s}, [D]{.dim-d})**, and it only happens **P** -- 1 times, resulting in a much smaller volume of communication (so less TPOT overhead) than the 2 × **[L]{.dim-l}** all-reduce operations in TP.
 This low communication volume makes PP better-suited for **multi-node** deployment, where network bandwidth is more limited.
 
 ### The pipeline bubble
@@ -336,10 +336,10 @@ The frequent all-reduces stay on the fast NVLink fabric, and only the occasional
 
 Combining EP with other strategies works slightly differently because EP only uses a subset of a layer's experts for each token.
 DP, TP, and PP always require all devices to fully participate for each token.
-The averaging of work across devices with EP is more complex, and averages better with larger numbers that smooth out the routing decisions.
-Whereas simple DP can be performed with replicas that don't interact, DP with EP works better if the replicas share load balancing of EP across devices.
+The averaging of work across devices with EP is more complex, and averages better with more tokens that smooth out the routing decisions.
+Whereas simple DP can be performed with replicas that don't interact, DP with EP works better if the replicas share a single load-balancing pool for the experts.
 It's also difficult to manage multiple communication patterns simultaneously.
-This is the reason why vLLM reuses the DP / TP communications mesh for EP, rather than introducing a separate communication mesh just for the experts.
+This is the reason why vLLM reuses the DP / TP communication mesh for EP, rather than introducing a separate communication mesh just for the experts.
 
 ### Communication-bound regime
 
@@ -351,7 +351,7 @@ A useful rule of thumb: if the communication time per layer exceeds the compute 
 Adding more TP devices beyond this point will increase latency rather than decrease it, because you're spending more time synchronizing than computing.
 This is why TP=8 is a common sweet spot on 8-GPU nodes.
 It matches the NVLink connectivity, and going to TP=16 across nodes rarely makes sense.
-Note also that TP up to the number of KV heads efficiently shards the KV cache, but beyond that, requires replication of the KV cache across devices, which is less beneficial.
+Note also that TP shards the KV cache efficiently up to the number of KV heads; beyond that, the KV cache must be replicated across devices, which is less beneficial.
 
 ## Multi-Node Inference {#sec-multi-node}
 

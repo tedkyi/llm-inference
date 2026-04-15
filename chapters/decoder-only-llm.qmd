@@ -41,7 +41,7 @@ On the left of @fig-decoder is a trimmed down decoder-only version of the origin
 Researchers also found that training larger models was more stable when the normalization happened before each attention and FFN block, instead of after.
 This design is referred to as the **pre-norm** architecture.
 On the right side of @fig-decoder is a pre-norm decoder-only model where the attention and FFN layers have been shifted to the side, making the residual connection path, known as the **residual stream**, more obvious.
-Throughout this book, we will use this straight through arrangement of the pre-norm decoder-only LLM in our examples.
+Throughout this book, we will use this straight-through arrangement of the pre-norm decoder-only LLM in our examples.
 
 Why did this simpler architecture win?
 Three reasons stand out.
@@ -65,7 +65,7 @@ During inference, the model must read each layer's weights from memory --- there
 
 A diagram making the N copies explicit is shown in @fig-vert-stack.
 This is what a decoder-only LLM really looks like, and if you review the PyTorch code for one, you will see this exact structure.
-The "N×" is shorthand, and it saves space in diagrams, but in the real world, such as on GPU memory, all of those many copies do exist and take up a lot of room.
+The "N×" is shorthand, and it saves space in diagrams, but in actual GPU memory, all of those many copies do exist and take up a lot of room.
 Please also note that each layer must be calculated before the next layer can be calculated.
 (If you are familiar with earlier work with RNNs and LSTMs, we have eliminated the sequential dependency in the sequence length direction, but we now have a sequential dependency in the layer direction.)
 We will also mention here that the input to the first layer is a vector of floating point numbers of length $d_{\text{model}}$, which we will abbreviate **([D]{.dim-d})**.
@@ -88,9 +88,10 @@ We are modeling this conceptually at this time, and we will see in @sec-kv-cache
 ![Concept of LLM model being copied for each token position, with attention communication added.](images/full_model_attn_comm.svg){#fig-model-attn-comm .lightbox}
 
 If we were to make a separate physical copy of the model for each token position, this would give us a correct answer, but it would consume massive amounts of memory for longer sequences.
-This idea of multiple copies of our model is a good mental model to understand data flow across token positions, however this is not how model inference happens.
+This idea of multiple copies of our model is a good mental model to understand data flow across token positions.
+However, this is not how model inference happens.
 Rather than making copies of the model, we simply take our vertical stack model and change the input from a 1D vector of shape **([D]{.dim-d})** to a 2D tensor of shape **([S]{.dim-s}, [D]{.dim-d})**.
-Passing in this 2D tensor into a single copy of the model yields a single tensor with outputs identical to what multiple copies of the model would have produced.
+Passing this 2D tensor into a single copy of the model yields a single tensor with outputs identical to what multiple copies of the model would have produced.
 
 ::: callout-note
 For efficiency reasons, almost all deep learning training and inference happens in batches.
@@ -117,17 +118,17 @@ We still need to be familiar with the operands, especially to know how the input
 Before diving into the data flow, here are a few conventions used in the tensor data flow diagrams.
 ![Example data flow diagram](images/tensor.svg){#fig-tensor .lightbox}
 
-In this example data flow diagram, the tensors are represented by rectangles, and the operand a rounded rectangle.
+In this example data flow diagram, the tensors are represented by rectangles, and the operand by a rounded rectangle.
 
 **Dimensions and edge color**: Each tensor's shape is shown next to it on the right side, unless there isn't room.
 The first tensor on the bottom has shape **([S]{.dim-s}, [D]{.dim-d})**, where **[S]{.dim-s}** is the number of rows and **[D]{.dim-d}** is the number of columns.
 Notice that the left and right edges are colored red, and every tensor with a dimension that is length **[S]{.dim-s}** will have that dimension colored red.
-Similarly, the top and bottom edges are colored blue because the number of columns is **[D]{.dim-d}**, and all other dimensions length **[D]{.dim-d}** will be the same color.
+Similarly, the top and bottom edges are colored blue because the number of columns is **[D]{.dim-d}**, and all other dimensions of length **[D]{.dim-d}** will be the same color.
 
-**Fill color**: The fill color of the bottom tensor is gray. For convenience, tensors holding similar semantic information will have similar fill colors. 
+**Fill color**: The fill color of the bottom tensor is gray. For convenience, tensors holding similar semantic information will have similar fill colors.
 Weights are fixed model tensors, and they always have the same purple fill color.
 
-**3D tensors**: The tensor at the top of the diagram is 3D with shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**. 
+**3D tensors**: The tensor at the top of the diagram is 3D with shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**.
 Because it is 3D, it is shown with a "stacked" rectangle shape.
 The leading dimension, **[H]{.dim-h}**, is the stacked dimension. The third dimension's purple edge color corresponds to this dimension.
 
@@ -175,7 +176,7 @@ This is functionally equivalent to @fig-vert-stack, except this tensor data flow
 ![Data flow of an entire decoder-only LLM. The details within each decoder layer are hidden for now.](images/llm_flow.svg){#fig-llm-flow .lightbox}
 
 We see our input with shape **([S]{.dim-s})** at the bottom of @fig-llm-flow.
-It is converted to a sequence of one-hot vectors, and the input is now shape **([S]{.dim-s}, [V]{.dim-v})**. 
+It is converted to a sequence of one-hot vectors, and the input is now shape **([S]{.dim-s}, [V]{.dim-v})**.
 This flows into a matrix multiply with the embedding weights, which are a giant matrix of shape **([V]{.dim-v}, [D]{.dim-d})**.
 We now have a dense input matrix of shape **([S]{.dim-s}, [D]{.dim-d})**.
 This is fed to Layer 0, whose output is the same shape, **([S]{.dim-s}, [D]{.dim-d})**, and the layer output is added to the existing values.
@@ -197,7 +198,7 @@ For this reason, position information must be explicitly injected through a sepa
 
 The technical details and pros and cons of different position embedding techniques are beyond the scope of this section. Some approaches worth mentioning are:
 
-**Sinusoidal position embeddings**: the position embeddings used in the original "Attention is All You Need" paper. 
+**Sinusoidal position embeddings**: the position embeddings used in the original "Attention Is All You Need" paper. 
 A special embedding table of shape **([S]{.dim-s}, [D]{.dim-d})** is added to the token embeddings before they are input to the first decoder layer. 
 This is shown at the bottom of each of @fig-orig-transformer through @fig-vert-stack. 
 In the embedding table, position 0 gets one vector, position 1 gets another, and so on.
@@ -219,8 +220,8 @@ While it is surprising that having no position information would work, research 
 
 ### Weight tying
 
-Some architectures share weights between the token embedding layer, whose parameter shape is **([V]{.dim-v}**, **[D]{.dim-d})** and the LM head, whose parameter shape is **([D]{.dim-d}**, **[V]{.dim-v})** --- which is the transpose of the embedding layer.
-When embedding tokens, the **([V]{.dim-v}**, **[D]{.dim-d})** weights are used, and when obtaining logits, the transpose of these weights are used.
+Some architectures share weights between the token embedding layer, whose parameter shape is **([V]{.dim-v}, [D]{.dim-d})**, and the LM head, whose parameter shape is **([D]{.dim-d}, [V]{.dim-v})** --- which is the transpose of the embedding layer.
+When embedding tokens, the **([V]{.dim-v}, [D]{.dim-d})** weights are used, and when obtaining logits, the transpose of these weights is used.
 This is called **weight tying**.
 When the vocabulary is large, these matrices are very large.
 For Llama 3 70B, where **[V]{.dim-v}** = 128,000 and **[D]{.dim-d}** = 8192, each matrix has just over 1B parameters, so 2B combined.
@@ -252,7 +253,7 @@ They allow gradients to flow through the network's layers without vanishing.
 For inference, they're simple addition operations that don't add meaningful compute cost.
 
 Our data flow here is all of shape **([S]{.dim-s}, [D]{.dim-d})**, and there's not much computational overhead.
-There isn't much to optimize being shown here.
+There isn't much to optimize in what is shown here.
 We are now ready to drill into the sub-layers where the majority of the overhead lies.
 We will start with attention.
 
@@ -284,7 +285,7 @@ where $X$ has shape **([S]{.dim-s}, [D]{.dim-d})** and $W_Q$, $W_K$, $W_V$ each 
 The outputs Q, K, and V all have shape **([S]{.dim-s}, [D]{.dim-d})**, as shown in @fig-attn-flow. 
 In this data flow diagram, **[S]{.dim-s}** edges are drawn shorter than **[D]{.dim-d}** edges. 
 This will be accurate for Llama 3 70B when **[S]{.dim-s}** < 8192. 
-As the sequence gets longer and we have **[S]{.dim-s}** > 8192, then these dimensions will be longer, despite this static diagram not being able to dynamically show the change.
+As the sequence gets longer and we have **[S]{.dim-s}** > 8192, these dimensions will be longer, despite this static diagram not being able to dynamically show the change.
 
 The intuition for Q, K, and V is roughly this: the query represents "what this token is looking for," the key represents "what this token offers to other tokens," and the value represents "the information this token will contribute when attended to."
 These are loose analogies, but they help build intuition for why we need three separate projections rather than just one or two.
@@ -316,7 +317,8 @@ With Q and K reshaped to **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, we compu
 
 $$\text{Scores} = \frac{Q K^T}{\sqrt{d_K}}$$
 
-The matrix multiplication $Q K^T$ produces a tensor of shape **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**. For each head, we get a matrix shape **([S]{.dim-s}, [S]{.dim-s})** where entry $(i, j)$ is the raw attention score between the query at token position $i$ and the key at token position $j$.
+The matrix multiplication $Q K^T$ produces a tensor of shape **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**. 
+For each head, we get a matrix with shape **([S]{.dim-s}, [S]{.dim-s})**, where entry $(i, j)$ is the raw attention score between the query at token position $i$ and the key at token position $j$.
 The division by $\sqrt{d_K}$ prevents the dot products from growing too large as the dimension **$\dimdk{d_K}$** increases, which would push SoftMax into regions with vanishing gradients.
 
 This **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** attention matrix is the computational signature of standard self-attention.
@@ -335,7 +337,7 @@ This is enforced by a **causal mask**: an upper-triangular matrix of $-\infty$ v
 Note that the mask is shape **([S]{.dim-s}, [S]{.dim-s})**, so it has to be broadcast across the **[H]{.dim-h}** dimension in order to be added to the scores tensor.
 After adding the mask, we apply SoftMax along the key dimension (the last dimension).
 Any number added to $-\infty$ results in $-\infty$, and these $-\infty$ values become zero after SoftMax.
-This prevents the masked out positions from getting any attention weight, ensuring each position's attention weights sum to 1 over only the allowed (past and current) positions.
+This prevents the masked-out positions from getting any attention weight, ensuring each position's attention weights sum to 1 over only the allowed (past and current) positions.
 
 ### Weighted sum and output projection
 
@@ -366,8 +368,8 @@ With 80 layers, the attention parameters alone account for about 21.5B of Llama 
 The rest is mostly in the feed-forward layers, which we'll cover in @sec-ffn.
 
 ::: callout-note
-**Grouped-Query Attention (GQA) and friends.** Modern models often use fewer key-value heads than query heads. Llama 3 70B uses GQA [@ainslie2023gqa] with 64 query heads but only 8 KV heads, reducing $W_K$ and $W_V$ from **([D]{.dim-d}, [D]{.dim-d})** to **([D]{.dim-d}, $8 \times \dimdk{d_K}$)** = (8192, 1024). 
-This saves parameters and, more importantly, reduces the KV cache size by 8x. 
+**Grouped-Query Attention (GQA) and friends.** Modern models often use fewer key-value heads than query heads. Llama 3 70B uses GQA [@ainslie2023gqa] with 64 query heads but only 8 KV heads, reducing $W_K$ and $W_V$ from **([D]{.dim-d}, [D]{.dim-d})** to **([D]{.dim-d}, $8 \times \dimdk{d_K}$)** = (8192, 1024).
+This saves parameters and, more importantly, reduces the KV cache size by 8x.
 Multi-Query Attention (MQA) [@shazeer2019mqa] takes this further with a single KV head. Multi-head Latent Attention (MLA) [@liu2024deepseekv2] compresses the KV cache through learned low-rank projections. These attention variants are covered in @sec-efficient-attention.
 :::
 
@@ -397,10 +399,10 @@ We recompute increasingly longer sequences for each new token, and this is extre
 
 **The KV cache approach**: store the K and V tensors from all token positions, accumulating one more of each with each step.
 At each decode step, compute K and V for *only* the new token, append them to the cache, and use the full cached K and V for the attention computation.
-This reduces the per token computation to $O({t})$ and the total computation to $O(\dims{\text{S}}^{2})$ across all decode steps.
+This reduces the per-token computation to $O({t})$ and the total computation to $O(\dims{\text{S}}^{2})$ across all decode steps.
 The naive and KV cache approaches are contrasted in @fig-kv-cache.
 
-![The KV cache avoids wasted recomputation of keys and values which never change over and over again](images/kv_cache_concept.svg){#fig-kv-cache .lightbox}
+![The KV cache avoids wasted recomputation of keys and values that do not change between decode steps](images/kv_cache_concept.svg){#fig-kv-cache .lightbox}
 
 When we do inference with a KV cache, the attention calculation becomes much less computationally expensive because our query tensor shrinks from **([S]{.dim-s}, [D]{.dim-d})** to **([1]{.dim-one}, [D]{.dim-d})**.
 You can see this effect by comparing the original data flow for attention in @fig-attn-flow to the KV cache attention data flow in @fig-attn-flow-kv.
@@ -424,7 +426,7 @@ That's 1.34 GB for a *single request*.
 If you're serving 40 concurrent requests, the KV cache alone consumes over 50 GB, which would be more than half of the memory on an 80 GB GPU that also needs to hold the model weights.
 This is why KV cache memory management is such a central concern in LLM serving systems.
 
-The cache grows by a fixed amount at each decode step: $2 \times \diml{L} \times \dimhkv{H_{\text{kv}}}  \times \dimdk{d_K} \times b$ bytes per token.
+The cache grows by a fixed amount at each decode step: $2 \times \diml{L} \times \dimhkv{H_{\text{kv}}} \times \dimdk{d_K} \times b$ bytes per token.
 For the Llama 70B numbers above, that's about 328 KB per token per request.
 
 ::: {.callout-note}
@@ -438,7 +440,7 @@ For the Llama 70B numbers above, that's about 328 KB per token per request.
 Standard multi-head attention dominates deployed LLMs today, but it's not the only option.
 **State-space models** like **Mamba** [@gu2023mamba] and **linear attention** variants such as **Kimi Linear** [@kimiteam2025linear] replace the **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** attention matrix with a fixed-size recurrent state.
 Instead of caching all past keys and values (which grows linearly with sequence length), they maintain a constant-size state that gets updated at each step.
-This eliminates the problem of KV caches growing large, giving a fundamentally different inference profile --- constant memory per step instead of linearly growing memory.
+This eliminates the problem of KV caches growing large, giving a fundamentally different inference profile --- constant memory regardless of sequence length, instead of memory that grows linearly with it.
 
 These architectures are out of scope for this book.
 We focus on standard multi-head attention because it remains dominant in the models that practitioners actually deploy at scale.
@@ -511,7 +513,8 @@ Note that there is a router in every layer, so the choice of experts differs eac
 The science of MoE layers is outside the scope of this book, but we will highlight a recent trend.
 Early MoE LLMs such as **Mixtral** [@jiang2024mixtral] had only a few experts, such as 8, and set $k$ to a very small value, such as 2.
 More recent LLMs such as **Qwen 3** [@yang2025qwen3] have hundreds of experts and set $k$ to a higher number, such as 8.
-They also have the concept of always-on experts called **shared experts**. @Fig-moe-flow shows what the vanilla data flow looks like with an MoE configuration with 6 total experts, 2 of which are active.
+They also have the concept of always-on experts called **shared experts**. 
+@Fig-moe-flow shows what the vanilla data flow looks like in an MoE configuration with 6 total experts, 2 of which are active.
 
 The outputs of the selected experts are combined using the router's SoftMax weights.
 

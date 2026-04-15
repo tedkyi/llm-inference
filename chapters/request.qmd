@@ -29,7 +29,7 @@ The actual computations of the matrix multiplications and softmax are necessary,
 The round-trip to HBM for these intermediate results is slow and wastes HBM memory.
 This problem scales quadratically with sequence length --- double the sequence length and you quadruple the HBM usage and intermediate memory traffic.
 The latency associated with increased HBM traffic reduces MFU and increases TTFT.
-The quadratic memory usage is also why this implementation of attention causes GPU out of memory errors for long sequences.
+The quadratic memory usage is also why this implementation of attention causes GPU out-of-memory errors for long sequences.
 
 It's worth noting that even a single matmul like $\text{Scores} = QK^T$ doesn't happen as one monolithic operation.
 The $Q$ and $K$ matrices are far too large to fit in SRAM, so the GPU kernel **tiles** the computation.
@@ -193,7 +193,7 @@ This wastes memory in three ways, illustrated in @fig-kv-waste:
 
 - **reserved** slots are those held for tokens that will be, but haven't been generated yet, 
 - **internal fragmentation** is slots allocated that will never be used because the sequence won't reach the maximum length, and 
-- **external fragmentation**  is gaps between allocations that are too small to be useful (which arise if requests have varying lengths)
+- **external fragmentation** is gaps between allocations that are too small to be useful (which arise if requests have varying lengths)
 
 ![Memory waste with contiguous KV cache allocation. Each request pre-allocates for the maximum sequence length, leaving most of the memory unused.](images/kv_waste.svg){#fig-kv-waste .lightbox}
 
@@ -214,7 +214,7 @@ With 16-token pages, average waste is 8 tokens per request --- negligible compar
 The near-zero memory waste allows dramatically higher concurrency and longer sequence lengths within the same memory budget.
 - **Dynamic allocation**: pages are allocated on demand as the sequence grows, so a short request doesn't tie up memory it will never use, and a long generation doesn't hold reserved memory for long periods.
 - **Sharing**: two requests that share a common prefix (same system prompt, for instance) can point to the same physical pages for the shared portion, storing the data once. 
-The combination of paged attention and ragged batching (discussed in @sec-ragged-batching) is a beautiful solution that reduces both KV cache memory usage and memory reads, benefitting TPOT.
+The combination of paged attention and ragged batching (discussed in @sec-ragged-batching) is a beautiful solution that reduces both KV cache memory usage and memory reads, benefiting TPOT.
 @Fig-ragged-shared-prefix shows the elegance and large savings when you combine the two, and is worth reviewing again here.
 - **Fine-grained preemption**: if the scheduler needs to free memory (@sec-request-scheduling), pages for an evicted request can be reallocated individually, rather than killing the entire request. 
 vLLM uses this optimistic strategy with recomputation, finding that when the request is resumed, most of the needed pages are often still in memory, avoiding much of the recomputation cost.
@@ -236,10 +236,10 @@ The quality impact of KV cache quantization is generally small.
 Keys and values are intermediate activations, not learned parameters, and small quantization errors in individual KV entries tend to average out across the many entries involved in an attention computation.
 The tradeoff is straightforward: reduced memory for a small and often negligible reduction in output quality.
 
-One research paper garnering a lot of interest is **TurboQuant** [@zandieh2025turboquant].
+Another quantization approach, which garnered a lot of attention recently, is **TurboQuant** [@zandieh2025turboquant].
 Rather than simply choosing a new datatype, they use techniques like random rotations to support quantization to lower bit depths.
 They report success squeezing entries down to 3.5 bits without hurting LLM performance.
-Interest in KV cache quantization techniques is high because bandwidth bound nature of decoding means that reductions in KV cache size provide close to linear speedups to TPOT and throughput.
+Interest in KV cache quantization techniques is high because bandwidth-bound nature of decoding means that reductions in KV cache size provide close to linear speedups to TPOT and throughput.
 
 ### KV cache compression
 
@@ -364,7 +364,7 @@ A comparison of standard decoding and speculative decoding is shown in @fig-spec
 The reason speculative decoding works is the asymmetry between generation and verification.
 Generating $k$ tokens with the target model requires $k$ sequential forward passes.
 But *verifying* $k$ tokens requires just one forward pass, because you can feed all $k$ tokens as input and check them all in parallel, in the same way prefill processes multiple tokens at once.
-The early related work on this idea is Blockwise Parallel Decoding [@stern2018blockwise].
+Blockwise Parallel Decoding [@stern2018blockwise] is an early precursor to this idea.
 
 ### Acceptance rate and expected speedup
 
@@ -419,7 +419,7 @@ This is because the draft model needs to know which tokens were accepted so it c
 ```{=html}
 <!--
 ![Speculative speculative decoding](images/under_construction.jpg){#fig-speculative-speculative-decoding .lightbox}
---->
+-->
 ```
 
 **Speculative speculative decoding** [@mamou2025specspec] eliminates this sequential dependency.
@@ -441,8 +441,8 @@ There's a sweet spot where the draft model is good enough to maintain high accep
 
 **Batch size**: this is the most important practical consideration.
 Speculative decoding's benefit comes from replacing sequential target model forward passes with one parallel verification pass.
-But in high-throughput serving with large batch sizes, the target model's forward passes may have high MFU already, meaning that verification can slow down the forward passes.
-Adding draft model on top of a high MFU pipeline can increase TPOT, offsetting gains from speculative decoding, and in the extreme, it can actually hurt throughput.
+But in high-throughput serving with large batch sizes, the target model's forward passes may have high MFU already, meaning that the extra verification tokens can slow down the forward passes.
+Adding a draft model on top of a high-MFU pipeline can drive an increase in TPOT, offsetting gains from speculative decoding, and in the extreme, it can actually hurt throughput.
 Speculative decoding shines in low-batch-size, latency-sensitive scenarios.
 
 ### Multi-token prediction
@@ -452,7 +452,7 @@ Speculative decoding uses a separate draft model to propose candidates.
 
 ![Multi-token prediction with $k=3$ predictions for each token position](images/multi_token_prediction.svg){#fig-multi-token-prediction .lightbox}
 
-**Multi-token prediction (MTP)** [@gloeckle2024mtp] modifies the model architecture to predict multiple future tokens at each position.
+Multi-token prediction [@gloeckle2024mtp] modifies the model architecture to predict multiple future tokens at each position.
 In addition to the standard next-token prediction head, the model has auxiliary heads that predict the token 2, 3, or $k$ steps ahead.
 During training, all heads are trained simultaneously with a shared loss.
 A comparison of standard decoding and multi-token prediction is shown in @fig-multi-token-prediction.

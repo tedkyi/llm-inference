@@ -26,8 +26,14 @@ If you are not interested in reading work that used AI assistance, that is your 
 For what it's worth, AI assistance shortened the process of getting the first release of this book from months to weeks.
 I probably would not have taken the time to write this book if it had required several months.
 
-### Acknowledgements {.unnumbered}
+### Acknowledgements and feedback {.unnumbered}
 Thank you to everyone who provided feedback, starting with RC and RS.
 
 I thank you for reporting any errata or making suggestions for how this book could be better.
 The easiest way is to open a GitHub issue from within the electronic book.
+
+If you found this book useful, you can support it by sharing it with others, giving the [GitHub repo](https://github.com/tedkyi/llm-inference) a star, or buying me a coffee at [ko-fi.com/tedkyi](https://ko-fi.com/tedkyi).
+
+::: {.content-visible when-format="html"}
+[![GitHub stars](https://img.shields.io/github/stars/tedkyi/llm-inference?style=social)](https://github.com/tedkyi/llm-inference)
+:::

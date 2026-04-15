@@ -74,7 +74,7 @@ This is why batching is the simplest, most important lever for inference cost ef
 There's a catch, and it's a big one.
 Each request in the batch needs its own **KV cache**, with the stored key and value tensors from every layer, accumulated across every token processed so far.
 As we'll cover in detail in @sec-kv-cache, the KV cache for a single request can consume several gigabytes for long sequences with large models.
-The large amounts of memory needed for the KV cache sets a **concurrency ceiling** on how many requests can be processed in the same batch.
+The large amount of memory needed for the KV cache sets a **concurrency ceiling** on how many requests can be processed in the same batch.
 
 Here's a concrete example.
 If your model weights occupy 30 GB on an 80 GB GPU, you have roughly 50 GB left for KV caches (minus activation memory and framework overhead).
@@ -130,7 +130,7 @@ If requests have different input lengths and prefill is done with all of them at
 
 Static batching works fine for offline workloads where all inputs and outputs have uniform length --- say, scoring a dataset of fixed-length classification examples.
 Having the entire dataset available at the beginning, instead of dealing with unknown arrival times, makes scheduling much easier.
-For anything with variable-length inputs, variable-length outputs, and stochastic arrival time, which is the common case in online LLM generation, it wastes too many GPU cycles.
+For anything with variable-length inputs, variable-length outputs, and stochastic arrival times, which is the common case in online LLM generation, it wastes too many GPU cycles.
 
 ### Dynamic batching
 
@@ -181,7 +181,7 @@ This is more complex than static batching but is well worth the implementation e
 :::
 
 Continuous batching has eliminated most of the GPU idle time, but we've seen it still has a problem with long prefills causing other requests to wait.
-In this simple implementation of continuous batching, where the prefill for each input is processed all at once, we don't have the ability to start new prefill or decode requests during the middle of a long running prefill.
+In this simple implementation of continuous batching, where the prefill for each input is processed all at once, we don't have the ability to start new prefill or decode requests during the middle of a long-running prefill.
 And it's worthwhile to remember that the prefill of a long input can take dozens or hundreds of times longer than a decode step (not just double as we've depicted).
 
 This is less of a GPU utilization problem, which would show in MFU, than it is a problem with increasing TPOT and overall request completion latency.
@@ -234,7 +234,7 @@ For our sample workload from @tbl-batching-workload, we can now improve upon con
 In reality, if prefill were dozens of times slower than decode, the savings would be even greater.
 
 Chunked prefill combined with continuous batching improves all aspects of GPU utilization, so both MFU and MBU increase.
-The brilliance of chunked prefill results in almost all inference metrics improving simultaneously: TTFT, TPOT, and throughput all improve as well.
+The net effect is almost all inference metrics improving simultaneously --- in particluar, TTFT, TPOT, and throughput all improve.
 
 ::: callout-note
 Chunked prefill builds upon continuous batching in an intuitive way.
@@ -249,7 +249,7 @@ Chunked prefill is effective, but it's still a compromise because prefill and de
 **Disaggregated prefill** [@zhong2024distserve] takes a more radical approach: run prefill and decode on entirely separate hardware instances.
 
 The idea is straightforward.
-Prefill is compute-bound, so prefill instances should be optimized for compute, so a high compute ceiling.
+Prefill is compute-bound, so prefill instances should be optimized for compute (i.e., a high compute ceiling).
 Decode is memory-bandwidth-bound, so decode instances should be optimized for memory bandwidth and capacity.
 By disaggregating the two phases onto separate hardware, each can be independently optimized and scaled without interfering with the other.
 
@@ -303,11 +303,11 @@ A comparison of simple padded batching and ragged batching is shown in @fig-ragg
 The benefits of ragged batching are most pronounced when the input lengths across requests vary widely.
 A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching.
 With ragged batching, the compute is roughly proportional to the actual number of tokens: $2{,}048 + 3 \times 128 = 2{,}432$ tokens instead of $4 \times 2{,}048 = 8{,}192$ tokens.
-This example shows how ragged batching supports high concurrency without wasteful padding, maximizing the useful work of MFU and keeping TTFT low.
+This example shows how ragged batching supports high concurrency without wasteful padding, maximizing the useful work and keeping TTFT low.
 
 ![Ragged batching example with a shared prefix](images/ragged_shared_prefix.svg){#fig-ragged-shared-prefix .lightbox}
 
-The benefits of ragged batching combine really well with prefix sharing, which we will discuss in @sec-prefix-caching.
+The benefits of ragged batching combine particularly well with prefix sharing, which we will discuss in @sec-prefix-caching.
 @Fig-ragged-shared-prefix briefly shows how sharing the prefix in ragged batching can save huge amounts of compute with long shared prefixes, such as a long system prompt.
 
 
@@ -316,7 +316,7 @@ The benefits of ragged batching combine really well with prefix sharing, which w
 ### Granularity of scheduling
 
 We have seen in the previous section that continuous batching shifts the scheduling granularity from the batch level to the iteration level.
-While it introduces some additional overhead, the benefits are huge, and the overhead lies mostly on the CPU side, allowing it to be overlapped with all of the GPU work.
+While it introduces some additional overhead, the benefits are substantial, and the overhead lies mostly on the CPU side, allowing it to be overlapped with all of the GPU work.
 Modern serving systems are built on this iteration-level scheduling, and it allows very fine-grained control over which requests are processed at each step.
 
 ### Priority-based scheduling
@@ -328,7 +328,7 @@ A real-time chatbot response that a user is waiting on matters more --- at least
 In a priority-aware scheduler, each incoming request is assigned a priority level.
 High-priority requests are placed at the front of the scheduling queue, while lower-priority requests wait until there's spare capacity.
 The scheduler decides at each iteration which requests to include in the batch, and high-priority requests get scheduled first.
-With iteration level scheduling, the scheduler can even preempt lower-priority requests mid-generation, in order to make room for higher-priority requests that arrive.
+With iteration-level scheduling, the scheduler can even preempt lower-priority requests mid-generation, in order to make room for higher-priority requests that arrive.
 
 Priority-based scheduling enables a common production pattern: a system serves both real-time and batch traffic on the same hardware.
 Real-time requests get low TTFT because they jump the queue.
@@ -369,7 +369,7 @@ In the extreme, high amounts of swapping can degrade decode performance for all 
 
 **Recomputation** takes a simpler but more expensive approach: discard the preempted request's KV cache entirely.
 When the request resumes, the system reruns prefill from scratch to rebuild the KV cache.
-This frees GPU memory immediately, requires no CPU memory, and doesn't spend time transferring data back and forth between GPU and CPU, but it wastes the compute that went into the original prefill plus all the KV cache entries accumulated during decode so far.
+This frees GPU memory immediately, requires no CPU memory, and doesn't spend time transferring data back and forth between GPU and CPU, but it wastes the compute that went into the original prefill and the calculation of all the KV cache entries accumulated during decode so far.
 For a request with a long prompt, recomputation can be very costly.
 The extra recomputation won't show up in MFU, but it will increase TTFT.
 In the extreme, high amounts of recomputation can cause almost all metrics to degrade.
@@ -439,7 +439,7 @@ In the next chapter, we'll turn to techniques that operate on individual request
 
 ## Further Reading {#sec-further-scheduling}
 
-For accessible introductions to batching strategies:
+For accessible introductions to batching strategies, two sources are notable.
 The Anyscale blog post [@anyscale2024batching] is the most widely-shared visual explainer of continuous batching. It walks through static vs. continuous batching with clear diagrams and shows where the 23x throughput claim comes from.
 The original vLLM blog post [@vllm2023blog] introduces PagedAttention with accessible visual explanations of KV cache memory fragmentation and how OS-style paging solves it --- a good companion to the academic paper.
 

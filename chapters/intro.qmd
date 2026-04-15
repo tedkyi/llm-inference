@@ -1,8 +1,8 @@
 # Introduction {#sec-intro}
 
 Before ChatGPT, most of the focus on language models was on how to train better, smarter models.
-Now that we are in a world where millions of people use **large language models (LLMs)** every day, much recent energy has gone into making serving these models more efficient and less expensive.
-This book summarizes many of the key advancements with LLM inference.
+Now that we are in a world where millions of people use **large language models (LLMs)** every day, much recent energy has gone into making the serving of these models more efficient and less expensive.
+This book summarizes many of the key advancements in LLM inference.
 We will attempt to provide clarity about each concept, but this is not an ML Ops book, and we will not drill down into coding each technique.
 In this chapter, we start by understanding the components of LLM inference.
 In the remainder of this book, we will look at different bottlenecks and techniques for improving performance.
@@ -15,12 +15,14 @@ Before we get into the technical details of how inference systems are built and 
 
 ### A simple example
 
-Suppose we give an LLM the prompt **"The quick brown fox jumps"** — five input tokens. The model's job is to predict what tokens come next.
+Suppose we give an LLM the prompt **"The quick brown fox jumps"** --- five input tokens. The model's job is to predict what tokens come next.
 
 ![First token predicted for the prompt "The quick brown fox jumps"](images/inference_start.svg){#fig-inference-start .lightbox}
 
 The text generation happens in a series of steps.
-The first thing that happens is the LLM runs a single **forward pass** of the neural network model using all of the input tokens. After processing all of these tokens together, it produces its prediction for the next token, **over**. This initial step is shown in @fig-inference-start.
+The first thing that happens is the LLM runs a single **forward pass** of the neural network model using all of the input tokens. 
+After processing all of these tokens together, it produces its prediction for the next token, **over**. 
+This initial step is shown in @fig-inference-start.
 
 ![An example LLM response for the prompt "The quick brown fox jumps"](images/inference_example.svg){#fig-inference-example height=400 .lightbox}
 
@@ -28,8 +30,8 @@ Text generation continues in a series of steps, one token at a time, with the en
 
 1.  In the next step, the predicted token **over** is appended to the end of the input text, and the model is fed **"The quick brown fox jumps over"**. In this step it predicts **the**.
 2.  Once again, the predicted token, which is now **the**, is appended to the end, the model is fed **"The quick brown fox jumps over the"**, and it predicts **lazy**.
-3.  Continuing this process, the input **"The quick brown fox jumps over the lazy"** predicts **dog**.
-4.  Then, the input **"The quick brown fox jumps over the lazy dog"** outputs a special token **\<EOS\>**. The special token tells the LLM to stop the generation, and the completed response is returned to the user.
+3.  Continuing this process, for the input **"The quick brown fox jumps over the lazy"**, the model predicts **dog**.
+4.  Then, for the input **"The quick brown fox jumps over the lazy dog"**, the model outputs a special token **\<EOS\>**. The special token tells the LLM to stop the generation, and the completed response is returned to the user.
 
 In our very first step, the LLM is given all of our input tokens.
 In many cases, this input prompt can be quite long.
@@ -45,17 +47,17 @@ In this book, we will dig deeper to understand the internals of this inference p
 
 ### Why inference optimization matters
 
-That simple loop — run the model, get a token, repeat — sounds straightforward.
+That simple loop --- run the model, get a token, repeat --- sounds straightforward.
 But the raw cost of running it naively is staggering.
 A 70-billion-parameter model stores its weights in about 140 GB of GPU memory (at 2 bytes per parameter).
 Every single decode step has to, at a minimum, read through all of those weights just to produce one token.
-Without any optimization, a single request to a 70B model might generate only 15–20 tokens per second on a high-end GPU, and frontier models like Gemini, which are believed to be ten times larger, would be below 2 tokens per second.
-Run that for one user at a time with no batching, and you've got an extremely expensive system that can barely output faster than one person can read, while also leaving most of the GPU's computational capability unused.
+Without any optimization, a single request to a 70B model might generate only 15-20 tokens per second on a high-end GPU, and frontier models believed to be ten times larger would be below 2 tokens per second.
+Run that for one user at a time with no batching, and you've got an extremely expensive system that produces tokens only marginally faster than a reader can consume them, while also leaving most of the GPU's computational capability unused.
 
 The situation gets much better with the right techniques.
-Modern serving frameworks like vLLM and SGLang apply a combination of the optimizations covered in this book — smarter batching, memory management, kernel optimization, and more — and the results are dramatic.
+Modern serving frameworks like vLLM and SGLang apply a combination of the optimizations covered in this book --- smarter batching, memory management, kernel optimization, and more --- and the results are dramatic.
 In one benchmark, an unoptimized serving setup on an A100 GPU achieved about 80 tokens per second for a 13B model.
-The same model served through vLLM achieved roughly 1,900 tokens per second — a 23x improvement [@anyscale2024batching].
+The same model served through vLLM achieved roughly 1,900 tokens per second --- a 23x improvement [@anyscale2024batching].
 On newer hardware, optimized frameworks routinely serve models like Llama 3 8B at over 16,000 tokens per second on a single H100 GPU, with per-token latencies in the single-digit milliseconds.
 
 These aren't gains from better hardware.
@@ -64,7 +66,7 @@ That's what this book is about.
 
 ### About this book
 
-This book is written for ML engineers who know the LLM's neural network architecture and want to understand what else is part of serving LLM requests, and in particular how to make that process faster.
+This book is written for ML engineers who are familiar with the transformer architecture behind modern LLMs and want to understand what else goes into serving them quickly..
 We assume you're familiar with neural networks, the transformer architecture, and self-attention at a conceptual level.
 
 With that, let's get into the technical details.

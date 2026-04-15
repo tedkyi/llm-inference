@@ -46,6 +46,9 @@ ul.task-list li input[type="checkbox"] {
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="../site_libs/bootstrap/bootstrap-9e3e5b9121e68b3f077afb32f2c64d95.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="../site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="../site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -221,7 +224,7 @@ ul.task-list li input[type="checkbox"] {
   <li><a href="#who-this-book-is-for" id="toc-who-this-book-is-for" class="nav-link active" data-scroll-target="#who-this-book-is-for">Who this book is for</a></li>
   <li><a href="#what-this-book-covers" id="toc-what-this-book-covers" class="nav-link" data-scroll-target="#what-this-book-covers">What this book covers</a></li>
   <li><a href="#how-this-book-was-written" id="toc-how-this-book-was-written" class="nav-link" data-scroll-target="#how-this-book-was-written">How this book was written</a></li>
-  <li><a href="#acknowledgements" id="toc-acknowledgements" class="nav-link" data-scroll-target="#acknowledgements">Acknowledgements</a></li>
+  <li><a href="#acknowledgements-and-feedback" id="toc-acknowledgements-and-feedback" class="nav-link" data-scroll-target="#acknowledgements-and-feedback">Acknowledgements and feedback</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -262,10 +265,17 @@ ul.task-list li input[type="checkbox"] {
 <p>This book started as a detailed list of topics, techniques, and research papers. The idea to use data flow diagrams and the design of most diagrams was entirely my own.</p>
 <p><strong>Full disclosure</strong>: I used LLMs to suggest ways to organize the material and to write initial text based on my notes. I used Claude Code to speed up the implementation of the diagrams and to debug places where the appearance of text, formulas, or figures wasn’t correct. If you are not interested in reading work that used AI assistance, that is your prerogative. For what it’s worth, AI assistance shortened the process of getting the first release of this book from months to weeks. I probably would not have taken the time to write this book if it had required several months.</p>
 </section>
-<section id="acknowledgements" class="level3 unnumbered">
-<h3 class="unnumbered anchored" data-anchor-id="acknowledgements">Acknowledgements</h3>
+<section id="acknowledgements-and-feedback" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="acknowledgements-and-feedback">Acknowledgements and feedback</h3>
 <p>Thank you to everyone who provided feedback, starting with RC and RS.</p>
 <p>I thank you for reporting any errata or making suggestions for how this book could be better. The easiest way is to open a GitHub issue from within the electronic book.</p>
+<p>If you found this book useful, you can support it by sharing it with others, giving the <a href="https://github.com/tedkyi/llm-inference">GitHub repo</a> a star, or buying me a coffee at <a href="https://ko-fi.com/tedkyi">ko-fi.com/tedkyi</a>.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://img.shields.io/github/stars/tedkyi/llm-inference?style=social.png" class="img-fluid figure-img"></p>
+<figcaption>GitHub stars</figcaption>
+</figure>
+</div>
 
 
 </section>
@@ -684,8 +694,40 @@ ul.task-list li input[type="checkbox"] {
   </div>
 </nav>
 </div> <!-- /content -->
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer><script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
 
 
 
 
-<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
+</body></html>

@@ -251,7 +251,7 @@ window.Quarto = {
   <li><a href="#tensor-edge-colors" id="toc-tensor-edge-colors" class="nav-link" data-scroll-target="#tensor-edge-colors">Tensor edge colors</a></li>
   <li><a href="#tensor-fill-colors" id="toc-tensor-fill-colors" class="nav-link" data-scroll-target="#tensor-fill-colors">Tensor fill colors</a></li>
   <li><a href="#component-colors" id="toc-component-colors" class="nav-link" data-scroll-target="#component-colors">Component colors</a></li>
-  <li><a href="#reading-a-data-flow-diagram" id="toc-reading-a-data-flow-diagram" class="nav-link" data-scroll-target="#reading-a-data-flow-diagram">Reading a data flow diagram</a></li>
+  <li><a href="#reading-a-tensor-data-flow-diagram" id="toc-reading-a-tensor-data-flow-diagram" class="nav-link" data-scroll-target="#reading-a-tensor-data-flow-diagram">Reading a tensor data flow diagram</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/tedkyi/llm-inference/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -260,7 +260,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Conventions</h1>
+<h1 class="title"><span id="sec-conventions" class="quarto-section-identifier">Conventions</span></h1>
 </div>
 
 
@@ -280,7 +280,7 @@ window.Quarto = {
 <p><em>Figures throughout this book use a consistent visual language for tensor shapes, dimensions, and components. This page collects those conventions in one place so you can decode any diagram at a glance.</em></p>
 <section id="dimension-names-and-abbreviations" class="level3">
 <h3 class="anchored" data-anchor-id="dimension-names-and-abbreviations">Dimension names and abbreviations</h3>
-<p>Tensors in figures are labeled with their shapes using the single-letter abbreviations below. The full names and abbreviations match those used in the text.</p>
+<p>Tensors in figures are labeled with their shapes using the single-letter abbreviations below. The full names are shown, along with abbreviations used elsewhere.</p>
 <div id="tbl-dim-symbols" class="striped quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-dim-symbols-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -313,7 +313,7 @@ Table&nbsp;1: Standard dimension symbols used in figures and text.
 </tr>
 <tr class="odd">
 <td style="text-align: center;"><span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span></td>
-<td style="text-align: left;">Head dimension (<span class="math inline">\(D / H\)</span>)</td>
+<td style="text-align: left;">Head dimension, usually <span class="math inline">\(\textcolor{#2563EB}{d_K} = \textcolor{#1E40AF}{D} / \textcolor{#A855F7}{H}\)</span></td>
 <td style="text-align: left;">128</td>
 </tr>
 <tr class="even">
@@ -328,7 +328,7 @@ Table&nbsp;1: Standard dimension symbols used in figures and text.
 </tr>
 <tr class="even">
 <td style="text-align: center;"><span class="math inline">\(\textcolor{#C084FC}{H_\text{KV}}\)</span></td>
-<td style="text-align: left;">Number of KV heads</td>
+<td style="text-align: left;">Number of KV heads (<span class="math inline">\(n_\text{kv}\)</span>)</td>
 <td style="text-align: left;">8 (with GQA)</td>
 </tr>
 <tr class="odd">
@@ -541,8 +541,8 @@ Table&nbsp;1: Standard dimension symbols used in figures and text.
 </tbody>
 </table>
 </section>
-<section id="reading-a-data-flow-diagram" class="level3">
-<h3 class="anchored" data-anchor-id="reading-a-data-flow-diagram">Reading a data flow diagram</h3>
+<section id="reading-a-tensor-data-flow-diagram" class="level3">
+<h3 class="anchored" data-anchor-id="reading-a-tensor-data-flow-diagram">Reading a tensor data flow diagram</h3>
 <p>To illustrate how these conventions combine, here is how a typical tensor rectangle should be read:</p>
 <ul>
 <li>The <strong>top and bottom edge colors</strong> tell you the dimension that runs horizontally, the number of columns.</li>
@@ -550,7 +550,7 @@ Table&nbsp;1: Standard dimension symbols used in figures and text.
 <li>The <strong>shape label</strong> (e.g., <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>) confirms the dimensions explicitly.</li>
 <li>The <strong>fill color</strong> helps disambiguate what kind of tensor it is (query, key, weight, etc.).</li>
 </ul>
-<p>When two tensors share an edge color on a matching side, it means those dimensions are compatible for the operation that connects them — a matrix multiply, a concatenation, or an elementwise operation. For matrix multiplcation, the number of columns on the lefthand tensor must match the number of rows on the righthand tensor. For elementwise operations, usually all dimensions must match, unless one of the dimensions is 1, and it is broadcast to match the other tensor.</p>
+<p>When two tensors share an edge color on a matching side, it means those dimensions are compatible for the operation that connects them — a matrix multiply, a concatenation, or an elementwise operation. For matrix multiplcation, the number of columns on the lefthand tensor must match the number of rows on the righthand tensor. For elementwise operations, usually all dimensions must match, unless one of the dimensions is 1, and it is broadcast to match the other tensor. An sample diagram is explained in the <a href="decoder-only-llm.html#sec-forward-pass" class="quarto-xref"><span>Forward Pass Data Flow</span></a> section.</p>
 
 
 </section>

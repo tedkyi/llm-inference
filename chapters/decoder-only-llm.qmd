@@ -4,7 +4,7 @@ This chapter covers the architecture of the basic decoder-only transformer used 
 We will walk through it in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions.
 If you aren't at all familiar with the transformer, there are many good resources, and a few are listed in the Further Reading (@sec-further-llm) at the end of the chapter.
 If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter.
-We recommend that you examine the tip at the beginning of @sec-forward-pass to understand the conventions used in data flow diagrams before moving ahead to the rest of the book.
+We recommend that you examine the tip at the beginning of @sec-forward-pass to understand the conventions used in tensor data flow diagrams before moving ahead to the rest of the book.
 
 We'll use concrete numbers from the Llama family of models in this book.
 This is not because Llama is special, but because its architecture is representative of the core that modern LLMs share and its parameters are public.
@@ -22,6 +22,12 @@ The decoder then attends to that representation through **cross-attention** laye
 This encoder-decoder design, shown in @fig-orig-transformer, was built for sequence-to-sequence tasks like machine translation, where you have a clear separation between input (such as a sentence in French) and output (its English translation).
 The encoder on the left reads the full input and builds a bidirectional representation --- each token can attend to every other token, past and future.
 The decoder on the right then generates the output one token at a time, attending both to the encoder's representation and to its own partial output.
+
+::: callout-note
+It is a common convention in machine learning to draw architecture diagrams with the data flowing from the bottom to the top, with the layers stacked vertically.
+Under this convention, the input is at the bottom, and the prediction "heads" and output are at the top.
+This book follows the bottom-up flow convention.
+:::
 
 The decoder-only transformer, used by GPT-2 [@radford2019gpt2], LLaMA [@touvron2023llama], and virtually all modern large language models in production today, takes this architecture and strips it down.
 The entire encoder is removed.
@@ -61,7 +67,7 @@ For example, Layer 0's attention weights are completely separate from Layer 1's.
 A 70B model with 80 layers has 80 distinct sets of attention and feed-forward weights.
 During inference, the model must read each layer's weights from memory --- there is no reuse across layers in the standard LLM.
 
-![Explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=500 .lightbox}
+![A decoder-only LLM with explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=500 .lightbox}
 
 A diagram making the N copies explicit is shown in @fig-vert-stack.
 This is what a decoder-only LLM really looks like, and if you review the PyTorch code for one, you will see this exact structure.
@@ -116,9 +122,11 @@ We still need to be familiar with the operands, especially to know how the input
 
 ::: {.callout-tip}
 Before diving into the data flow, here are a few conventions used in the tensor data flow diagrams.
-![Example data flow diagram](images/tensor.svg){#fig-tensor .lightbox}
+Abbreviations and colors are listed in frontmatter in the **Conventions** section.
 
-In this example data flow diagram, the tensors are represented by rectangles, and the operand by a rounded rectangle.
+![A sample tensor data flow diagram, exhibiting many of the conventions](images/tensor.svg){#fig-tensor .lightbox}
+
+In this example tensor data flow diagram, the tensors are represented by rectangles, and the operand by a rounded rectangle.
 
 **Dimensions and edge color**: Each tensor's shape is shown next to it on the right side, unless there isn't room.
 The first tensor on the bottom has shape **([S]{.dim-s}, [D]{.dim-d})**, where **[S]{.dim-s}** is the number of rows and **[D]{.dim-d}** is the number of columns.
@@ -132,7 +140,7 @@ Weights are fixed model tensors, and they always have the same purple fill color
 Because it is 3D, it is shown with a "stacked" rectangle shape.
 The leading dimension, **[H]{.dim-h}**, is the stacked dimension. The third dimension's purple edge color corresponds to this dimension.
 
-**Views**: The middle tensor and the top tensor are connected by an arrow with a dotted line. 
+**Views**: The data middle tensor and the top tensor are connected by an arrow with a dotted line. 
 The dotted stroke indicates that there is a change of view, but no actual operation is performed.
 
 :::
@@ -240,7 +248,7 @@ y &= \hat{X} + \text{FFN}(\text{Norm}(\hat{X}))
 \end{aligned}$$
 The data flow diagram for this is shown in @fig-decoder-flow.
 
-![Data flow of one decoder layer](images/decoder_block.svg){#fig-decoder-flow height=500 .lightbox}
+![Data flow of one decoder layer. The details within the attention and feed forward sub-layers are hidden for now.](images/decoder_block.svg){#fig-decoder-flow height=500 .lightbox}
 
 The normalization in transformers, which originally was **LayerNorm** [@ba2016layernorm], is applied before each sub-layer (self-attention and FFN), and the sub-layer's output is added to its input via the residual connection.
 This is the pre-norm formulation, used by GPT-2 [@radford2019gpt2] and almost all modern LLMs.
@@ -368,9 +376,12 @@ With 80 layers, the attention parameters alone account for about 21.5B of Llama 
 The rest is mostly in the feed-forward layers, which we'll cover in @sec-ffn.
 
 ::: callout-note
-**Grouped-Query Attention (GQA) and friends.** Modern models often use fewer key-value heads than query heads. Llama 3 70B uses GQA [@ainslie2023gqa] with 64 query heads but only 8 KV heads, reducing $W_K$ and $W_V$ from **([D]{.dim-d}, [D]{.dim-d})** to **([D]{.dim-d}, $8 \times \dimdk{d_K}$)** = (8192, 1024).
+**Grouped-Query Attention (GQA) and friends.** Modern models often use fewer key-value heads than query heads. 
+Llama 3 70B uses GQA [@ainslie2023gqa] with 64 query heads but only 8 KV heads, reducing $W_K$ and $W_V$ from **([D]{.dim-d}, [D]{.dim-d})** to **([D]{.dim-d}, $8 \times \dimdk{d_K}$)** = (8192, 1024).
 This saves parameters and, more importantly, reduces the KV cache size by 8x.
-Multi-Query Attention (MQA) [@shazeer2019mqa] takes this further with a single KV head. Multi-head Latent Attention (MLA) [@liu2024deepseekv2] compresses the KV cache through learned low-rank projections. These attention variants are covered in @sec-efficient-attention.
+Multi-Query Attention (MQA) [@shazeer2019mqa] takes this further with a single KV head. 
+Multi-head Latent Attention (MLA) [@liu2024deepseekv2] compresses the KV cache through learned low-rank projections. 
+These attention variants are covered in @sec-efficient-attention.
 :::
 
 

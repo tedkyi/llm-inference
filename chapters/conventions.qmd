@@ -1,19 +1,19 @@
-# Conventions {.unnumbered}
+# Conventions {#sec-conventions .unnumbered}
 
 *Figures throughout this book use a consistent visual language for tensor shapes, dimensions, and components. This page collects those conventions in one place so you can decode any diagram at a glance.*
 
 ### Dimension names and abbreviations
 
-Tensors in figures are labeled with their shapes using the single-letter abbreviations below. The full names and abbreviations match those used in the text.
+Tensors in figures are labeled with their shapes using the single-letter abbreviations below. The full names are shown, along with abbreviations used elsewhere.
 
 | Symbol | Full name | Example values (Llama 3 70B) |
 |:------:|:----------|:-----------------------------|
 | **B**              | Batch size | 1--64 |
 | **[D]{.dim-d}**    | Model dimension ($d_\text{model}$) | 8192 |
-| $\dimdk{d_K}$      | Head dimension ($D / H$) | 128 |
+| $\dimdk{d_K}$      | Head dimension, usually $\dimdk{d_K} = \dimd{D} / \dimh{H}$ | 128 |
 | **[F]{.dim-f}**    | FFN intermediate dimension ($d_\text{ff}$) | 28672 (SwiGLU) |
 | **[H]{.dim-h}**    | Number of attention heads ($n_\text{heads}$) | 64 |
-| $\dimhkv{H_\text{KV}}$ | Number of KV heads | 8 (with GQA) |
+| $\dimhkv{H_\text{KV}}$ | Number of KV heads ($n_\text{kv}$) | 8 (with GQA) |
 | **[L]{.dim-l}**    | Number of layers | 80 |
 | **[S]{.dim-s}**    | Sequence length | Prefill: prompt length (e.g., 2048); Decode: 1 |
 | **[V]{.dim-v}**    | Vocabulary size | 128000 |
@@ -286,7 +286,7 @@ Color & Component \\
 :::
 
 
-### Reading a data flow diagram
+### Reading a tensor data flow diagram
 
 To illustrate how these conventions combine, here is how a typical tensor rectangle should be read:
 
@@ -298,3 +298,4 @@ To illustrate how these conventions combine, here is how a typical tensor rectan
 When two tensors share an edge color on a matching side, it means those dimensions are compatible for the operation that connects them --- a matrix multiply, a concatenation, or an elementwise operation. 
 For matrix multiplcation, the number of columns on the lefthand tensor must match the number of rows on the righthand tensor.
 For elementwise operations, usually all dimensions must match, unless one of the dimensions is 1, and it is broadcast to match the other tensor.
+An sample diagram is explained in the @sec-forward-pass section.

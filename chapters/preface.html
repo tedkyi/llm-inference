@@ -253,22 +253,22 @@ ul.task-list li input[type="checkbox"] {
 <p><em>A short book on autoregressive LLM inference and the techniques that make it fast, efficient, and scalable.</em></p>
 <section id="who-this-book-is-for" class="level3 unnumbered">
 <h3 class="unnumbered anchored" data-anchor-id="who-this-book-is-for">Who this book is for</h3>
-<p>This book is an intermediate guide for ML engineers (and people with similar background) who are already familiar with neural networks, the transformer architecture, self-attention, and autoregressive decoder-only LLMs. This book evolved from research into efficient ways to do LLM inference for special cases such as RAG, Writing in the Margins, and beam search. After spending time learning about attention kernels, prefix caching, and systems such as vLLM and SGLang, I decided to share the knowledge I had gathered in one convenient place.</p>
-<p>This book contains many detailed diagrams and is best viewed on a high resolution screen.</p>
+<p>This book is an intermediate guide for ML engineers (and people with a similar background) who are already familiar with neural networks, the transformer architecture, self-attention, and autoregressive decoder-only LLMs. This book evolved from research into efficient ways to do LLM inference for special cases such as RAG, Writing in the Margins, and beam search. After spending time learning about attention kernels, prefix caching, and systems such as vLLM and SGLang, I decided to share the knowledge I had gathered in one convenient place.</p>
+<p>There are many detailed diagrams in the book, and it is best viewed on a high resolution screen.</p>
 </section>
 <section id="what-this-book-covers" class="level3 unnumbered">
 <h3 class="unnumbered anchored" data-anchor-id="what-this-book-covers">What this book covers</h3>
-<p>This book discusses how LLM inference works, then reviews the techniques for optimizing and scaling LLM inference. This book should not be the first resource for learning about the transformer, nor will it teach how to code LLMs. It is also not a comprehensive ML Ops or system implementation book. I hope you find it useful for providing a good intuition and the necessary details about concepts like chunked prefill, ragged batching, tensor parallelism, and speculative decoding.</p>
+<p>This book discusses how LLM inference works, then reviews the techniques for optimizing and scaling LLM inference. It should not be the first resource for learning about the transformer, nor will it teach how to code LLMs. It is also not a comprehensive MLOps or system implementation book. I hope you find it useful for providing a good intuition and the necessary details about concepts like chunked prefill, ragged batching, tensor parallelism, and speculative decoding.</p>
 </section>
 <section id="how-this-book-was-written" class="level3 unnumbered">
 <h3 class="unnumbered anchored" data-anchor-id="how-this-book-was-written">How this book was written</h3>
-<p>This book started as a detailed list of topics, techniques, and research papers. The idea to use data flow diagrams and the design of most diagrams was entirely my own.</p>
+<p>This book started as a detailed list of topics, techniques, and research papers. The idea to use data flow diagrams and the design of most diagrams were entirely my own.</p>
 <p><strong>Full disclosure</strong>: I used LLMs to suggest ways to organize the material and to write initial text based on my notes. I used Claude Code to speed up the implementation of the diagrams and to debug places where the appearance of text, formulas, or figures wasn’t correct. If you are not interested in reading work that used AI assistance, that is your prerogative. For what it’s worth, AI assistance shortened the process of getting the first release of this book from months to weeks. I probably would not have taken the time to write this book if it had required several months.</p>
 </section>
 <section id="acknowledgements-and-feedback" class="level3 unnumbered">
 <h3 class="unnumbered anchored" data-anchor-id="acknowledgements-and-feedback">Acknowledgements and feedback</h3>
 <p>Thank you to everyone who provided feedback, starting with RC and RS.</p>
-<p>I thank you for reporting any errata or making suggestions for how this book could be better. The easiest way is to open a GitHub issue from within the electronic book.</p>
+<p>I would appreciate your reporting any errata or making suggestions for how this book could be better. The easiest way is to open a GitHub issue from within the electronic book.</p>
 <p>If you found this book useful, you can support it by sharing it with others, giving the <a href="https://github.com/tedkyi/llm-inference">GitHub repo</a> a star, or buying me a coffee at <a href="https://ko-fi.com/tedkyi">ko-fi.com/tedkyi</a>.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">

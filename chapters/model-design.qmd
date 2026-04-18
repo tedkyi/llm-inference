@@ -40,7 +40,7 @@ More recently, the focus has shifted to quantization below 16 bits, which requir
 ### Lower precision datatypes
 
 There are a number of datatypes supported, especially in the latest generation of GPUs.
-While higher precision datatypes, such as FP32, are needed for training, most models can run inference using FP16 without any noticeable difference.
+While higher-precision datatypes, such as FP32, are needed for training, most models can run inference using FP16 without any noticeable difference.
 Datatypes that require fewer than 16 bits to store can save even more memory.
 @Tbl-datatypes lists commonly supported datatypes.
 
@@ -53,14 +53,14 @@ Datatypes that require fewer than 16 bits to store can save even more memory.
 |	FP8 E5M2	|	8	|	1s + 5e + 2m	|	More dynamic range; used for gradients	|
 |	INT8	|	8	|	signed integer	|	Range [-128, 127]; 4x compression vs FP32	|
 |	INT4	|	4	|	signed integer	|	Range [-8, 7]; 8x compression; requires sophisticated algorithms	|
-|	NF4	|	4	|	non-uniform	|	16 levels at normal distribution quantiles; information-theoretically optimal for normally-distributed weights (QLoRA)	|
+|	NF4	|	4	|	non-uniform	|	16 levels at normal distribution quantiles; information-theoretically optimal for normally distributed weights (QLoRA)	|
 |	FP4	|	4	|	1s + 2e + 1m	|	Less common than NF4 for LLM weights	|
 
 : Common datatype precisions supported. The Layout column shows the number of bits allocated for the sign ("s"), exponent ("e"), and mantissa ("m"). {#tbl-datatypes .striped}
 
 Older GPUs support 32-bit and 16-bit floating point, as well as 8-bit integer matrix multiplication.
 FP8 is a newer format supported on H100 and later GPUs.
-With the popularity of quantization, newer generations of GPUs are supporting more smaller datatypes.
+With the popularity of quantization, newer generations of GPUs are supporting a wider range of smaller datatypes.
 
 ### Weight-only quantization
 
@@ -70,7 +70,7 @@ In weight-only quantization, the weights are stored in a smaller datatype, then 
 The benefit is purely about reducing how much data needs to be read from HBM and reducing TPOT.
 
 When quantizing below 16-bit precision, the storage space and memory read savings are usually slightly reduced because we also need to store conversion parameters.
-If we have both an offset and a scaling parameter, then when $x$ is the higher precision value and $\tilde{x}$ is the quantized value, the conversion is $x = (\tilde{x} - \text{offset}) * \text{scaling}$.
+If we have both an offset and a scaling parameter, then when $x$ is the higher precision value and $\tilde{x}$ is the quantized value, the conversion is $x = (\tilde{x} - \text{offset}) \times \text{scaling}$.
 This dequantization step also adds a small amount of compute overhead to model inference.
 
 LLM inference tolerates quantization well.
@@ -140,17 +140,19 @@ The idea is to apply a per-channel scaling transformation that divides the activ
 This makes the activation distribution more uniform --- and therefore easier to quantize --- at the cost of making the weight distribution slightly less uniform.
 Since weights are fixed and can be quantized offline with more care, this is a favorable tradeoff.
 
-### Connecting quantization to MBU
+### Connecting quantization to MBU and MFU
 
 In @sec-metrics, we introduced Model Bandwidth Utilization (MBU) and Model FLOPs Utilization (MFU) as key metrics for decode efficiency.
 Quantization improves the theoretical decode speed by reducing the bytes that need to be read per token.
-But it doesn't automatically improve decode linearly. 
-If your serving system has overhead that prevents it from saturating HBM bandwidth, quantization reduces the numerator (bytes of model data) but the denominator (peak bandwidth) stays the same.
-This means that the improvement in MBU is not necessarily proportional to the reduction in bytes per weight.
-In the worst case, if another bottleneck prevents you from running more decode steps, your MBU would drop and your MFU would stay the same.
+But it doesn't automatically improve decode speed linearly. 
+If your serving system has overhead that prevents it from saturating HBM bandwidth, that overhead will prevent the total time from dropping proportionally to the reduction in memory traffic.
+For example, if transferring half the number of bytes requires 70% of the time, achieved bandwidth has decreased, so MBU will decrease.
+Similarly, if moving to a lower precision doubles the peak FLOPS of the GPU, but your overhead limits you to a 70% increase in FLOPS, your MFU will drop.
+So, quantization could improve TTFT and TPOT but potentially hurt MBU and MFU.
+It's important to remember that latency and efficiency metrics are measuring different things.
 
 In practice, quantized models can achieve higher MBU because the smaller data footprint means fewer cache misses, better memory access patterns, and the possibility of fitting the entire model in a single GPU's memory rather than splitting across devices.
-These secondary effects can make the real-world speedup even better than the raw byte reduction would suggest.
+These secondary effects can make the real-world speedup even better than the raw byte reduction and fixed overhead would suggest.
 
 ::: callout-note
 Quantization affects the roofline model in an important way.
@@ -185,10 +187,14 @@ There are side effects to pruning, however, that make it challenging.
 
 **Unstructured pruning** zeroes out individual weights based on some importance criterion (typically magnitude).
 A pruned model might have 50% of its weights set to zero, theoretically cutting compute and memory in half.
-The problem is that these zeros are scattered throughout the weight matrices in an irregular pattern, which can decrease MFU dramatically.
-If enough of the weights can be pruned, good speedups can be achieved for CPU inference, which doesn't require as much data density.
-Standard GPU hardware and matrix multiplication kernels still process the full dense matrices, so they can't exploit this sparsity efficiently, and sparse matrix multiplications are much slower than their dense counterparts, so they need extremely high levels of sparsity before they are faster than full dense matrix multiplication.
-To get real speedups from pruning, you need specialized sparse compute support, such as NVIDIA's 2:4 structured sparsity format on Ampere and later GPUs, and it is more difficult to prune weights into this pattern.
+The problem is that these zeros are scattered throughout the weight matrices in an irregular pattern.
+These irregular patterns reduce the ability to load data efficiently and parallelize computations, which can decrease MFU on the GPU dramatically.
+If enough of the weights can be pruned, good speedups can be achieved for CPU inference, which doesn't parallelize compute as much as a GPU.
+Standard GPU hardware and matrix multiplication kernels still process the full dense matrices, so they can't exploit this sparsity efficiently.
+And sparse matrix multiplications are much slower than their dense counterparts, so they need extremely high levels of sparsity before they are faster than full dense matrix multiplication.
+This is why unstructured pruning rarely sees speedups, despite the reduction in parameters and FLOPs.
+To get real speedups from pruning, you need specialized sparse compute support, such as NVIDIA's 2:4 structured sparsity format on Ampere and later GPUs.
+It is more difficult to prune weights into this structured sparsity pattern, so structured sparsity isn't common either.
 
 ### Structured pruning
 
@@ -237,7 +243,7 @@ The top row of @fig-kv-variants shows how queries align with keys and values in 
 
 **Multi-Query Attention (MQA)** [@shazeer2019mqa] goes to the opposite extreme: all attention heads share a *single* set of key and value projections, as shown on the third row of @fig-kv-variants.
 Each head still has its own query projection, so the heads can attend to different aspects of the input, but the KV cache only stores one K and one V vector per layer per token.
-This reduces the KV cache by a factor equal to the number of heads -- from 64 sets of K/V down to 1 in the example above.
+This reduces the KV cache by a factor equal to the number of heads --- from 64 sets of K/V down to 1 in the example above.
 The negative impact on the quality of text generation is the main reason why MQA is not widely adopted.
 
 **Grouped-Query Attention (GQA)** [@ainslie2023gqa] is a middle ground between MHA and MQA.
@@ -273,7 +279,7 @@ This reduces the attention computation from $O(\dims{S}^2)$ to $O(\dims{S} \time
 For prefill, the smaller attention computation improves TTFT.
 For decode, sliding window attention also bounds the KV cache size per layer to the window size, regardless of the total sequence length.
 The reduction in the amount of KV that needs to be transferred can improve TPOT, but the main benefit is that the smaller KV cache increases concurrency and throughput.
-Several recent models -- including Mistral -- use sliding window attention in some or all layers, often combined with a few full-attention layers to preserve the model's ability to attend to distant tokens.
+Several recent models --- including Mistral --- use sliding window attention in some or all layers, often combined with a few full-attention layers to preserve the model's ability to attend to distant tokens.
 
 ::: callout-note
 This book focuses on the dominant transformer architecture with softmax attention.
@@ -309,7 +315,7 @@ At FP16, that's about 1 GB, which is not negligible, but typically a small fract
 The compute cost of the final softmax over a larger vocabulary also increases, though this is usually a minor contributor to overall latency.
 
 For most practical scenarios, the efficiency gains from fewer decode steps outweigh the increased memory footprint and minor TPOT increase from the larger embedding and LM head.
-This is one reason why the trend in recent LLMs has been toward larger vocabularies.^[Larger vocabularies also improve multilingual performance for languages such as Chinese, which do not share an alphabet with English.]
+This is one reason why the trend in recent LLMs has been toward larger vocabularies.^[Larger vocabularies also improve multilingual performance for languages such as Chinese, which require very different tokens from English.]
 
 ## Summary {#sec-summary-model-design}
 

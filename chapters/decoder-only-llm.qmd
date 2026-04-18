@@ -29,7 +29,7 @@ Under this convention, the input is at the bottom, and the prediction "heads" an
 This book follows the bottom-up flow convention.
 :::
 
-The decoder-only transformer, used by GPT-2 [@radford2019gpt2], LLaMA [@touvron2023llama], and virtually all modern large language models in production today, takes this architecture and strips it down.
+The decoder-only transformer, used by GPT-2 [@radford2019gpt2], the original LLaMA [@touvron2023llama], and virtually all modern large language models in production today, takes this architecture and strips it down.
 The entire encoder is removed.
 The cross-attention layers in the middle of the decoder are removed.
 What's left is a single stack of transformer blocks, each containing masked self-attention and a **feed-forward network (FFN)**, preceded by a token embedding layer and followed by a linear language model head.
@@ -43,7 +43,7 @@ What's left is a single stack of transformer blocks, each containing masked self
 A decoder-only LLM, shown in two variants
 :::
 
-On the left of @fig-decoder is a trimmed down decoder-only version of the original transformer architecture.
+On the left of @fig-decoder is a trimmed-down decoder-only version of the original transformer architecture.
 Researchers also found that training larger models was more stable when the normalization happened before each attention and FFN block, instead of after.
 This design is referred to as the **pre-norm** architecture.
 On the right side of @fig-decoder is a pre-norm decoder-only model where the attention and FFN layers have been shifted to the side, making the residual connection path, known as the **residual stream**, more obvious.
@@ -74,7 +74,7 @@ This is what a decoder-only LLM really looks like, and if you review the PyTorch
 The "N×" is shorthand, and it saves space in diagrams, but in actual GPU memory, all of those many copies do exist and take up a lot of room.
 Please also note that each layer must be calculated before the next layer can be calculated.
 (If you are familiar with earlier work with RNNs and LSTMs, we have eliminated the sequential dependency in the sequence length direction, but we now have a sequential dependency in the layer direction.)
-We will also mention here that the input to the first layer is a vector of floating point numbers of length $d_{\text{model}}$, which we will abbreviate **([D]{.dim-d})**.
+We will also mention here that the input to the first layer is a vector of floating-point numbers of length $d_{\text{model}}$, which we will abbreviate **([D]{.dim-d})**.
 
 The second architectural understanding needed is that the model is applied identically across every token position in the sequence, sharing all weights.
 When we process a sequence of **[S]{.dim-s}** tokens, the same weight matrices are applied to every token position.
@@ -140,7 +140,7 @@ Weights are fixed model tensors, and they always have the same purple fill color
 Because it is 3D, it is shown with a "stacked" rectangle shape.
 The leading dimension, **[H]{.dim-h}**, is the stacked dimension. The third dimension's purple edge color corresponds to this dimension.
 
-**Views**: The data middle tensor and the top tensor are connected by an arrow with a dotted line. 
+**Views**: The middle data tensor and the top tensor are connected by an arrow with a dotted line. 
 The dotted stroke indicates that there is a change of view, but no actual operation is performed.
 
 :::
@@ -208,7 +208,7 @@ The technical details and pros and cons of different position embedding techniqu
 
 **Sinusoidal position embeddings**: the position embeddings used in the original "Attention Is All You Need" paper. 
 A special embedding table of shape **([S]{.dim-s}, [D]{.dim-d})** is added to the token embeddings before they are input to the first decoder layer. 
-This is shown at the bottom of each of @fig-orig-transformer through @fig-vert-stack. 
+This is shown at the bottom of each figure from @fig-orig-transformer through @fig-vert-stack. 
 In the embedding table, position 0 gets one vector, position 1 gets another, and so on.
 These are called sinusoidal because the values in each length **[D]{.dim-d}** position vector are based on the trigonometric functions sine and cosine.
 
@@ -220,7 +220,7 @@ This is what most modern LLMs use, including Llama and its derivatives.
 RoPE enables better length generalization.
 Applying RoPE rotations to the query and key vectors is relatively inexpensive, so we omit its details from our diagrams and discussion.
 
-**Others**: Another notable technique, called **ALiBi** [@press2021alibi] adds a value dependent on the token position to the keys.
+**Others**: Another notable technique, called **ALiBi** [@press2021alibi], adds a value dependent on the token position to the keys.
 This value increases linearly with the token position number.
 **NoPE** [@kazemnejad2023nope] is a newer technique that is gaining traction when mixed with other techniques like RoPE, usually on a layer-by-layer basis.
 In NoPE, no positional information is added.
@@ -293,7 +293,7 @@ where $X$ has shape **([S]{.dim-s}, [D]{.dim-d})** and $W_Q$, $W_K$, $W_V$ each 
 The outputs Q, K, and V all have shape **([S]{.dim-s}, [D]{.dim-d})**, as shown in @fig-attn-flow. 
 In this data flow diagram, **[S]{.dim-s}** edges are drawn shorter than **[D]{.dim-d}** edges. 
 This will be accurate for Llama 3 70B when **[S]{.dim-s}** < 8192. 
-As the sequence gets longer and we have **[S]{.dim-s}** > 8192, these dimensions will be longer, despite this static diagram not being able to dynamically show the change.
+As the sequence gets longer and we have **[S]{.dim-s}** > 8192, these dimensions will be longer, though this static diagram cannot show the change.
 
 The intuition for Q, K, and V is roughly this: the query represents "what this token is looking for," the key represents "what this token offers to other tokens," and the value represents "the information this token will contribute when attended to."
 These are loose analogies, but they help build intuition for why we need three separate projections rather than just one or two.
@@ -359,7 +359,7 @@ We then reshape this back from **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** to 
 
 $$\text{Output}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_{\dimh{H}}) \cdot W_O$$
 
-The full self-attention block transformed an input of shape **([S]{.dim-s}, [D]{.dim-d})** to an output of the same shape **([S]{.dim-s}, [D]{.dim-d})**.
+The full self-attention block transforms an input of shape **([S]{.dim-s}, [D]{.dim-d})** to an output of the same shape **([S]{.dim-s}, [D]{.dim-d})**.
 The shape is preserved.
 
 ### Parameter count
@@ -437,7 +437,7 @@ That's 1.34 GB for a *single request*.
 If you're serving 40 concurrent requests, the KV cache alone consumes over 50 GB, which would be more than half of the memory on an 80 GB GPU that also needs to hold the model weights.
 This is why KV cache memory management is such a central concern in LLM serving systems.
 
-The cache grows by a fixed amount at each decode step: $2 \times \diml{L} \times \dimhkv{H_{\text{kv}}} \times \dimdk{d_K} \times b$ bytes per token.
+The cache grows by a fixed amount at each decode step: $2 \times \diml{L} \times \dimhkv{H_{\text{KV}}} \times \dimdk{d_K} \times b$ bytes per token.
 For the Llama 70B numbers above, that's about 328 KB per token per request.
 
 ::: {.callout-note}
@@ -508,7 +508,7 @@ The FFN layers have double the number of parameters as the attention layers, so 
 
 ### Mixture of Experts (MoE)
 
-Standard LLM models have one MLP per layer, and they have no choice but to apply the same MLP to every token.
+Standard LLMs have one MLP per layer, and they have no choice but to apply the same MLP to every token.
 **Mixture of Experts (MoE)** architectures replace the single MLP with multiple MLPs called **experts** and a lightweight **router** that selects which experts to use for each token.
 Because not all of the MLP weights are used for each token, this is often referred to as a **sparse MLP**.
 In contrast, the original MLP architecture is referred to as a **dense MLP** architecture.
@@ -529,7 +529,7 @@ They also have the concept of always-on experts called **shared experts**.
 
 The outputs of the selected experts are combined using the router's SoftMax weights.
 
-The key trade-off of MoE for inference is clear: **memory footprint is large** (all expert weights must reside in GPU memory) but **per-token compute is modest** (only $k$ of **E** experts are active and consuming FLOPS).
+The key trade-off of MoE for inference is clear: **memory footprint is large** (all expert weights must reside in GPU memory) but **per-token compute is modest** (only $k$ of **E** experts are active and consuming FLOPs).
 Mixtral 8×7B [@jiang2024mixtral] has roughly 47B total parameters but only ~13B active per token.
 This means the model takes up as much GPU memory as a 47B dense model but computes each token about as fast as a 13B dense model.
 

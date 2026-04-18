@@ -33,7 +33,7 @@ This stage is fast compared to the resource-intensive work involving the neural 
 We are skipping many details about the steps within ingestion because what they have in common is that they usually happen once and are relatively fast.
 One exception, which can significantly harm user experience, is request queuing.
 In a production system, requests may wait in a queue until there are resources available to process them, and if the system has multiple priority levels, lower priority requests may wait longer.
-Queueing time can be a significant contributor to overall latency, even though it doesn't consume system resources.
+Queuing time can be a significant contributor to overall latency, even though it doesn't consume compute resources.
 The timing and granularity of scheduling request work can dramatically improve performance (up to the limits of system resources), and we will discuss scheduling in @sec-scheduling.
 
 **Prefill** is where the heavy lifting begins.
@@ -111,7 +111,7 @@ Common strategies include:
 
 Sampling adds negligible overhead relative to the preceding forward pass.
 The forward pass involves billions of multiply-accumulate operations across all the model's layers. 
-Sampling merely involves a softmax over the vocabulary (typically 30K-200K entries) and a random draw, so sampling is not where all the time goes.
+Sampling merely involves a SoftMax over the vocabulary (typically 30K-200K entries) and a random draw, so sampling is not where all the time goes.
 
 **Completion** wraps things up.
 The model has finished because it either generated a stop token, hit a maximum length limit, or has been interrupted by the serving system.
@@ -124,8 +124,8 @@ Whether batch or streaming, completion steps are like ingestion in that they are
 
 Of the four stages above, the vast majority of compute and memory bandwidth is consumed by prefill and decode.
 Ingestion and completion are fast operations on CPU that together account for a tiny fraction of request latency.
-Note that we are excluding queueing time from ingestion for now, treating that as a fixed cost associated with workload.
-Queueing time can be long for a system under heavy load, and various techniques associated with scheduling are discussed in @sec-scheduling.
+Note that we are excluding queuing time from ingestion for now, treating that as a fixed cost associated with the workload.
+Queuing time can be long for a system under heavy load, and various techniques associated with scheduling are discussed in @sec-scheduling.
 Aside from scheduling, most of the techniques covered in this book target prefill and decode, because that's where the time goes and where the greatest opportunity for improvement lies.
 
 ### Two fundamentally different regimes
@@ -246,7 +246,7 @@ To diagnose whether you're maximizing the capabilities of your hardware, you nee
 
 **Model FLOPS Utilization (MFU)** is the fraction of the GPU's peak floating-point throughput that is actually used for model computation.
 This metric was introduced in the PaLM paper [@chowdhery2022palm] and has become a standard efficiency metric.
-If your GPU can do 990 TFLOPS at FP16, and your model computation actually achieves 300 TFLOPS, your MFU is about 30%.
+If your GPU can do 989 TFLOPS at FP16, and your model computation actually achieves 300 TFLOPS, your MFU is about 30%.
 
 MFU is most useful for characterizing compute-bound workloads like prefill.
 A low MFU during prefill suggests that something is preventing the GPU from doing math at full speed --- perhaps memory transfers, kernel launch overhead, or poorly shaped matrix multiplications.
@@ -260,7 +260,7 @@ If your GPU has 3.35 TB/s of memory bandwidth and your decode step actually achi
 MBU is a good diagnostic for decode activity.
 A low MBU during decode means the memory system is not being fully utilized --- perhaps due to small batch sizes, kernel launch gaps between layers, or overhead from memory management.
 Together, MFU and MBU give you a quick read on whether your system is limited by compute efficiency, memory bandwidth efficiency, or something else entirely.
-Note that manufacturers often report peak compute and bandwidth numbers on very specific workloads that yield the highest numbers.
+Note that manufacturers often report peak compute and bandwidth numbers on very specific workloads that yield the highest values.
 You should not expect to get close to 100% MFU or MBU for real-world use cases.
 
 ### Capacity metrics
@@ -414,11 +414,11 @@ We will briefly address alternative hardware in @sec-scaling when we discuss mul
 
 A modern GPU like the NVIDIA H100 is organized around **streaming multiprocessors (SMs)** that do the computing.
 The H100 SXM has 132 SMs, and each SM contains multiple types of execution units.
-For LLM inference, the most important of these are the **tensor cores**, the specialized hardware units designed to perform matrix multiplications very fast.
+For LLM inference, the most important of these are the **tensor cores**, the specialized hardware units designed to perform matrix multiplications very quickly.
 Tensor cores are what give modern GPUs their enormous throughput for the matrix multiplications that dominate neural network models.
 All of the SMs on a GPU are able to do work in parallel, which scales up their throughput.
 
-The peak throughput of floating point operations (assuming the SMs never have to wait for data) depends on the numerical precision you use.
+The peak throughput of floating-point operations (assuming the SMs never have to wait for data) depends on the numerical precision you use.
 Lower precision means more operations per cycle, which translates directly into higher throughput.
 For the H100 SXM, a comparison of throughput for several data types is shown in @tbl-precision-tflops.
 
@@ -427,8 +427,8 @@ For the H100 SXM, a comparison of throughput for several data types is shown in 
 | TF32      | 494                      |
 | FP16      | 989                      |
 | BF16      | 989                      |
-| FP8       | 1,987                    |
-| INT8      | 1,987                    |
+| FP8       | 1,979                    |
+| INT8      | 1,979                    |
 
 : Compute throughput figures for the NVIDIA H100 SXM. Source: @nvidia2023h100. {#tbl-precision-tflops .striped}
 
@@ -453,7 +453,7 @@ Data in registers is available essentially every clock cycle.
 
 **Shared memory and L1 cache (SRAM)** sit on-chip, shared among threads within an SM.
 On the H100, each SM has 256 KB of combined shared memory and L1 cache, giving about 33 MB total across the chip.
-SRAM bandwidth is extremely high --- on the order of tens of TB/s — but the capacity is small.
+SRAM bandwidth is extremely high --- on the order of tens of TB/s --- but the capacity is small.
 This is the memory level that custom CUDA kernels like FlashAttention [@dao2022flashattention] exploit.
 By carefully tiling computations to fit in SRAM, they avoid repeated trips to the much slower main memory.
 
@@ -504,7 +504,7 @@ For now, we'll focus on the first two bottlenecks.
 ### The roofline model
 
 The **roofline model**, introduced by @williams2009roofline, gives us a simple visual framework for understanding which bottleneck applies to a given workload.
-The core idea is that every compute workload has a property called **arithmetic intensity**, which is the ratio of compute operations to bytes of data moved, measured in FLOPS per byte (FLOP/byte).
+The core idea is that every compute workload has a property called **arithmetic intensity**, which is the ratio of compute operations to bytes of data moved, measured in FLOPs per byte (FLOP/byte).
 Arithmetic intensity tells you how much work the computational unit does for each byte being read from memory.
 
 The roofline model says that a kernel's achievable performance is capped by whichever ceiling it hits first:
@@ -517,7 +517,7 @@ For a given GPU, the ridge point is simply the ratio of peak compute throughput 
 
 | Parameter            | Value           |
 |----------------------|-----------------|
-| Peak FP16 throughput | 989.5 TFLOPS    |
+| Peak FP16 throughput | 989.4 TFLOPS    |
 | HBM3 bandwidth       | 3.35 TB/s       |
 | Ridge point (FP16)   | \~295 FLOP/byte |
 
@@ -555,23 +555,23 @@ We will start by looking at the model parameters and the computations with them.
 
 During prefill, the model processes **[S]{.dim-s}** input tokens in one forward pass.
 A large, fixed cost is the matrix multiplications in the attention projections and MLP layers.
-A widely used approximation for the total FLOPS of a forward pass is:
+A widely used approximation for the total FLOPs of a forward pass is:
 
-$$\text{FLOPS}_{\text{prefill}} \approx 2 \times P \times \dims{S}$$
+$$\text{FLOPs}_{\text{prefill}} \approx 2 \times P \times \dims{S}$$
 
 where $P$ is the number of model parameters and **[S]{.dim-s}** is the number of input tokens.
-The factor of 2 comes from the fact that each parameter participates in one multiply and one add (a multiply-accumulate operation counts as 2 FLOPS).
+The factor of 2 comes from the fact that each parameter participates in one multiply and one add (a multiply-accumulate operation counts as 2 FLOPs).
 This approximation covers the linear layers and is reasonably accurate for large models where attention's quadratic component is small relative to the total.
 
 ::: callout-note
-This $2 \times P \times \dims{S}$ approximation counts the FLOPS for the linear projections (QKV projections, output projection, and MLP layers).
+This $2 \times P \times \dims{S}$ approximation counts the FLOPs for the linear projections (QKV projections, output projection, and MLP layers).
 It omits the quadratic attention score computation ($O(\dims{S}^2 \times \dimdk{d_{K}} \times \dimh{H} \times \diml{L})$) and smaller operations like layer norms and activations.
 For very long sequences, the $\dims{S}^2$ in the attention cost becomes significant and adds even more to the arithmetic intensity.
 :::
 
 For our 70B model with $S = 4{,}096$ input tokens:
 
-$$\text{FLOPS}_{\text{prefill}} \approx 2 \times 70 \times 10^9 \times 4{,}096 = 5.73 \times 10^{14} \text{ FLOPS} \approx 573 \text{ TFLOPS}$$
+$$\text{FLOPs}_{\text{prefill}} \approx 2 \times 70 \times 10^9 \times 4{,}096 = 5.73 \times 10^{14} \text{ FLOPs} \approx 573 \text{ TFLOP}$$
 
 Now let's compute the arithmetic intensity.
 The data that must be read from HBM during prefill is primarily the model weights (the input activations for the first layer come from the embedding lookup and are small by comparison).
@@ -590,7 +590,7 @@ Prefill is firmly in compute-bound territory.
 What does this mean for execution time?
 Since we're compute-bound, the time is limited by the GPU's peak compute throughput:
 
-$$t_{\text{prefill}} \geq \frac{573 \times 10^{12}}{989.5 \times 10^{12}} \approx 0.58 \text{ seconds}$$
+$$t_{\text{prefill}} \geq \frac{573 \times 10^{12}}{989.4 \times 10^{12}} \approx 0.58 \text{ seconds}$$
 
 In practice, you won't achieve 100% of peak throughput due to overhead, memory access patterns that aren't perfectly optimized, and the attention computation.
 A realistic MFU of 50-70% would put the actual prefill time at roughly 0.8-1.2 seconds for this workload.
@@ -607,9 +607,9 @@ Very short prompts could push prefill toward the memory-bandwidth-bound side, th
 
 Now consider a single decode step with batch size 1.
 The model runs a forward pass for just one new token.
-The approximate FLOPS are:
+The approximate FLOPs are:
 
-$$\text{FLOPS}_{\text{decode}} \approx 2 \times P \times 1 = 2 \times 70 \times 10^9 = 140 \times 10^9 \text{ FLOPS} = 140 \text{ GFLOP}$$
+$$\text{FLOPs}_{\text{decode}} \approx 2 \times P \times 1 = 2 \times 70 \times 10^9 = 140 \times 10^9 \text{ FLOPs} = 140 \text{ GFLOP}$$
 
 But the data movement is nearly the same as prefill --- the GPU still has to read all the model weights from HBM:
 
@@ -684,9 +684,9 @@ The key insight is that **batching multiple requests together improves arithmeti
 
 When you batch $B$ requests together, each decode step processes $B$ tokens instead of 1.
 The model weights are read once and applied to all $B$ tokens.
-The FLOPS scale linearly with $B$:
+The FLOPs scale linearly with $B$:
 
-$$\text{FLOPS}_{\text{batch}} \approx 2 \times P \times B$$
+$$\text{FLOPs}_{\text{batch}} \approx 2 \times P \times B$$
 
 But the weight data read stays constant at $P \times b$ bytes (where $b$ is bytes per weight).
 The arithmetic intensity for the weight multiplications becomes:
@@ -732,11 +732,11 @@ This is why decode for large models remains memory-bandwidth-bound even with bat
 
 ### Back-of-envelope summary
 
-Let's collect the key numbers for our reference configuration: a 70B parameter model in FP16 on an H100 SXM (80 GB HBM, 3.35 TB/s bandwidth, 989.5 TFLOPS FP16).
+Let's collect the key numbers for our reference configuration: a 70B parameter model in FP16 on an H100 SXM (80 GB HBM, 3.35 TB/s bandwidth, 989.4 TFLOPS FP16).
 
 | Quantity | Prefill (S=4096) | Decode (B=1) | Decode (B=32) |
 |------------------|-------------------|------------------|------------------|
-| FLOPS per step | 573 TFLOP | 140 GFLOP | 4.48 TFLOP |
+| FLOPs per step | 573 TFLOP | 140 GFLOP | 4.48 TFLOP |
 | Data read (weights) | 140 GB | 140 GB | 140 GB |
 | Arithmetic intensity | \~4,093 FLOP/byte | \~1 FLOP/byte | \~32 FLOP/byte |
 | Bottleneck | Compute | Bandwidth | Bandwidth |
@@ -795,12 +795,12 @@ For GPU hardware specifics, the NVIDIA H100 datasheet [@nvidia2023h100] and the 
 The datasheet gives the peak throughput and bandwidth numbers used throughout this book.
 The programming guide covers the memory hierarchy, kernel launch mechanics, and CUDA graphs in much more detail than we do here.
 
-The back-of-envelope analysis in this chapter follows the approach laid out by @pope2022scaling, who provide a thorough accounting of FLOPS, memory bandwidth, and arithmetic intensity for each layer of a transformer during inference.
+The back-of-envelope analysis in this chapter follows the approach laid out by @pope2022scaling, who provide a thorough accounting of FLOPs, memory bandwidth, and arithmetic intensity for each layer of a transformer during inference.
 Their paper covers both prefill and decode on TPU hardware, but the methodology translates directly to GPUs.
 They also cover the effects of multi-query attention, different parallelism strategies, and how the roofline picture changes as you scale model size.
 
-For an accessible walkthrough of counting parameters and FLOPS in transformer models, Kipply's "Transformer Inference Arithmetic" [@kipply2023arithmetic] is an excellent companion to this chapter.
-It works through the same kinds of calculations we've done here --- parameter counts, memory footprints, FLOPS per layer --- with clear explanations of where each number comes from.
+For an accessible walkthrough of counting parameters and FLOPs in transformer models, Kipply's "Transformer Inference Arithmetic" [@kipply2023arithmetic] is an excellent companion to this chapter.
+It works through the same kinds of calculations we've done here --- parameter counts, memory footprints, FLOPs per layer --- with clear explanations of where each number comes from.
 
 For a broader survey of LLM inference techniques and how they fit together, @yuan2024llmviewer covers the full landscape from model compression through serving system design, with the distinguishing feature of using roofline analysis to explain why each technique helps.
 Their framework makes clear why LLM decoding is memory-bound and what each optimization actually changes about the bottleneck.

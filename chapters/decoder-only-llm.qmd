@@ -17,7 +17,7 @@ The original transformer architecture introduced in "Attention Is All You Need" 
 The encoder builds a rich representation of the input through layers of self-attention.
 The decoder then attends to that representation through **cross-attention** layers while also attending to its own previously generated tokens through **masked self-attention**.
 
-![The original transformer architecture](images/transformer_architecture.svg){#fig-orig-transformer height=300 .lightbox}
+![The original transformer architecture](images/transformer_architecture.svg){#fig-orig-transformer height=350 .lightbox}
 
 This encoder-decoder design, shown in @fig-orig-transformer, was built for sequence-to-sequence tasks like machine translation, where you have a clear separation between input (such as a sentence in French) and output (its English translation).
 The encoder on the left reads the full input and builds a bidirectional representation --- each token can attend to every other token, past and future.
@@ -67,7 +67,7 @@ For example, Layer 0's attention weights are completely separate from Layer 1's.
 A 70B model with 80 layers has 80 distinct sets of attention and feed-forward weights.
 During inference, the model must read each layer's weights from memory --- there is no reuse across layers in the standard LLM.
 
-![A decoder-only LLM with explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=500 .lightbox}
+![A decoder-only LLM with explicit multiple layers](images/vertical_deep_stack.svg){#fig-vert-stack height=600 .lightbox}
 
 A diagram making the N copies explicit is shown in @fig-vert-stack.
 This is what a decoder-only LLM really looks like, and if you review the PyTorch code for one, you will see this exact structure.
@@ -298,7 +298,7 @@ As the sequence gets longer and we have **[S]{.dim-s}** > 8192, these dimensions
 The intuition for Q, K, and V is roughly this: the query represents "what this token is looking for," the key represents "what this token offers to other tokens," and the value represents "the information this token will contribute when attended to."
 These are loose analogies, but they help build intuition for why we need three separate projections rather than just one or two.
 
-![Data flow of weights and activations in a multi-head attention layer using a basic, unoptimized implementation](images/attn_flow.svg){#fig-attn-flow height=700 .lightbox}
+![Data flow of weights and activations in a multi-head attention layer using a basic, unoptimized implementation](images/attn_flow.svg){#fig-attn-flow .lightbox}
 
 ### Multi-head attention and the reshape
 
@@ -479,7 +479,7 @@ The activation function is applied element-wise.
 Then, the second linear layer projects down from **[F]{.dim-f}** back to **[D]{.dim-d}**.
 When **[F]{.dim-f}** = 4**[D]{.dim-d}**, each weight matrix has $4\dimd{\text{D}}^2$ parameters, for a total of $8\dimd{\text{D}}^2$ parameters.
 
-![Data flow of weights and activations in a standard MLP layer](images/mlp_flow.svg){#fig-mlp-flow .lightbox}
+![Data flow of weights and activations in a standard MLP layer](images/mlp_flow.svg){#fig-mlp-flow height=400 .lightbox}
 
 ### Gated MLP (SwiGLU)
 

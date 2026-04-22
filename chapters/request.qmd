@@ -450,7 +450,7 @@ Speculative decoding shines in low-batch-size, latency-sensitive scenarios.
 Speculative decoding uses a separate draft model to propose candidates.
 **Multi-token prediction (MTP)** methods take a different approach to speculative decoding: they generate multiple future tokens using the base model itself, without any auxiliary model.
 
-![Multi-token prediction with $k=3$ predictions for each token position](images/multi_token_prediction.svg){#fig-multi-token-prediction .lightbox}
+![Multi-token prediction with $k=3$ predictions for each token position](images/multi_token_prediction.svg){#fig-multi-token-prediction height=400 .lightbox}
 
 Multi-token prediction [@gloeckle2024mtp] modifies the model architecture to predict multiple future tokens at each position.
 In addition to the standard next-token prediction head, the model has auxiliary heads that predict the token 2, 3, or $k$ steps ahead.

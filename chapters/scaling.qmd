@@ -189,7 +189,7 @@ The key insight is that TP requires **high-bandwidth, low-latency** communicatio
 If you have 80 transformer layers and 4 GPUs, each GPU gets 20 consecutive layers.
 This is depicted in @fig-pipeline-parallelism.
 
-![Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs.](images/pipeline_parallel.svg){#fig-pipeline-parallelism .lightbox}
+![Pipeline parallelism of an 80-layer model across 4 GPUs. There is minimal communication between GPUs.](images/pipeline_parallel.svg){#fig-pipeline-parallelism height=550 .lightbox}
 
 ### How it works
 

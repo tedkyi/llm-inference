@@ -298,7 +298,7 @@ A comparison of simple padded batching and ragged batching is shown in @fig-ragg
 
 ![Ragged batching compared to simple batching with padding](images/ragged_batching.svg){#fig-ragged-batching .lightbox}
 
-![Causal mask for ragged batching. The dashed squares show the portions applicable to each of the requests.](images/ragged_mask.svg){#fig-ragged-mask .lightbox}
+![Causal mask for ragged batching. The dashed squares show the portions applicable to each of the requests.](images/ragged_mask.svg){#fig-ragged-mask height=500 .lightbox}
 
 The benefits of ragged batching are most pronounced when the input lengths across requests vary widely.
 A batch with one 2,048-token prompt and three 128-token prompts would waste enormous compute on padding without ragged batching.

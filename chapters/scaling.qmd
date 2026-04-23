@@ -109,12 +109,13 @@ This is the most communication-intensive parallelism strategy, but it directly r
 
 The core idea is to partition each linear layer's weight matrix along either its columns or its rows.
 For the following, assume we have **T** GPUs and a weight matrix $W$ of shape **($\dimd{d_{\text{in}}}$, $\dimd{d_{\text{out}}}$)**.
+We will ignore the batch and sequence dimensions for simplicity, but the same principles apply when those are included.
 By splitting $W$ into **T** parts, we can distribute the storage requirement and computations involving $W$ across the GPUs.
 How we split $W$ determines the communication patterns.
 
 In a **column-parallel** linear layer, the weight matrix $W$ is split along the output dimension into **T** parts, each with $\dimd{d_{\text{out}}}$**/T** columns.
 Each GPU holds a subset of the weights $W_i$ with shape **($\dimd{d_{\text{in}}}$, $\dimd{d_{\text{out}}}$/T)**.
-Ignoring the batch and sequence dimensions, each GPU receives the full input activation $x$ of shape **($\dimd{d_{\text{in}}}$)** and computes $x W_i$ locally, producing a partial output slice of shape **($\dimd{d_{\text{out}}}$/T)**.
+Each GPU also maintains a replica of the residual stream and uses the full input activation $x$ of shape **($\dimd{d_{\text{in}}}$)** to compute $x W_i$ locally, producing a partial output slice of shape **($\dimd{d_{\text{out}}}$/T)**.
 No communication is needed yet --- each GPU has an independent slice of the result.
 
 ![Column-parallel linear layer calculation for 2-way tensor parallelism with a $W_{\text{Up}}$ matrix. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.](images/tp_column.svg){#fig-tp-column .lightbox}
@@ -136,6 +137,7 @@ To get the correct output, we need an **all-reduce** operation to sum the partia
 The darker shaded portion of the weight matrix $W_{\text{Down}}$ shows the half that is stored on each GPU.
 When multiplied by the slice of the input called "Gated up proj," each GPU produces a partial output represented by the dotted and dashed tensor.
 To get the full output, we need to sum the partial outputs from both GPUs using an all-reduce operation, which is a collective communication primitive that efficiently sums tensors across multiple devices.
+When the FFN output is summed with the residual stream, each GPU maintains its own local copy of the full residual stream, so no further communication is needed for the residual connection.
 
 The standard pattern with tensor parallelism is to pair column-parallel and row-parallel layers so that only one all-reduce is needed per pair.
 In a transformer block:
@@ -150,6 +152,7 @@ This means each transformer layer (with both attention and MLP) requires **two a
 
 We start with the simpler FFN block and show attention next.
 @Fig-tp-mlp shows what 2-way tensor parallelism looks like for the gated MLP, which is now the more common form of FFN.
+With each GPU maintaining a local copy of the residual stream, one all-reduce is the only inter-GPU communication requred for the forward pass through this sub-layer.
 
 ![2-way tensor parallel gated MLP data flow. Only the darker shaded portions of weight and data tensors are stored on each GPU, approximately reducing the memory requirement in half.](images/tp_gated_mlp.svg){#fig-tp-mlp .lightbox}
 
@@ -158,6 +161,7 @@ We start with the simpler FFN block and show attention next.
 Attention is naturally suited to tensor parallelism because the heads are independent.
 With **[H]{.dim-h}** attention heads split across **T** GPUs, each GPU handles **[H]{.dim-h}**/**T** heads.
 The Q, K, and V projection matrices are split column-parallel by head, each GPU computes attention for its local heads, and the output projection is row-parallel with an all-reduce to combine results.
+Once again, one all-reduce is needed for the forward pass, and each GPU maintains its own local copy of the residual stream.
 This effect is depicted in @fig-tp-attn with 2-way tensor parallelism for the attention layer.
 
 The **KV cache** is also sharded: each GPU only stores the K and V tensors for its local heads.

@@ -137,7 +137,7 @@ For anything with variable-length inputs, variable-length outputs, and stochasti
 **Dynamic batching** improves on static batching by allowing the batch size to vary.
 Instead of fixing the batch size up front, the scheduler collects requests from a queue and forms a batch based on what's available, subject to a maximum batch size and a timeout.
 If the batch size is 32 and only 5 requests are waiting, once the timeout elapses, a batch with 5 requests will start processing, rather than waiting for a full batch of 32.
-This reduces queuing delay and TTFT, and this allows the system to adapt to variable arrival rates.
+This reduces queuing delay and TTFT, and dynamic batching allows the system to adapt to variable arrival rates.
 
 ![Dynamic batching for the example workload](images/dynamic_batching.svg){#fig-dynamic-batching .lightbox}
 
@@ -181,8 +181,8 @@ This is more complex than static batching but is well worth the implementation e
 :::
 
 Continuous batching has eliminated most of the GPU idle time, but we've seen it still has a problem with long prefills causing other requests to wait.
-In this simple implementation of continuous batching, where the prefill for each input is processed all at once, we don't have the ability to start new prefill or decode requests during the middle of a long-running prefill.
-And it's worthwhile to remember that the prefill of a long input can take dozens or hundreds of times longer than a decode step (not just double as we've depicted).
+In this simple implementation of continuous batching, where the prefill for each input is processed all at once, we don't have the ability to start new prefill or decode requests in the middle of a long-running prefill.
+And it's worthwhile to remember that the prefill of a long input can take dozens or hundreds of times longer than a decode step (not just twice as long, as we've depicted).
 
 This is less of a GPU utilization problem, which would show in MFU, than it is a problem with increasing TPOT and overall request completion latency.
 In the next section, we will unpack more of the issues with prefill and decode, and ultimately solve this issue of holes in GPU utilization.
@@ -230,11 +230,11 @@ In this range, the decode memory latency and the prefill compute time are well b
 ![Chunked prefill](images/chunked_prefill.svg){#fig-chunked-prefill .lightbox}
 
 For our sample workload from @tbl-batching-workload, we can now improve upon continuous batching by breaking up our prefills (which we simplified to all be exactly twice as long as a decode step) into separate chunks.
-@Fig-chunked-prefill shows Requests A, B, and D all complete sooner than with vanilla continuous batching.
+@Fig-chunked-prefill shows that Requests A, B, and D all complete sooner than with vanilla continuous batching.
 In reality, if prefill were dozens of times slower than decode, the savings would be even greater.
 
 Chunked prefill combined with continuous batching improves all aspects of GPU utilization, so both MFU and MBU increase.
-The net effect is almost all inference metrics improving simultaneously --- in particluar, TTFT, TPOT, and throughput all improve.
+The net effect is almost all inference metrics improving simultaneously --- in particular, TTFT, TPOT, and throughput all improve.
 
 ::: callout-note
 Chunked prefill builds upon continuous batching in an intuitive way.
@@ -362,7 +362,7 @@ There are two strategies for handling the KV cache of a preempted request:
 **Swap** evicts the preempted request's KV cache blocks from GPU memory to CPU memory.
 When the request resumes, the blocks are swapped back.
 This preserves the work already done, and the request picks up exactly where it left off without any recomputation.
-The cost is the time and the HBM bandwidth utilized to transfer data over the PCIe bus to the GPU.
+The cost is the time and the HBM bandwidth utilized to transfer data over the PCIe bus between the GPU and CPU.
 For a KV cache of several hundred megabytes, a swap to CPU memory at PCIe Gen5 speeds (~64 GB/s) takes a few milliseconds.
 This may be acceptable, but the PCIe bandwidth is shared with other transfers, so the transfer could take longer.
 In the extreme, high amounts of swapping can degrade decode performance for all requests, even the ones that aren't preempted, harming TPOT and goodput.
@@ -396,7 +396,7 @@ At this point, the system may want an additional strategy. Options include:
 New requests queue up and wait.
 Reducing concurrency can protect TPOT and goodput by avoiding repeated preemptions and their associated overhead.
 - **Rejecting new requests**: return an error and let the client retry later. 
-This provides immediate feedback for rejected requests, instead of letting them queue unacceptably long and damage goodput.
+This provides immediate feedback for rejected requests, instead of letting them queue for an unacceptably long time and damage goodput.
 - **CPU offloading**: proactively keep some fraction of KV cache blocks on CPU memory, streaming them to the GPU as needed. 
 This trades PCIe bandwidth for GPU memory capacity.
 While this is not ideal for performance, in small doses it can keep the system running smoothly by avoiding preemptions and their impact on performance.

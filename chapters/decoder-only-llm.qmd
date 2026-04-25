@@ -4,7 +4,7 @@ This chapter covers the architecture of the basic decoder-only transformer used 
 We will walk through it in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions.
 If you aren't at all familiar with the transformer, there are many good resources, and a few are listed in the Further Reading (@sec-further-llm) at the end of the chapter.
 If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter.
-We recommend that you examine the tip at the beginning of @sec-forward-pass to understand the conventions used in tensor data flow diagrams before moving ahead to the rest of the book.
+We recommend that you examine @tip-conventions at the beginning of @sec-forward-pass to understand the conventions used in tensor data flow diagrams before moving ahead to the rest of the book.
 
 We'll use concrete numbers from the Llama family of models in this book.
 This is not because Llama is special, but because its architecture is representative of the core that modern LLMs share and its parameters are public.
@@ -120,7 +120,7 @@ The focus on tensors is so we can understand the size and shape of the data, whi
 The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed.
 We still need to be familiar with the operands, especially to know how the inputs can be partitioned, and how much data must be exchanged between partitions.
 
-::: {.callout-tip}
+::: {#tip-conventions .callout-tip}
 Before diving into the data flow, here are a few conventions used in the tensor data flow diagrams.
 Abbreviations and colors are listed in frontmatter in the **Conventions** section.
 

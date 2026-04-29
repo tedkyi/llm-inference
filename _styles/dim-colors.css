@@ -15,3 +15,12 @@
   width: auto;
   object-fit: contain;
 }
+
+/* Flatten the auto-generated "Appendices" sidebar group so its entries
+   sit at the same indent level as chapters. */
+#quarto-sidebar li.sidebar-item-section > .sidebar-item-container {
+  display: none;
+}
+#quarto-sidebar li.sidebar-item-section > ul.sidebar-section.depth1 {
+  padding-left: 0;
+}

@@ -254,12 +254,29 @@ window.Quarto = {
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
   </div>
 </li>
-        <li class="sidebar-item">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/appendix.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Additional Material</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/references.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">References</span></a>
   </div>
 </li>
+      </ul>
+  </li>
     </ul>
     </div>
 </nav>
@@ -438,7 +455,7 @@ Figure&nbsp;5.1: Static batching for the example workload
 </section>
 <section id="dynamic-batching" class="level3">
 <h3 class="anchored" data-anchor-id="dynamic-batching">Dynamic batching</h3>
-<p><strong>Dynamic batching</strong> improves on static batching by allowing the batch size to vary. Instead of fixing the batch size up front, the scheduler collects requests from a queue and forms a batch based on what’s available, subject to a maximum batch size and a timeout. If the batch size is 32 and only 5 requests are waiting, once the timeout elapses, a batch with 5 requests will start processing, rather than waiting for a full batch of 32. This reduces queuing delay and TTFT, and this allows the system to adapt to variable arrival rates.</p>
+<p><strong>Dynamic batching</strong> improves on static batching by allowing the batch size to vary. Instead of fixing the batch size up front, the scheduler collects requests from a queue and forms a batch based on what’s available, subject to a maximum batch size and a timeout. If the batch size is 32 and only 5 requests are waiting, once the timeout elapses, a batch with 5 requests will start processing, rather than waiting for a full batch of 32. This reduces queuing delay and TTFT, and dynamic batching allows the system to adapt to variable arrival rates.</p>
 <div id="fig-dynamic-batching" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-dynamic-batching-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -480,7 +497,7 @@ Note
 <p>Continuous batching requires the serving system to manage per-request state (KV cache, position counters, stop conditions) independently for each slot, and to handle the bookkeeping of inserting and removing requests mid-generation. This is more complex than static batching but is well worth the implementation effort for any production system.</p>
 </div>
 </div>
-<p>Continuous batching has eliminated most of the GPU idle time, but we’ve seen it still has a problem with long prefills causing other requests to wait. In this simple implementation of continuous batching, where the prefill for each input is processed all at once, we don’t have the ability to start new prefill or decode requests during the middle of a long-running prefill. And it’s worthwhile to remember that the prefill of a long input can take dozens or hundreds of times longer than a decode step (not just double as we’ve depicted).</p>
+<p>Continuous batching has eliminated most of the GPU idle time, but we’ve seen it still has a problem with long prefills causing other requests to wait. In this simple implementation of continuous batching, where the prefill for each input is processed all at once, we don’t have the ability to start new prefill or decode requests in the middle of a long-running prefill. And it’s worthwhile to remember that the prefill of a long input can take dozens or hundreds of times longer than a decode step (not just twice as long, as we’ve depicted).</p>
 <p>This is less of a GPU utilization problem, which would show in MFU, than it is a problem with increasing TPOT and overall request completion latency. In the next section, we will unpack more of the issues with prefill and decode, and ultimately solve this issue of holes in GPU utilization.</p>
 </section>
 </section>
@@ -509,8 +526,8 @@ Figure&nbsp;5.4: Chunked prefill
 </figcaption>
 </figure>
 </div>
-<p>For our sample workload from <a href="#tbl-batching-workload" class="quarto-xref">Table&nbsp;<span>5.1</span></a>, we can now improve upon continuous batching by breaking up our prefills (which we simplified to all be exactly twice as long as a decode step) into separate chunks. <a href="#fig-chunked-prefill" class="quarto-xref">Figure&nbsp;<span>5.4</span></a> shows Requests A, B, and D all complete sooner than with vanilla continuous batching. In reality, if prefill were dozens of times slower than decode, the savings would be even greater.</p>
-<p>Chunked prefill combined with continuous batching improves all aspects of GPU utilization, so both MFU and MBU increase. The net effect is almost all inference metrics improving simultaneously — in particluar, TTFT, TPOT, and throughput all improve.</p>
+<p>For our sample workload from <a href="#tbl-batching-workload" class="quarto-xref">Table&nbsp;<span>5.1</span></a>, we can now improve upon continuous batching by breaking up our prefills (which we simplified to all be exactly twice as long as a decode step) into separate chunks. <a href="#fig-chunked-prefill" class="quarto-xref">Figure&nbsp;<span>5.4</span></a> shows that Requests A, B, and D all complete sooner than with vanilla continuous batching. In reality, if prefill were dozens of times slower than decode, the savings would be even greater.</p>
+<p>Chunked prefill combined with continuous batching improves all aspects of GPU utilization, so both MFU and MBU increase. The net effect is almost all inference metrics improving simultaneously — in particular, TTFT, TPOT, and throughput all improve.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -621,7 +638,7 @@ Note
 <p>What happens when the system runs out of KV cache memory? With continuous batching, the scheduler is constantly admitting new requests into the batch. Each new request needs KV cache memory, and the existing requests’ KV caches grow with each decode step. If you’re lucky, requests finish before you run out of memory, freeing up space for new requests. If you’re not so lucky, eventually something has to give.</p>
 <p><strong>Preemption</strong> is the mechanism for handling this. When KV cache memory is exhausted or if capacity for a new high-priority request needs to be created, the scheduler can preempt one or more existing requests, suspending them and freeing their KV cache memory to make room. When resources become available later, the preempted requests can resume.</p>
 <p>There are two strategies for handling the KV cache of a preempted request:</p>
-<p><strong>Swap</strong> evicts the preempted request’s KV cache blocks from GPU memory to CPU memory. When the request resumes, the blocks are swapped back. This preserves the work already done, and the request picks up exactly where it left off without any recomputation. The cost is the time and the HBM bandwidth utilized to transfer data over the PCIe bus to the GPU. For a KV cache of several hundred megabytes, a swap to CPU memory at PCIe Gen5 speeds (~64 GB/s) takes a few milliseconds. This may be acceptable, but the PCIe bandwidth is shared with other transfers, so the transfer could take longer. In the extreme, high amounts of swapping can degrade decode performance for all requests, even the ones that aren’t preempted, harming TPOT and goodput.</p>
+<p><strong>Swap</strong> evicts the preempted request’s KV cache blocks from GPU memory to CPU memory. When the request resumes, the blocks are swapped back. This preserves the work already done, and the request picks up exactly where it left off without any recomputation. The cost is the time and the HBM bandwidth utilized to transfer data over the PCIe bus between the GPU and CPU. For a KV cache of several hundred megabytes, a swap to CPU memory at PCIe Gen5 speeds (~64 GB/s) takes a few milliseconds. This may be acceptable, but the PCIe bandwidth is shared with other transfers, so the transfer could take longer. In the extreme, high amounts of swapping can degrade decode performance for all requests, even the ones that aren’t preempted, harming TPOT and goodput.</p>
 <p><strong>Recomputation</strong> takes a simpler but more expensive approach: discard the preempted request’s KV cache entirely. When the request resumes, the system reruns prefill from scratch to rebuild the KV cache. This frees GPU memory immediately, requires no CPU memory, and doesn’t spend time transferring data back and forth between GPU and CPU, but it wastes the compute that went into the original prefill and the calculation of all the KV cache entries accumulated during decode so far. For a request with a long prompt, recomputation can be very costly. The extra recomputation won’t show up in MFU, but it will increase TTFT. In the extreme, high amounts of recomputation can cause almost all metrics to degrade.</p>
 <table class="caption-top table">
 <caption>Comparison of preemption strategies.</caption>
@@ -665,7 +682,7 @@ Note
 <p>Ideally, preemption should be a rare event that happens only when the system is under heavy load and the scheduler can’t fit all active requests into memory. But in adverse conditions, such as a sudden burst of long-context requests, preemption alone may not be optimal. At this point, the system may want an additional strategy. Options include:</p>
 <ul>
 <li><strong>Reducing batch size</strong>: admit fewer concurrent requests, prioritizing the ones already in progress. New requests queue up and wait. Reducing concurrency can protect TPOT and goodput by avoiding repeated preemptions and their associated overhead.</li>
-<li><strong>Rejecting new requests</strong>: return an error and let the client retry later. This provides immediate feedback for rejected requests, instead of letting them queue unacceptably long and damage goodput.</li>
+<li><strong>Rejecting new requests</strong>: return an error and let the client retry later. This provides immediate feedback for rejected requests, instead of letting them queue for an unacceptably long time and damage goodput.</li>
 <li><strong>CPU offloading</strong>: proactively keep some fraction of KV cache blocks on CPU memory, streaming them to the GPU as needed. This trades PCIe bandwidth for GPU memory capacity. While this is not ideal for performance, in small doses it can keep the system running smoothly by avoiding preemptions and their impact on performance.</li>
 </ul>
 <p>The details of how production systems handle these failure modes — and how to configure policies that balance throughput, latency, and reliability — are discussed further in <a href="production.html#sec-failure-modes" class="quarto-xref"><span>Section 8.6</span></a>.</p>

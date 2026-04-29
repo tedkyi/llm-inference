@@ -254,12 +254,29 @@ window.Quarto = {
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
   </div>
 </li>
-        <li class="sidebar-item">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/appendix.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Additional Material</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/references.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">References</span></a>
   </div>
 </li>
+      </ul>
+  </li>
     </ul>
     </div>
 </nav>
@@ -597,10 +614,10 @@ Figure&nbsp;4.4: Parallel attention and MLP blocks
 <li>Tim Dettmers’ blog post “LLM.int8() and Emergent Features” <span class="citation" data-cites="dettmers2022outliers">(<a href="references.html#ref-dettmers2022outliers" role="doc-biblioref">Dettmers 2022</a>)</span> explains <em>why</em> naive INT8 quantization breaks down at scale: large transformers develop outlier activation channels that are orders of magnitude larger than the rest. The post provides the intuition behind the mixed-precision decomposition that addresses this, which is useful background for understanding SmoothQuant and similar techniques. Dettmers is also the author of the <code>bitsandbytes</code> library <span class="citation" data-cites="dettmers2021bitsandbytes">(<a href="references.html#ref-dettmers2021bitsandbytes" role="doc-biblioref"><span class="nocase">Dettmers et al.</span> 2021</a>)</span>, the most widely used quantization library in the Hugging Face ecosystem.</li>
 <li>The Hugging Face Quantization Concept Guide <span class="citation" data-cites="hf2024quantization">(<a href="references.html#ref-hf2024quantization" role="doc-biblioref">Hugging Face 2024</a>)</span> is a practical reference for choosing between quantization backends (GPTQ, AWQ, bitsandbytes, and others) in the Hugging Face ecosystem, with guidance on when each approach is appropriate.</li>
 </ul>
+<p>For knowledge distillation applied to LLMs, Snorkel AI’s “LLM Distillation Demystified” <span class="citation" data-cites="casey2024distillation">(<a href="references.html#ref-casey2024distillation" role="doc-biblioref">Casey 2024</a>)</span> is a practitioner-oriented guide covering distillation approaches and when to use them. For a more comprehensive treatment, <span class="citation" data-cites="xu2024distillsurvey">Xu et al. (<a href="references.html#ref-xu2024distillsurvey" role="doc-biblioref">2024</a>)</span> surveys the full taxonomy from white-box distillation (where student models train on the teacher’s logits) to black-box distillation (where they learn from the teacher’s generated outputs), along with domain-specific and skill-specific distillation techniques.</p>
 <p>On pruning, Shaw and Goin’s “SparseGPT: Remove 100 Billion Parameters for Free” <span class="citation" data-cites="shaw2023sparsegpt">(<a href="references.html#ref-shaw2023sparsegpt" role="doc-biblioref">Shaw and Goin 2023</a>)</span> is an accessible introduction to how one-shot pruning works in practice, showing that OPT-175B can be pruned to 50% sparsity on a single GPU in about four hours. For the technical details behind this, the SparseGPT paper <span class="citation" data-cites="frantar2023sparsegpt">(<a href="references.html#ref-frantar2023sparsegpt" role="doc-biblioref">Frantar and Alistarh 2023</a>)</span> describes how approximate second-order information guides the pruning decisions, and how the pruning pattern can be constrained to NVIDIA’s 2:4 structured format for hardware acceleration. Wanda <span class="citation" data-cites="sun2024wanda">(<a href="references.html#ref-sun2024wanda" role="doc-biblioref">Sun et al. 2024</a>)</span> simplifies things further: it prunes based on the product of weight magnitude and input activation norm, achieving competitive results without any retraining and at a fraction of SparseGPT’s computational cost. For the hardware side of sparsity, NVIDIA’s blog post on accelerating inference with Ampere Sparse Tensor Cores <span class="citation" data-cites="nvidia2021sparsity">(<a href="references.html#ref-nvidia2021sparsity" role="doc-biblioref">NVIDIA 2021</a>)</span> explains the 2:4 structured sparsity format, the train-prune-fine-tune workflow, and the performance gains achievable through TensorRT.</p>
 <p>On efficient attention architectures, Sebastian Raschka’s “A Visual Guide to Attention Variants in Modern LLMs” <span class="citation" data-cites="raschka2026attention">(<a href="references.html#ref-raschka2026attention" role="doc-biblioref">Raschka 2026</a>)</span> covers MHA, GQA, MLA, sliding window attention, and several newer variants side by side with clear diagrams, making it a good companion to the brief treatment of these architectures in this chapter. For a deeper understanding of Multi-head Latent Attention specifically, Eryk Banatt’s “Understanding Multi-Head Latent Attention” <span class="citation" data-cites="banatt2025mla">(<a href="references.html#ref-banatt2025mla" role="doc-biblioref">Banatt 2025</a>)</span> is a detailed technical walkthrough of the low-rank KV compression, the decoupled rotary position embedding trick, and how MLA compares to GQA in practice.</p>
 <p>On tokenization, <span class="citation" data-cites="tao2024vocabulary">Tao et al. (<a href="references.html#ref-tao2024vocabulary" role="doc-biblioref">2024</a>)</span> establishes scaling laws relating optimal vocabulary size to compute budget, showing that most current LLMs have undersized vocabularies — Llama 2’s 32K vocabulary should have been roughly 7x larger for its model size, according to their analysis. This provides theoretical grounding for the vocabulary-size discussion in this chapter.</p>
-<p>For knowledge distillation applied to LLMs, Snorkel AI’s “LLM Distillation Demystified” <span class="citation" data-cites="casey2024distillation">(<a href="references.html#ref-casey2024distillation" role="doc-biblioref">Casey 2024</a>)</span> is a practitioner-oriented guide covering distillation approaches and when to use them. For a more comprehensive treatment, <span class="citation" data-cites="xu2024distillsurvey">Xu et al. (<a href="references.html#ref-xu2024distillsurvey" role="doc-biblioref">2024</a>)</span> surveys the full taxonomy from white-box distillation (where student models train on the teacher’s logits) to black-box distillation (where they learn from the teacher’s generated outputs), along with domain-specific and skill-specific distillation techniques.</p>
 <p>For broader surveys that cover multiple topics from this chapter:</p>
 <ul>
 <li>Lilian Weng’s “Large Transformer Model Inference Optimization” <span class="citation" data-cites="weng2023inference">(<a href="references.html#ref-weng2023inference" role="doc-biblioref">Weng 2023</a>)</span> is one of the most widely cited blog posts on the topic, covering quantization, pruning, distillation, and architectural optimizations in a single thorough reference.</li>

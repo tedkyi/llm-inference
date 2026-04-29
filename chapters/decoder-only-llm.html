@@ -254,12 +254,29 @@ window.Quarto = {
  <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Production LLM Serving Systems</span></span></a>
   </div>
 </li>
-        <li class="sidebar-item">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/appendix.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Additional Material</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/references.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">References</span></a>
   </div>
 </li>
+      </ul>
+  </li>
     </ul>
     </div>
 </nav>
@@ -314,7 +331,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title"><span id="sec-appendix-a" class="quarto-section-identifier"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">The Decoder-Only Transformer</span></span></h1>
+<h1 class="title"><span id="sec-decoder-only" class="quarto-section-identifier"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">The Decoder-Only Transformer</span></span></h1>
 </div>
 
 
@@ -331,7 +348,7 @@ window.Quarto = {
 </header>
 
 
-<p>This chapter covers the architecture of the basic decoder-only transformer used by most LLMs such as ChatGPT and Llama. We will walk through it in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions. If you aren’t at all familiar with the transformer, there are many good resources, and a few are listed in the Further Reading (<a href="#sec-further-llm" class="quarto-xref"><span>Section 2.7</span></a>) at the end of the chapter. If you’re already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter. We recommend that you examine the tip at the beginning of <a href="#sec-forward-pass" class="quarto-xref"><span>Section 2.2</span></a> to understand the conventions used in tensor data flow diagrams before moving ahead to the rest of the book.</p>
+<p>This chapter covers the architecture of the basic decoder-only transformer used by most LLMs such as ChatGPT and Llama. We will walk through it in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions. If you aren’t at all familiar with the transformer, there are many good resources, and a few are listed in the Further Reading (<a href="#sec-further-llm" class="quarto-xref"><span>Section 2.7</span></a>) at the end of the chapter. If you’re already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter. We recommend that you examine the Conventions tip at the beginning of <a href="#sec-forward-pass" class="quarto-xref"><span>Section 2.2</span></a> to understand the conventions used in tensor data flow diagrams before moving ahead to the rest of the book.</p>
 <p>We’ll use concrete numbers from the Llama family of models in this book. This is not because Llama is special, but because its architecture is representative of the core that modern LLMs share and its parameters are public. There are many newer models with better performance, but Llama has a simpler, more canonical architecture which is a good fit for this introduction. When we say “a 70B model,” we mean something with roughly Llama 3 70B’s dimensions: 80 layers, a model dimension of 8192, 64 attention heads, and a vocabulary of 128,000 tokens <span class="citation" data-cites="grattafiori2024llama3">(<a href="references.html#ref-grattafiori2024llama3" role="doc-biblioref"><span class="nocase">Grattafiori et al.</span> 2024</a>)</span>.</p>
 <section id="sec-enc-dec" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="sec-enc-dec"><span class="header-section-number">2.1</span> From Encoder-Decoder to Decoder-Only</h2>
@@ -454,17 +471,17 @@ Note
 <section id="sec-forward-pass" class="level2" data-number="2.2">
 <h2 data-number="2.2" class="anchored" data-anchor-id="sec-forward-pass"><span class="header-section-number">2.2</span> Forward Pass Data Flow</h2>
 <p>To gain a deeper understanding of how inference works, we will examine what happens when we send data through a forward pass of the model. We will start at the big picture and work our way down into the individual components. Our diagrams will trace input tensors through all of the operations until we reach the output tensor, annotating every tensor’s shape along the way. We call these <strong>tensor data flow diagrams</strong>, and they focus on the shapes of the tensors passed into operations more than the math of the calculation being performed. The focus on tensors is so we can understand the size and shape of the data, which directly affects transfer speeds and computation costs. The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed. We still need to be familiar with the operands, especially to know how the inputs can be partitioned, and how much data must be exchanged between partitions.</p>
-<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout callout-style-default callout-tip callout-titled" title="Conventions">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-Tip
+<span class="screen-reader-only">Tip</span>Conventions
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Before diving into the data flow, here are a few conventions used in the tensor data flow diagrams. Abbreviations and colors are listed in frontmatter in the <strong>Conventions</strong> section.</p>
+<p>Before diving into the data flow, here are a few conventions used in the tensor data flow diagrams. Abbreviations and colors are listed in front matter in the <strong>Conventions</strong> section.</p>
 <div id="fig-tensor" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-tensor-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -588,8 +605,8 @@ Figure&nbsp;2.9: Data flow of weights and activations in a multi-head attention 
 <section id="attention-score-computation" class="level3">
 <h3 class="anchored" data-anchor-id="attention-score-computation">Attention score computation</h3>
 <p>With Q and K reshaped to <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>, we compute the raw attention scores by taking the dot product of queries with keys:</p>
-<p><span class="math display">\[\text{Scores} = \frac{Q K^T}{\sqrt{d_K}}\]</span></p>
-<p>The matrix multiplication <span class="math inline">\(Q K^T\)</span> produces a tensor of shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>. For each head, we get a matrix with shape <strong>(<span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>, where entry <span class="math inline">\((i, j)\)</span> is the raw attention score between the query at token position <span class="math inline">\(i\)</span> and the key at token position <span class="math inline">\(j\)</span>. The division by <span class="math inline">\(\sqrt{d_K}\)</span> prevents the dot products from growing too large as the dimension <strong><span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span></strong> increases, which would push SoftMax into regions with vanishing gradients.</p>
+<p><span class="math display">\[\text{Scores} = \frac{Q K^T}{\sqrt{\textcolor{#2563EB}{d_K}}}\]</span></p>
+<p>The matrix multiplication <span class="math inline">\(Q K^T\)</span> produces a tensor of shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>. For each head, we get a matrix with shape <strong>(<span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong>, where entry <span class="math inline">\((i, j)\)</span> is the raw attention score between the query at token position <span class="math inline">\(i\)</span> and the key at token position <span class="math inline">\(j\)</span>. The division by <span class="math inline">\(\sqrt{\textcolor{#2563EB}{d_K}}\)</span> prevents the dot products from growing too large as the dimension <strong><span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span></strong> increases, which would push SoftMax into regions with vanishing gradients.</p>
 <p>This <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> attention matrix is the computational signature of standard self-attention. Its size is quadratic in sequence length. For a 4096-token prompt, each head produces a 4096×4096 matrix, and when <strong><span class="dim-s">S</span></strong> = 100,000, each head’s attention matrix is 100,000×100,000 and has 10 billion entries. In <a href="#fig-attn-flow" class="quarto-xref">Figure&nbsp;<span>2.9</span></a>, the score tensor looks small for small values of <strong><span class="dim-s">S</span></strong>, but if drawn to scale, for large values of <strong><span class="dim-s">S</span></strong> it would be huge compared to other tensors. This quadratic scaling is why long-context inference is expensive and why we will see that techniques like FlashAttention <span class="citation" data-cites="dao2022flashattention">(<a href="references.html#ref-dao2022flashattention" role="doc-biblioref">Dao et al. 2022</a>)</span> (<a href="request.html#sec-attention-kernels" class="quarto-xref"><span>Section 6.1</span></a>) are so important. FlashAttention computes the exact same result but avoids materializing the full <strong><span class="dim-s">S</span></strong>×<strong><span class="dim-s">S</span></strong> matrix in GPU memory by tiling the computation to fit one piece at a time.</p>
 </section>
 <section id="the-causal-mask" class="level3">
@@ -610,7 +627,7 @@ Figure&nbsp;2.10: How the causal mask is applied in self-attention, shown for on
 <section id="weighted-sum-and-output-projection" class="level3">
 <h3 class="anchored" data-anchor-id="weighted-sum-and-output-projection">Weighted sum and output projection</h3>
 <p>The SoftMax output gives us the attention weights: a <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> tensor where each row sums to 1. We use these weights to compute a weighted sum of the value vectors:</p>
-<p><span class="math display">\[\text{Weighted Values} = \text{SoftMax}\left(\frac{Q K^T}{\sqrt{d_K}} + \text{mask}\right) V\]</span></p>
+<p><span class="math display">\[\text{Weighted Values} = \text{SoftMax}\left(\frac{Q K^T}{\sqrt{\textcolor{#2563EB}{d_K}}} + \text{mask}\right) V\]</span></p>
 <p>The attention weights have shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="dim-s">S</span>)</strong> and V has shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>, so the result has shape <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong>. We then reshape this back from <strong>(<span class="dim-h">H</span>, <span class="dim-s">S</span>, <span class="math inline">\(\textcolor{#2563EB}{d_K}\)</span>)</strong> to <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> by concatenating the <strong><span class="dim-h">H</span></strong> heads, and apply a final output projection <span class="math inline">\(W_O\)</span> of shape <strong>(<span class="dim-d">D</span>, <span class="dim-d">D</span>)</strong>:</p>
 <p><span class="math display">\[\text{Output}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_{\textcolor{#A855F7}{H}}) \cdot W_O\]</span></p>
 <p>The full self-attention block transforms an input of shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong> to an output of the same shape <strong>(<span class="dim-s">S</span>, <span class="dim-d">D</span>)</strong>. The shape is preserved.</p>

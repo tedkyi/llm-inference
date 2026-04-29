@@ -341,6 +341,9 @@ The post provides the intuition behind the mixed-precision decomposition that ad
 Dettmers is also the author of the `bitsandbytes` library [@dettmers2021bitsandbytes], the most widely used quantization library in the Hugging Face ecosystem.
 - The Hugging Face Quantization Concept Guide [@hf2024quantization] is a practical reference for choosing between quantization backends (GPTQ, AWQ, bitsandbytes, and others) in the Hugging Face ecosystem, with guidance on when each approach is appropriate.
 
+For knowledge distillation applied to LLMs, Snorkel AI's "LLM Distillation Demystified" [@casey2024distillation] is a practitioner-oriented guide covering distillation approaches and when to use them.
+For a more comprehensive treatment, @xu2024distillsurvey surveys the full taxonomy from white-box distillation (where student models train on the teacher's logits) to black-box distillation (where they learn from the teacher's generated outputs), along with domain-specific and skill-specific distillation techniques.
+
 On pruning, Shaw and Goin's "SparseGPT: Remove 100 Billion Parameters for Free" [@shaw2023sparsegpt] is an accessible introduction to how one-shot pruning works in practice, showing that OPT-175B can be pruned to 50% sparsity on a single GPU in about four hours.
 For the technical details behind this, the SparseGPT paper [@frantar2023sparsegpt] describes how approximate second-order information guides the pruning decisions, and how the pruning pattern can be constrained to NVIDIA's 2:4 structured format for hardware acceleration.
 Wanda [@sun2024wanda] simplifies things further: it prunes based on the product of weight magnitude and input activation norm, achieving competitive results without any retraining and at a fraction of SparseGPT's computational cost.
@@ -351,9 +354,6 @@ For a deeper understanding of Multi-head Latent Attention specifically, Eryk Ban
 
 On tokenization, @tao2024vocabulary establishes scaling laws relating optimal vocabulary size to compute budget, showing that most current LLMs have undersized vocabularies --- Llama 2's 32K vocabulary should have been roughly 7x larger for its model size, according to their analysis.
 This provides theoretical grounding for the vocabulary-size discussion in this chapter.
-
-For knowledge distillation applied to LLMs, Snorkel AI's "LLM Distillation Demystified" [@casey2024distillation] is a practitioner-oriented guide covering distillation approaches and when to use them.
-For a more comprehensive treatment, @xu2024distillsurvey surveys the full taxonomy from white-box distillation (where student models train on the teacher's logits) to black-box distillation (where they learn from the teacher's generated outputs), along with domain-specific and skill-specific distillation techniques.
 
 For broader surveys that cover multiple topics from this chapter:
 

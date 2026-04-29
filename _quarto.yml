@@ -26,7 +26,8 @@ book:
     - chapters/request.qmd
     - chapters/scaling.qmd
     - chapters/production.qmd
-  # appendices:
+  appendices:
+    - chapters/appendix.qmd
     - chapters/references.qmd
 
 bibliography: references.bib

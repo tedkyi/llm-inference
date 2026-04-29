@@ -54,7 +54,7 @@ def forward(self, x):
 
 @Fig-attn-code-num is a listing of the PyTorch code we will use for our walk through.
 It was based on the implementation from Andrej Karpathy's nanoGPT repository [@karpathy2022nanogpt].
-(A copy of the listing can be downloaded from the [book repo source](https://tedkyi.github.io/llm-inference/chapters/images/attn_code.py), and the full LLM implementation can be reviewed in the nanoGPT repo.)
+(A copy of the listing can be downloaded from the [book repo source](https://github.com/tedkyi/llm-inference/blob/main/chapters/images/attn_code.py), and the full LLM implementation can be reviewed in the nanoGPT repo.)
 Note that the weight matrices are inside linear layers named `c_attn` and `c_proj`, which are not included in the listing for brevity.
 Since this code provides the full batched implementation of attention, we will include the batch dimension, **B**, in the tensor dimension labels, so that they match the code.
 Variable names and comments for other dimensions, such as **[S]{.dim-s}** for the sequence length, have been changed in the code to match the naming conventions in this book (which are listed in the **Conventions** section in the front matter).

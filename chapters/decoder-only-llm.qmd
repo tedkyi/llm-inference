@@ -1,10 +1,10 @@
-# The Decoder-Only Transformer {#sec-appendix-a}
+# The Decoder-Only Transformer {#sec-decoder-only}
 
 This chapter covers the architecture of the basic decoder-only transformer used by most LLMs such as ChatGPT and Llama.
 We will walk through it in enough detail to be able to trace a token through the full model, seeing the parameter and activation tensor dimensions.
 If you aren't at all familiar with the transformer, there are many good resources, and a few are listed in the Further Reading (@sec-further-llm) at the end of the chapter.
 If you're already comfortable with multi-head self-attention, the KV cache, and gated MLPs, you can skim through this material and move ahead to the next chapter.
-We recommend that you examine @tip-conventions at the beginning of @sec-forward-pass to understand the conventions used in tensor data flow diagrams before moving ahead to the rest of the book.
+We recommend that you examine the Conventions tip at the beginning of @sec-forward-pass to understand the conventions used in tensor data flow diagrams before moving ahead to the rest of the book.
 
 We'll use concrete numbers from the Llama family of models in this book.
 This is not because Llama is special, but because its architecture is representative of the core that modern LLMs share and its parameters are public.
@@ -120,9 +120,9 @@ The focus on tensors is so we can understand the size and shape of the data, whi
 The purpose of the data flow diagrams is to make properties of the tensors explicit so it is easier to have an intuition about the computations being performed.
 We still need to be familiar with the operands, especially to know how the inputs can be partitioned, and how much data must be exchanged between partitions.
 
-::: {#tip-conventions .callout-tip}
+::: {title="Conventions" .callout-tip}
 Before diving into the data flow, here are a few conventions used in the tensor data flow diagrams.
-Abbreviations and colors are listed in frontmatter in the **Conventions** section.
+Abbreviations and colors are listed in front matter in the **Conventions** section.
 
 ![A sample tensor data flow diagram, exhibiting many of the conventions](images/tensor.svg){#fig-tensor .lightbox}
 
@@ -323,11 +323,11 @@ In practice, learned attention patterns are more complex than these examples, bu
 
 With Q and K reshaped to **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, we compute the raw attention scores by taking the dot product of queries with keys:
 
-$$\text{Scores} = \frac{Q K^T}{\sqrt{d_K}}$$
+$$\text{Scores} = \frac{Q K^T}{\sqrt{\dimdk{d_K}}}$$
 
 The matrix multiplication $Q K^T$ produces a tensor of shape **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})**. 
 For each head, we get a matrix with shape **([S]{.dim-s}, [S]{.dim-s})**, where entry $(i, j)$ is the raw attention score between the query at token position $i$ and the key at token position $j$.
-The division by $\sqrt{d_K}$ prevents the dot products from growing too large as the dimension **$\dimdk{d_K}$** increases, which would push SoftMax into regions with vanishing gradients.
+The division by $\sqrt{\dimdk{d_K}}$ prevents the dot products from growing too large as the dimension **$\dimdk{d_K}$** increases, which would push SoftMax into regions with vanishing gradients.
 
 This **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** attention matrix is the computational signature of standard self-attention.
 Its size is quadratic in sequence length. For a 4096-token prompt, each head produces a 4096×4096 matrix, and when **[S]{.dim-s}** = 100,000, each head's attention matrix is 100,000×100,000 and has 10 billion entries.
@@ -352,7 +352,7 @@ This prevents the masked-out positions from getting any attention weight, ensuri
 The SoftMax output gives us the attention weights: a **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** tensor where each row sums to 1.
 We use these weights to compute a weighted sum of the value vectors:
 
-$$\text{Weighted Values} = \text{SoftMax}\left(\frac{Q K^T}{\sqrt{d_K}} + \text{mask}\right) V$$
+$$\text{Weighted Values} = \text{SoftMax}\left(\frac{Q K^T}{\sqrt{\dimdk{d_K}}} + \text{mask}\right) V$$
 
 The attention weights have shape **([H]{.dim-h}, [S]{.dim-s}, [S]{.dim-s})** and V has shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**, so the result has shape **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)**.
 We then reshape this back from **([H]{.dim-h}, [S]{.dim-s}, $\dimdk{d_K}$)** to **([S]{.dim-s}, [D]{.dim-d})** by concatenating the **[H]{.dim-h}** heads, and apply a final output projection $W_O$ of shape **([D]{.dim-d}, [D]{.dim-d})**:

@@ -79,7 +79,7 @@ Conceptually, the queries represent the kind of information being sought in prio
 Line 7 sends the input batch to `c_attn`, a linear layer with a single matrix with all three sets of weights concatenated, for efficiency.
 $W_Q$, $W_K$, and $W_V$ each have shape **([D]{.dim-d}, [D]{.dim-d})**, so **([D]{.dim-d}, 3[D]{.dim-d})** when concatenated.
 The weight matrix is broadcast along the batch dimension when the input $X$ is multiplied with it.
-Once split, each of the outputs Q, K, and V each has shape **(B, [S]{.dim-s}, [D]{.dim-d})**.
+Once split, each of the outputs $Q$, $K$, and $V$ each has shape **(B, [S]{.dim-s}, [D]{.dim-d})**.
 
 Note that in this data flow diagram, **[S]{.dim-s}** edges are drawn shorter than **[D]{.dim-d}** edges. 
 Llama 3 70B has model dimension **[D]{.dim-d}** = 8192, so this will be accurate when **[S]{.dim-s}** < 8192. 

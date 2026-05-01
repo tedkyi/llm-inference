@@ -274,6 +274,7 @@ It lets the model understand that "bank" means something different in "river ban
 We'll walk through the computation step by step, tracking tensor shapes throughout.
 We will dissect the components and data flow of the attention layer in this section.
 If the reader is unfamiliar with attention, we recommend some of the resources in the Further Reading (@sec-further-llm) at the end of this chapter.
+Also, for a more detailed discussion of the data flow, side by side with sample code for attention, see @sec-attn-calc in the Appendix.
 
 ### The input
 

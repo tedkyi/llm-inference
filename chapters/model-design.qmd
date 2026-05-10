@@ -69,6 +69,8 @@ This is called **weight-only quantization**, and it's the most common starting p
 In weight-only quantization, the weights are stored in a smaller datatype, then dequantized back to FP16 on the fly before each matrix multiplication, so the compute still happens at FP16 precision.
 The benefit is purely about reducing how much data needs to be read from HBM and reducing TPOT.
 
+![Sample weight-only quantization of a FP16 model into INT8 weights, which still performs FP16 calculations. A dequantization step is needed before each weight is used, but impacts to accuracy are minimized by maintining the normal precision of calculations.](images/weight_only_quant.svg){#fig-weight-only-quant height=350 .lightbox}
+
 When quantizing below 16-bit precision, the storage space and memory read savings are usually slightly reduced because we also need to store conversion parameters.
 If we have both an offset and a scaling parameter, then when $x$ is the higher precision value and $\tilde{x}$ is the quantized value, the conversion is $x = (\tilde{x} - \text{offset}) \times \text{scaling}$.
 This dequantization step also adds a small amount of compute overhead to model inference.
@@ -87,6 +89,8 @@ Weight-only quantization reduces memory bandwidth demand but doesn't speed up th
 **Weight-activation quantization** takes the next step: quantize both weights *and* activations so that the matrix multiplications themselves can run on lower-precision hardware units.
 Faster, lower-precision compute cores increase compute throughput.
 In this way, TTFT can be reduced for prefill, especially for long prompts.
+
+![Sample weight-activation quantization of a FP16 model into INT8 weights and calculations. No dequantization is needed, but there are greater risks of accuracy degradation, overflow, and underflow. Note that slightly more work is performed with each operand to manage the scaling parameters (not shown).](images/weight_activation_quant.svg){#fig-weight-activation-quant height=350 .lightbox}
 
 For example, weight-activation quantization using INT8, known as **W8A8**, quantizes both weights and activations to INT8, allowing the use of INT8 tensor cores.
 On the H100, INT8 tensor cores deliver roughly 2x the throughput of FP16 tensor cores.
